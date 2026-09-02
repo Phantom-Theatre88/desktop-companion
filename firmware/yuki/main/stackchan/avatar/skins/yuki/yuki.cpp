@@ -6,8 +6,6 @@
 #include "yuki.h"
 
 #include <algorithm>
-#include <assets/assets.h>
-#include <esp_log.h>
 #include <string>
 
 using namespace stackchan::avatar;
@@ -16,12 +14,10 @@ using namespace uitk::lvgl_cpp;
 
 namespace {
 
-constexpr lv_color_t kBackground = LV_COLOR_MAKE(224, 234, 229);
-constexpr lv_color_t kHairShadow = LV_COLOR_MAKE(91, 43, 35);
-constexpr lv_color_t kSkin = LV_COLOR_MAKE(252, 222, 199);
-constexpr lv_color_t kMouth = LV_COLOR_MAKE(123, 60, 57);
-constexpr lv_color_t kTongue = LV_COLOR_MAKE(235, 133, 127);
-constexpr lv_color_t kBlush = LV_COLOR_MAKE(236, 139, 132);
+constexpr lv_color_t kBackground = LV_COLOR_MAKE(0, 0, 0);
+constexpr lv_color_t kEye = LV_COLOR_MAKE(67, 225, 255);
+constexpr lv_color_t kEyeDim = LV_COLOR_MAKE(31, 104, 118);
+constexpr lv_color_t kMouth = LV_COLOR_MAKE(67, 225, 255);
 
 int approach(int current, int target, int step)
 {
@@ -61,16 +57,21 @@ void align_center(lv_obj_t* object, int x, int y)
 
 YukiEyes::YukiEyes(lv_obj_t* parent, bool is_left_eye) : is_left_eye_(is_left_eye)
 {
-    container_ = make_shape(parent, 38, 26, lv_color_black(), LV_RADIUS_CIRCLE);
-    lv_obj_set_style_bg_opa(container_, LV_OPA_TRANSP, LV_PART_MAIN);
+    // The eye itself is now the character.  No portrait image sits underneath it.
+    container_ = make_shape(parent, 88, 48, kEye, 18);
+    lv_obj_set_style_transform_pivot_x(container_, 44, LV_PART_MAIN);
+    lv_obj_set_style_transform_pivot_y(container_, 24, LV_PART_MAIN);
 
-    eyelid_ = make_shape(container_, 36, 1, kSkin, 8);
-    closed_line_left_ = make_shape(container_, 17, 2, kHairShadow, LV_RADIUS_CIRCLE);
-    closed_line_right_ = make_shape(container_, 17, 2, kHairShadow, LV_RADIUS_CIRCLE);
-    lv_obj_set_style_transform_pivot_x(closed_line_left_, 17, LV_PART_MAIN);
+    // Black eyelid sweeps down over the cyan eye during blink/sleep.
+    eyelid_ = make_shape(container_, 88, 1, kBackground, 14);
+
+    // Closed-eye line is kept as two segments so emotion can retain a little shape.
+    closed_line_left_ = make_shape(parent, 37, 5, kEye, LV_RADIUS_CIRCLE);
+    closed_line_right_ = make_shape(parent, 37, 5, kEye, LV_RADIUS_CIRCLE);
+    lv_obj_set_style_transform_pivot_x(closed_line_left_, 37, LV_PART_MAIN);
     lv_obj_set_style_transform_pivot_x(closed_line_right_, 0, LV_PART_MAIN);
-    lv_obj_set_style_transform_rotation(closed_line_left_, 3550, LV_PART_MAIN);
-    lv_obj_set_style_transform_rotation(closed_line_right_, 50, LV_PART_MAIN);
+    lv_obj_set_style_transform_rotation(closed_line_left_, 3580, LV_PART_MAIN);
+    lv_obj_set_style_transform_rotation(closed_line_right_, 20, LV_PART_MAIN);
     lv_obj_add_flag(closed_line_left_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(closed_line_right_, LV_OBJ_FLAG_HIDDEN);
 
@@ -103,22 +104,28 @@ void YukiEyes::setEmotion(const Emotion& emotion)
     switch (emotion) {
         case Emotion::Happy:
             setWeight(100);
+            setRotation(is_left_eye_ ? -35 : 35);
             break;
         case Emotion::Angry:
             setWeight(100);
+            setRotation(is_left_eye_ ? 105 : -105);
             break;
         case Emotion::Sad:
-            setWeight(100);
+            setWeight(78);
+            setRotation(is_left_eye_ ? -70 : 70);
             break;
         case Emotion::Doubt:
-            setWeight(100);
+            setWeight(is_left_eye_ ? 72 : 100);
+            setRotation(is_left_eye_ ? 45 : -20);
             break;
         case Emotion::Sleepy:
-            setWeight(24);
+            setWeight(28);
+            setRotation(0);
             break;
         case Emotion::Neutral:
         default:
             setWeight(100);
+            setRotation(0);
             break;
     }
 }
@@ -126,10 +133,16 @@ void YukiEyes::setEmotion(const Emotion& emotion)
 void YukiEyes::setVisible(bool visible)
 {
     Element::setVisible(visible);
+    lv_obj_t* parts[] = {container_, closed_line_left_, closed_line_right_};
+    for (auto* part : parts) {
+        if (visible) {
+            lv_obj_remove_flag(part, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(part, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
     if (visible) {
-        lv_obj_remove_flag(container_, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
+        apply();
     }
 }
 
@@ -142,7 +155,7 @@ void YukiEyes::_update()
 {
     current_weight_ = _weight;
     current_size_ = _size;
-    current_rotation_ = _rotation;
+    current_rotation_ = approach(current_rotation_, _rotation, 45);
     current_position_.x = approach(current_position_.x, _position.x, 8);
     current_position_.y = approach(current_position_.y, _position.y, 8);
     apply();
@@ -150,26 +163,37 @@ void YukiEyes::_update()
 
 void YukiEyes::apply()
 {
-    const int base_x = is_left_eye_ ? -31 : 29;
-    const int eye_y = -11;
-    const int covered_height = current_weight_ >= 75 ? 0 : (current_weight_ >= 25 ? 10 : 21);
+    const int gaze_x = map_value(std::clamp(current_position_.x, -100, 100), -100, 100, -18, 18);
+    const int gaze_y = map_value(std::clamp(current_position_.y, -100, 100), -100, 100, -10, 10);
+    const int base_x = is_left_eye_ ? -62 : 62;
+    const int eye_y = -8;
 
-    align_center(container_, base_x, eye_y);
+    align_center(container_, base_x + gaze_x, eye_y + gaze_y);
+    lv_obj_set_style_transform_rotation(container_, current_rotation_, LV_PART_MAIN);
+
+    // Weight is already used by Yuki's BlinkModifier, so keep that contract and
+    // translate it into an eyelid amount instead of replacing the blink system.
+    const int covered_height = current_weight_ >= 80 ? 0 :
+                               (current_weight_ >= 45 ? 14 :
+                                (current_weight_ >= 18 ? 30 : 48));
 
     if (covered_height > 0) {
-        lv_obj_set_size(eyelid_, 36, covered_height);
-        lv_obj_align(eyelid_, LV_ALIGN_TOP_MID, 0, 2);
+        lv_obj_set_size(eyelid_, 88, covered_height);
+        lv_obj_align(eyelid_, LV_ALIGN_TOP_MID, 0, 0);
         lv_obj_remove_flag(eyelid_, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_add_flag(eyelid_, LV_OBJ_FLAG_HIDDEN);
     }
 
-    if (current_weight_ < 18) {
-        align_center(closed_line_left_, -8, 1);
-        align_center(closed_line_right_, 8, 1);
+    const bool closed = current_weight_ < 18;
+    if (closed) {
+        lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
+        align_center(closed_line_left_, base_x + gaze_x - 19, eye_y + gaze_y);
+        align_center(closed_line_right_, base_x + gaze_x + 19, eye_y + gaze_y);
         lv_obj_remove_flag(closed_line_left_, LV_OBJ_FLAG_HIDDEN);
         lv_obj_remove_flag(closed_line_right_, LV_OBJ_FLAG_HIDDEN);
     } else {
+        lv_obj_remove_flag(container_, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(closed_line_left_, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(closed_line_right_, LV_OBJ_FLAG_HIDDEN);
     }
@@ -177,13 +201,14 @@ void YukiEyes::apply()
 
 YukiMouth::YukiMouth(lv_obj_t* parent)
 {
-    mouth_mask_ = make_shape(parent, 30, 14, kSkin, LV_RADIUS_CIRCLE);
-    mouth_ = make_shape(parent, 20, 2, kMouth, LV_RADIUS_CIRCLE);
-    lv_obj_set_style_transform_pivot_x(mouth_, 10, LV_PART_MAIN);
-    lv_obj_set_style_transform_pivot_y(mouth_, 3, LV_PART_MAIN);
-    tongue_ = make_shape(mouth_, 10, 3, kTongue, LV_RADIUS_CIRCLE);
-    left_corner_ = make_shape(parent, 4, 2, kMouth, LV_RADIUS_CIRCLE);
-    right_corner_ = make_shape(parent, 4, 2, kMouth, LV_RADIUS_CIRCLE);
+    // Mouth is deliberately subordinate to the eyes: a tiny cyan line that only
+    // opens while speech weight rises.
+    mouth_mask_ = make_shape(parent, 34, 16, kBackground, LV_RADIUS_CIRCLE);
+    mouth_ = make_shape(parent, 20, 3, kMouth, LV_RADIUS_CIRCLE);
+    tongue_ = make_shape(mouth_, 8, 2, kEyeDim, LV_RADIUS_CIRCLE);
+    left_corner_ = make_shape(parent, 3, 3, kMouth, LV_RADIUS_CIRCLE);
+    right_corner_ = make_shape(parent, 3, 3, kMouth, LV_RADIUS_CIRCLE);
+    lv_obj_add_flag(tongue_, LV_OBJ_FLAG_HIDDEN);
 
     current_position_ = _position;
     apply();
@@ -207,22 +232,17 @@ void YukiMouth::setRotation(int rotation)
 void YukiMouth::setEmotion(const Emotion& emotion)
 {
     emotion_ = emotion;
+    // Keep neutral almost mouthless. Speech animation can still raise weight.
     switch (emotion) {
         case Emotion::Happy:
-            setWeight(16);
-            break;
-        case Emotion::Angry:
-            setWeight(8);
-            break;
-        case Emotion::Sad:
-            setWeight(5);
-            break;
-        case Emotion::Doubt:
             setWeight(10);
             break;
-        case Emotion::Sleepy:
+        case Emotion::Angry:
+        case Emotion::Sad:
+        case Emotion::Doubt:
             setWeight(4);
             break;
+        case Emotion::Sleepy:
         case Emotion::Neutral:
         default:
             setWeight(0);
@@ -254,58 +274,40 @@ void YukiMouth::_update()
 
 void YukiMouth::apply()
 {
-    const int offset_x = map_value(current_position_.x, -100, 100, -10, 10);
-    const int offset_y = map_value(current_position_.y, -100, 100, -7, 7);
-    const int mouth_frame = current_weight_ < 25 ? 0 : (current_weight_ < 80 ? 1 : 2);
-    int width = mouth_frame == 0 ? 20 : (mouth_frame == 1 ? 17 : 19);
-    int height = mouth_frame == 0 ? 2 : (mouth_frame == 1 ? 6 : 10);
-    int base_y = 29 + offset_y;
-
-    if (emotion_ == Emotion::Happy) {
-        width += 2;
-    } else if (emotion_ == Emotion::Angry) {
-        width -= 2;
-    } else if (emotion_ == Emotion::Doubt && mouth_frame == 2) {
-        width = 12;
-        height = 10;
-    }
-
-    if (emotion_ == Emotion::Sad) {
-        base_y += 3;
-    }
+    const int offset_x = map_value(std::clamp(current_position_.x, -100, 100), -100, 100, -8, 8);
+    const int offset_y = map_value(std::clamp(current_position_.y, -100, 100), -100, 100, -5, 5);
+    const bool speaking = current_weight_ >= 25;
+    const int width = speaking ? 18 : 16;
+    const int height = speaking ? 8 : 3;
+    const int base_y = 54 + offset_y;
 
     align_center(mouth_mask_, offset_x, base_y);
     lv_obj_set_size(mouth_, width, height);
     align_center(mouth_, offset_x, base_y);
     lv_obj_set_style_transform_rotation(mouth_, current_rotation_, LV_PART_MAIN);
 
-    lv_obj_set_size(tongue_, std::max(8, width - 9), 3);
-    lv_obj_align(tongue_, LV_ALIGN_BOTTOM_MID, 0, 0);
-    if (mouth_frame == 2) {
+    if (speaking) {
         lv_obj_remove_flag(tongue_, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_add_flag(tongue_, LV_OBJ_FLAG_HIDDEN);
     }
 
-    const int corner_y = emotion_ == Emotion::Happy ? base_y - 2 : base_y + 1;
-    align_center(left_corner_, offset_x - width / 2, corner_y);
-    align_center(right_corner_, offset_x + width / 2, corner_y);
-    lv_obj_set_style_transform_rotation(left_corner_, emotion_ == Emotion::Happy ? 250 : 0, LV_PART_MAIN);
-    lv_obj_set_style_transform_rotation(right_corner_, emotion_ == Emotion::Happy ? 3350 : 0, LV_PART_MAIN);
+    align_center(left_corner_, offset_x - width / 2, base_y);
+    align_center(right_corner_, offset_x + width / 2, base_y);
 }
 
 YukiSpeechBubble::YukiSpeechBubble(lv_obj_t* parent, const lv_font_t* font)
 {
-    bubble_ = make_shape(parent, 294, 42, LV_COLOR_MAKE(247, 252, 255), 10);
+    bubble_ = make_shape(parent, 294, 42, LV_COLOR_MAKE(12, 18, 22), 10);
     lv_obj_set_style_bg_opa(bubble_, LV_OPA_90, LV_PART_MAIN);
     lv_obj_set_style_border_width(bubble_, 1, LV_PART_MAIN);
-    lv_obj_set_style_border_color(bubble_, LV_COLOR_MAKE(116, 151, 176), LV_PART_MAIN);
+    lv_obj_set_style_border_color(bubble_, kEyeDim, LV_PART_MAIN);
     lv_obj_align(bubble_, LV_ALIGN_BOTTOM_MID, 0, -7);
 
     label_ = lv_label_create(bubble_);
     lv_obj_set_width(label_, 274);
     lv_label_set_long_mode(label_, LV_LABEL_LONG_MODE_SCROLL_CIRCULAR);
-    lv_obj_set_style_text_color(label_, LV_COLOR_MAKE(37, 54, 74), LV_PART_MAIN);
+    lv_obj_set_style_text_color(label_, kEye, LV_PART_MAIN);
     lv_obj_set_style_text_font(label_, font, LV_PART_MAIN);
     lv_obj_center(label_);
     lv_obj_add_flag(bubble_, LV_OBJ_FLAG_HIDDEN);
@@ -354,22 +356,8 @@ void YukiAvatar::init(lv_obj_t* parent, const lv_font_t* font)
 
     lv_obj_t* root = panel_->get();
 
-    portrait_ = assets::get_image("yuki_reference.bin");
-    if (portrait_.data_size != 0) {
-        portrait_object_ = lv_image_create(root);
-        lv_image_set_src(portrait_object_, &portrait_);
-        lv_obj_center(portrait_object_);
-    } else {
-        ESP_LOGE("YukiAvatar", "Yuki portrait is missing from the assets partition");
-    }
-
-    blush_left_ = make_shape(root, 6, 7, kBlush, LV_RADIUS_CIRCLE);
-    align_center(blush_left_, -44, 28);
-    blush_right_ = make_shape(root, 6, 7, kBlush, LV_RADIUS_CIRCLE);
-    align_center(blush_right_, 44, 28);
-    lv_obj_set_style_bg_opa(blush_left_, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(blush_right_, LV_OPA_TRANSP, LV_PART_MAIN);
-
+    // Kim edition: no anime portrait.  The black panel and procedural eyes are
+    // the face, while Yuki's existing blink/gaze/emotion hooks remain intact.
     _key_elements.leftEye = std::make_unique<YukiEyes>(root, true);
     _key_elements.rightEye = std::make_unique<YukiEyes>(root, false);
     _key_elements.mouth = std::make_unique<YukiMouth>(root);
@@ -379,17 +367,6 @@ void YukiAvatar::init(lv_obj_t* parent, const lv_font_t* font)
 void YukiAvatar::setEmotion(const Emotion& emotion)
 {
     Avatar::setEmotion(emotion);
-
-    lv_opa_t blush_opacity = LV_OPA_TRANSP;
-    if (emotion == Emotion::Happy) {
-        blush_opacity = LV_OPA_40;
-    } else if (emotion == Emotion::Angry) {
-        blush_opacity = LV_OPA_10;
-    } else if (emotion == Emotion::Sleepy) {
-        blush_opacity = LV_OPA_10;
-    }
-    lv_obj_set_style_bg_opa(blush_left_, blush_opacity, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(blush_right_, blush_opacity, LV_PART_MAIN);
 }
 
 Container* YukiAvatar::getPanel() const
