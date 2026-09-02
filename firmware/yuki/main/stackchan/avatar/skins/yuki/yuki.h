@@ -14,9 +14,8 @@
 namespace stackchan::avatar {
 
 // Continuous expression state for the Kim-edition two-eye face.
-// Heart Engine will eventually write these values directly.  For now the
-// legacy Emotion enum is only a compatibility preset that maps into this
-// structure.
+// Heart Engine will eventually write these values directly. The expression
+// engine must remain continuous: named states are only parameter presets.
 struct ExpressionParameters {
     int eye_width = 88;          // px
     int eye_height = 48;         // px
@@ -31,11 +30,7 @@ struct ExpressionParameters {
     int gaze_range_y = 10;
     int gaze_move_speed = 8;     // logical units per update
     int shape_move_speed = 6;    // px/parameter units per update
-    int micro_motion = 0;        // reserved for subtle idle motion
-
-    // These are part of the expression contract even though the existing Yuki
-    // BlinkModifier / motion layer still owns them today.  They will be wired
-    // in without changing the Heart Engine-facing structure later.
+    int micro_motion = 0;        // 0..20 subtle idle eye movement
     int blink_interval_ms = 3500;
     int blink_duration_ms = 140;
     int neck_yaw = 0;
@@ -43,7 +38,21 @@ struct ExpressionParameters {
     int neck_speed = 120;
 };
 
+// Step 2 minimum states from the implementation canon. These are NOT fixed
+// faces; each state resolves to ExpressionParameters and can be blended or
+// overridden parameter-by-parameter by the future Heart Engine.
+enum class ExpressionState {
+    Normal,
+    Comfort,
+    Curiosity,
+    Surprise,
+    Displeasure,
+    Sleepiness,
+    Alertness,
+};
+
 ExpressionParameters ExpressionPresetForEmotion(const Emotion& emotion);
+ExpressionParameters ExpressionPresetForState(ExpressionState state);
 
 class YukiEyes : public Feature {
 public:
@@ -127,5 +136,7 @@ private:
     std::unique_ptr<uitk::lvgl_cpp::Container> panel_;
     ExpressionParameters expression_;
 };
+
+void ApplyExpressionState(YukiAvatar& avatar, ExpressionState state);
 
 }  // namespace stackchan::avatar
