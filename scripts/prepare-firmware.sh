@@ -21,6 +21,7 @@ fi
 git -C "$repo_root" apply --directory="$relative_target" "$repo_root/patches/yuki-stackchan-integration.patch"
 rsync -a "$repo_root/firmware/yuki/" "$target_dir/firmware/"
 git -C "$target_dir/firmware" apply "$repo_root/patches/yuki-local-vision.patch"
+git -C "$target_dir/firmware" apply "$repo_root/patches/step2-xiaozhi-compat.patch"
 mkdir -p "$target_dir/firmware/patches"
 cp "$repo_root/patches/xiaozhi-esp32.patch" "$target_dir/firmware/patches/"
 
