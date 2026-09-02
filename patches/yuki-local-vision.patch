@@ -1,0 +1,65 @@
+diff --git a/main/hal/board/stackchan_display.cc b/main/hal/board/stackchan_display.cc
+--- a/main/hal/board/stackchan_display.cc
++++ b/main/hal/board/stackchan_display.cc
+@@ -293,6 +293,7 @@ void StackChanAvatarDisplay::SetupUI()
+     stackchan.addModifier(std::make_unique<ImuEventModifier>());
+     stackchan.addModifier(std::make_unique<YukiFaceTrackingModifier>());
+     StartYukiVision();
++    EnableYukiVision();
+     StartYukiCuriosity();
+ 
+     preview_image_ = lv_image_create(lv_screen_active());
+diff --git a/main/stackchan/vision/yuki_vision.cpp b/main/stackchan/vision/yuki_vision.cpp
+--- a/main/stackchan/vision/yuki_vision.cpp
++++ b/main/stackchan/vision/yuki_vision.cpp
+@@ -333,28 +333,30 @@ void YukiFaceTrackingModifier::_update(Modifiable& stackchan)
+     stackchan.avatar().leftEye().setPosition({gaze_x, gaze_y});
+     stackchan.avatar().rightEye().setPosition({gaze_x, gaze_y});
+ 
+-    // Before wake-up Yuki may look with her eyes, but the physical head stays
+-    // still. Once the conversation is active, face tracking owns head motion.
++    // Kim edition: face following is a body-local reflex. It must work even
++    // when Wi-Fi/Xiaozhi is unavailable. Conversation state only affects the
++    // optional voice-pause behaviour; it never gates physical face tracking.
+     const bool conversation_active = hal_bridge::is_xiaozhi_ready() && !hal_bridge::is_xiaozhi_idle();
+-    if (!conversation_active) {
++    if (conversation_active) {
++        const bool voice_detected = hal_bridge::is_xiaozhi_voice_detected();
++        if (voice_detected && !voice_pause_latched_) {
++            ESP_LOGI(kTag, "User speech detected; briefly pausing physical head");
++            voice_pause_until_ = now + 1200;
++            voice_pause_latched_ = true;
++        } else if (!voice_detected) {
++            voice_pause_latched_ = false;
++        }
++        if (static_cast<int32_t>(voice_pause_until_ - now) > 0) {
++            stackchan.motion().setModifyLock(false);
++            return;
++        }
++    } else {
+         voice_pause_until_ = 0;
+         voice_pause_latched_ = false;
+-        stackchan.motion().setModifyLock(false);
+-        if (head_tracking_) {
+-            stackchan.motion().setAutoAngleSyncEnabled(true);
+-            head_tracking_ = false;
+-        }
+-        return;
+-    }
+-
+-    const bool voice_detected = hal_bridge::is_xiaozhi_voice_detected();
+-    if (voice_detected && !voice_pause_latched_) {
+-        ESP_LOGI(kTag, "User speech detected; briefly pausing physical head");
+-        voice_pause_until_ = now + 1200;
+-        voice_pause_latched_ = true;
+-    } else if (!voice_detected) {
+-        voice_pause_latched_ = false;
+-    }
+-    if (static_cast<int32_t>(voice_pause_until_ - now) > 0) {
+-        // The pause is edge-triggered and bounded. A stale VAD signal must not
+-        // keep the physical head frozen for the rest of the conversation.
+-        stackchan.motion().setModifyLock(false);
+-        return;
+     }
+     stackchan.motion().setModifyLock(true);
+ 
