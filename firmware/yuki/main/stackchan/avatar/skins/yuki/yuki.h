@@ -13,6 +13,38 @@
 
 namespace stackchan::avatar {
 
+// Continuous expression state for the Kim-edition two-eye face.
+// Heart Engine will eventually write these values directly.  For now the
+// legacy Emotion enum is only a compatibility preset that maps into this
+// structure.
+struct ExpressionParameters {
+    int eye_width = 88;          // px
+    int eye_height = 48;         // px
+    int eye_roundness = 18;      // LVGL radius
+    int eyelid_open = 100;       // 0=closed, 100=fully open
+    int left_rotation = 0;       // LVGL 0.1-degree units
+    int right_rotation = 0;
+    int asymmetry = 0;           // -100..100; negative favors left, positive right
+    int gaze_offset_x = 0;       // -100..100 logical offset
+    int gaze_offset_y = 0;
+    int gaze_range_x = 18;       // max px generated from gaze input
+    int gaze_range_y = 10;
+    int gaze_move_speed = 8;     // logical units per update
+    int shape_move_speed = 6;    // px/parameter units per update
+    int micro_motion = 0;        // reserved for subtle idle motion
+
+    // These are part of the expression contract even though the existing Yuki
+    // BlinkModifier / motion layer still owns them today.  They will be wired
+    // in without changing the Heart Engine-facing structure later.
+    int blink_interval_ms = 3500;
+    int blink_duration_ms = 140;
+    int neck_yaw = 0;
+    int neck_pitch = 90;
+    int neck_speed = 120;
+};
+
+ExpressionParameters ExpressionPresetForEmotion(const Emotion& emotion);
+
 class YukiEyes : public Feature {
 public:
     YukiEyes(lv_obj_t* parent, bool is_left_eye);
@@ -23,6 +55,7 @@ public:
     void setEmotion(const Emotion& emotion) override;
     void setVisible(bool visible) override;
     void setSize(int size) override;
+    void setExpressionParameters(const ExpressionParameters& parameters);
     void _update() override;
 
 private:
@@ -33,6 +66,8 @@ private:
     int current_size_ = 0;
     int current_rotation_ = 0;
     uitk::Vector2i current_position_;
+    ExpressionParameters target_expression_;
+    ExpressionParameters current_expression_;
 
     lv_obj_t* container_ = nullptr;
     lv_obj_t* eyelid_ = nullptr;
@@ -84,14 +119,13 @@ class YukiAvatar : public Avatar {
 public:
     void init(lv_obj_t* parent, const lv_font_t* font = &lv_font_montserrat_16);
     void setEmotion(const Emotion& emotion) override;
+    void setExpressionParameters(const ExpressionParameters& parameters);
+    const ExpressionParameters& getExpressionParameters() const;
     uitk::lvgl_cpp::Container* getPanel() const;
 
 private:
     std::unique_ptr<uitk::lvgl_cpp::Container> panel_;
-    lv_image_dsc_t portrait_ = {};
-    lv_obj_t* portrait_object_ = nullptr;
-    lv_obj_t* blush_left_ = nullptr;
-    lv_obj_t* blush_right_ = nullptr;
+    ExpressionParameters expression_;
 };
 
 }  // namespace stackchan::avatar
