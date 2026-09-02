@@ -1,0 +1,13 @@
+diff --git a/firmware/main/hal/board/stackchan.cc b/firmware/main/hal/board/stackchan.cc
+--- a/firmware/main/hal/board/stackchan.cc
++++ b/firmware/main/hal/board/stackchan.cc
+@@
+ void hal_bridge::start_proactive_conversation(const std::string& prompt)
+ {
+-    Application::GetInstance().StartProactiveConversation(prompt);
++    // Step 2 compatibility shim.
++    // Xiaozhi v2.2.4 does not expose StartProactiveConversation().
++    // Proactive speech is outside the Step 2 expression/vision scope, so keep
++    // the bridge callable without coupling this build to a missing API.
++    (void)prompt;
+ }
