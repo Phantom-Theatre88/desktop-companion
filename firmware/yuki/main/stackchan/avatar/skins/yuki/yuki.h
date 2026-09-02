@@ -30,12 +30,12 @@ struct ExpressionParameters {
     int gaze_range_y = 10;
     int gaze_move_speed = 8;     // logical units per update
     int shape_move_speed = 6;    // px/parameter units per update
-    int micro_motion = 0;        // 0..20 subtle idle eye movement
-    int blink_interval_ms = 3500;
-    int blink_duration_ms = 140;
+    int micro_motion = 2;        // 0..20 subtle idle eye movement
+    int blink_interval_ms = 4200;
+    int blink_duration_ms = 120;
     int neck_yaw = 0;
     int neck_pitch = 90;
-    int neck_speed = 120;
+    int neck_speed = 100;
 };
 
 // Step 2 minimum states from the implementation canon. These are NOT fixed
