@@ -25,8 +25,8 @@ if old in text:
 elif new not in text:
     raise SystemExit("emit_debug_frame signature not found; refusing to guess")
 
-# 2) Add an explicit camera-format -> RGB888 conversion. HumanFaceDetect will
-# only see this normalized RGB888 raster, never YUYV/RGB565/GREY directly.
+# 2) Explicit camera-format -> RGB888 conversion. This mirrors Espressif's
+# official examples, which pass an RGB888 dl::image::img_t to HumanFaceDetect.
 marker = '''dl::image::pix_type_t to_dl_pixel_type(int format)\n{\n    switch (format) {\n        case V4L2_PIX_FMT_YUYV:\n            return dl::image::DL_IMAGE_PIX_TYPE_YUYV;\n        case V4L2_PIX_FMT_GREY:\n            return dl::image::DL_IMAGE_PIX_TYPE_GRAY;\n        case V4L2_PIX_FMT_RGB565:\n            return dl::image::DL_IMAGE_PIX_TYPE_RGB565LE;\n        case V4L2_PIX_FMT_RGB24:\n        default:\n            return dl::image::DL_IMAGE_PIX_TYPE_RGB888;\n    }\n}\n'''
 conversion = r'''dl::image::pix_type_t to_dl_pixel_type(int format)
 {
@@ -112,8 +112,7 @@ if "bool convert_to_rgb888(" not in text:
         raise SystemExit("pixel conversion insertion point not found; refusing to guess")
     text = text.replace(marker, conversion, 1)
 
-# 3) The Mac debug image must represent the exact RGB888 pixels immediately
-# before HumanFaceDetect::run(image). Remove sampling from emit_debug_frame().
+# 3) Mac preview is sampled from the normalized RGB888 detector buffer.
 old_sampling = '''{\n    for (int y = 0; y < kDebugHeight; ++y) {\n        const int source_y = y * height / kDebugHeight;\n        for (int x = 0; x < kDebugWidth; ++x) {\n            const int source_x = x * width / kDebugWidth;\n            debug_gray[y * kDebugWidth + x] = sample_luma(frame, width, source_x, source_y, format);\n        }\n    }\n\n    int x1 = -1;\n'''
 new_sampling = '''{\n    // debug_gray was captured from the normalized RGB888 detector input.\n    (void)frame;\n    (void)format;\n\n    int x1 = -1;\n'''
 if old_sampling in text:
@@ -139,8 +138,7 @@ if "Unable to allocate vision/RGB888/debug frame buffers" not in text:
         raise SystemExit("vision allocation check block not found; refusing to guess")
     text = text.replace(old_check, new_check, 1)
 
-# 5) Normalize every captured frame to RGB888, build the detector image from
-# that buffer, and build the Mac preview from exactly the same RGB888 bytes.
+# 5) Normalize each capture to RGB888 and pass that img_t to HumanFaceDetect.
 old_image = '''            dl::image::img_t image = {\n                .data = frame,\n                .width = static_cast<uint16_t>(width),\n                .height = static_cast<uint16_t>(height),\n                .pix_type = to_dl_pixel_type(format),\n            };\n'''
 new_image = '''            if (!convert_to_rgb888(frame, width, height, format, detector_rgb888)) {\n                ESP_LOGW(kTag, "Unsupported camera format for RGB888 normalization: 0x%08x", format);\n                vTaskDelay(pdMS_TO_TICKS(kCaptureIntervalMs));\n                continue;\n            }\n\n            dl::image::img_t image = {\n                .data = detector_rgb888,\n                .width = static_cast<uint16_t>(width),\n                .height = static_cast<uint16_t>(height),\n                .pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB888,\n            };\n'''
 if ".data = detector_rgb888" not in text:
@@ -148,7 +146,6 @@ if ".data = detector_rgb888" not in text:
         raise SystemExit("detector image block not found; refusing to guess")
     text = text.replace(old_image, new_image, 1)
 
-# Handle either the original or the previous pre-detector-debug variant.
 old_run = '''            auto& faces = detector->run(image);\n            if (last_stack_log_at == 0 || now - last_stack_log_at >= 30000) {\n'''
 old_pre_debug = '''            const bool debug_due = last_debug_frame_at == 0 || now - last_debug_frame_at >= kDebugIntervalMs;\n            if (debug_due) {\n                for (int y = 0; y < kDebugHeight; ++y) {\n                    const int source_y = y * height / kDebugHeight;\n                    for (int x = 0; x < kDebugWidth; ++x) {\n                        const int source_x = x * width / kDebugWidth;\n                        debug_gray[y * kDebugWidth + x] = sample_luma(frame, width, source_x, source_y, format);\n                    }\n                }\n            }\n\n            auto& faces = detector->run(image);\n            if (last_stack_log_at == 0 || now - last_stack_log_at >= 30000) {\n'''
 new_run = '''            const bool debug_due = last_debug_frame_at == 0 || now - last_debug_frame_at >= kDebugIntervalMs;\n            if (debug_due) {\n                for (int y = 0; y < kDebugHeight; ++y) {\n                    const int source_y = y * height / kDebugHeight;\n                    for (int x = 0; x < kDebugWidth; ++x) {\n                        const int source_x = x * width / kDebugWidth;\n                        const size_t p = (static_cast<size_t>(source_y) * width + source_x) * 3;\n                        const int r = detector_rgb888[p + 0];\n                        const int g = detector_rgb888[p + 1];\n                        const int b = detector_rgb888[p + 2];\n                        debug_gray[y * kDebugWidth + x] = static_cast<uint8_t>((r * 77 + g * 150 + b * 29) >> 8);\n                    }\n                }\n            }\n\n            auto& faces = detector->run(image);\n            if (last_stack_log_at == 0 || now - last_stack_log_at >= 30000) {\n'''
@@ -171,12 +168,31 @@ else:
     elif "emit_debug_frame(detector_rgb888" not in text:
         raise SystemExit("debug emit block not found; refusing to guess")
 
+# 6) FINAL A-test: follow the detector's own confidence score. The previous
+# implementation selected the largest box, which can lock onto a large false
+# positive (such as the shelf edge) even when a better-scoring face exists.
+# Espressif's result_t exposes res.score in its official examples.
+old_cmp = '''[](const auto& left, const auto& right) {\n                    return left.box_area() < right.box_area();\n                }'''
+new_cmp = '''[](const auto& left, const auto& right) {\n                    return left.score < right.score;\n                }'''
+text = text.replace(old_cmp, new_cmp)
+
+old_cmp_debug = '''[](const auto& left, const auto& right) {\n            return left.box_area() < right.box_area();\n        }'''
+new_cmp_debug = '''[](const auto& left, const auto& right) {\n            return left.score < right.score;\n        }'''
+text = text.replace(old_cmp_debug, new_cmp_debug)
+
+if "return left.box_area() < right.box_area();" in text:
+    raise SystemExit("largest-box face selection still remains; refusing to continue")
+if "return left.score < right.score;" not in text:
+    raise SystemExit("score-based face selection was not installed")
+
 path.write_text(text)
 print(f"Patched {path}")
 print("Face detector input: explicit RGB888")
+print("Face selection: highest detector score (official result_t score)")
 print("Mac debug image source: same RGB888 detector buffer")
 PY
 
 grep -n -A2 'template <typename FaceContainer>' "$vision_file"
 grep -n -A6 'convert_to_rgb888' "$vision_file"
 grep -n -A10 '.data = detector_rgb888' "$vision_file"
+grep -n -A2 'return left.score < right.score' "$vision_file"
