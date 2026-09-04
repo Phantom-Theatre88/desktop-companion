@@ -33,11 +33,14 @@ import sys
 display = Path(sys.argv[1])
 vision = Path(sys.argv[2])
 
-# 1) Start vision immediately at boot, independent of Xiaozhi conversation state.
+# 1) Start and enable vision immediately at boot, independent of Xiaozhi
+# conversation state. There is already a second EnableYukiVision() in the
+# LISTENING status path, so we must check the specific SetupUI sequence rather
+# than merely checking whether the function name appears anywhere in the file.
 display_text = display.read_text()
-if "EnableYukiVision();" not in display_text:
-    old = "    StartYukiVision();\n    StartYukiCuriosity();"
-    new = "    StartYukiVision();\n    EnableYukiVision();\n    StartYukiCuriosity();"
+old = "    StartYukiVision();\n    StartYukiCuriosity();"
+new = "    StartYukiVision();\n    EnableYukiVision();\n    StartYukiCuriosity();"
+if new not in display_text:
     if old not in display_text:
         raise SystemExit("Unable to locate StartYukiVision() insertion point")
     display_text = display_text.replace(old, new, 1)
@@ -56,7 +59,14 @@ elif "Kim edition: face following is a body-local reflex" not in vision_text:
 PY
 
 # Verify local vision invariants before continuing.
-grep -q 'EnableYukiVision();' "$display_file"
+python3 - "$display_file" <<'PY'
+from pathlib import Path
+import sys
+text = Path(sys.argv[1]).read_text()
+required = "    StartYukiVision();\n    EnableYukiVision();\n    StartYukiCuriosity();"
+if required not in text:
+    raise SystemExit("Boot-time EnableYukiVision() was not inserted next to StartYukiVision()")
+PY
 grep -q 'Kim edition: face following is a body-local reflex' "$vision_file"
 if grep -q 'if (!conversation_active)' "$vision_file"; then
     printf 'Offline face-tracking gate is still present in %s\n' "$vision_file" >&2
