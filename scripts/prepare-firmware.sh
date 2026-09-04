@@ -21,7 +21,7 @@ fi
 git -C "$repo_root" apply --directory="$relative_target" "$repo_root/patches/yuki-stackchan-integration.patch"
 rsync -a "$repo_root/firmware/yuki/" "$target_dir/firmware/"
 
-# Step 2 local vision: avoid fragile patch hunks and apply the two required
+# Step 2 local vision: avoid fragile patch hunks and apply the required
 # transformations deterministically to the prepared workspace.
 display_file="$target_dir/firmware/main/hal/board/stackchan_display.cc"
 vision_file="$target_dir/firmware/main/stackchan/vision/yuki_vision.cpp"
@@ -53,19 +53,46 @@ old = '''    // Before wake-up Yuki may look with her eyes, but the physical hea
 new = '''    // Kim edition: face following is a body-local reflex. It must work even\n    // when Wi-Fi/Xiaozhi is unavailable. Conversation state only affects the\n    // optional voice-pause behaviour; it never gates physical face tracking.\n    const bool conversation_active = hal_bridge::is_xiaozhi_ready() && !hal_bridge::is_xiaozhi_idle();\n    if (conversation_active) {\n        const bool voice_detected = hal_bridge::is_xiaozhi_voice_detected();\n        if (voice_detected && !voice_pause_latched_) {\n            ESP_LOGI(kTag, "User speech detected; briefly pausing physical head");\n            voice_pause_until_ = now + 1200;\n            voice_pause_latched_ = true;\n        } else if (!voice_detected) {\n            voice_pause_latched_ = false;\n        }\n        if (static_cast<int32_t>(voice_pause_until_ - now) > 0) {\n            stackchan.motion().setModifyLock(false);\n            return;\n        }\n    } else {\n        voice_pause_until_ = 0;\n        voice_pause_latched_ = false;\n    }\n    stackchan.motion().setModifyLock(true);\n'''
 if old in vision_text:
     vision_text = vision_text.replace(old, new, 1)
-    vision.write_text(vision_text)
 elif "Kim edition: face following is a body-local reflex" not in vision_text:
     raise SystemExit("Unable to locate Xiaozhi face-tracking gate; refusing to prepare firmware")
+
+# 3) Temporary coordinate-mapping test.
+# The real-device log shows raw face X stuck near 26 while raw Y varies widely,
+# so the camera/detector coordinates appear rotated relative to the robot's
+# physical left/right axis. For this test build only:
+#   mapped X = raw Y scaled to the 320-wide logical frame
+#   mapped Y = frame center (pitch frozen)
+# This lets us verify left/right tracking safely without driving pitch to an
+# extreme. The log prints both raw and mapped coordinates.
+old = '''                    if (stable_face_samples >= 3) {\n                        face_x.store(static_cast<int>(filtered_face_x));\n                        face_y.store(static_cast<int>(filtered_face_y));\n                        frame_width.store(width);\n                        frame_height.store(height);\n                        face_seen_at.store(now);\n                    }\n'''
+new = '''                    if (stable_face_samples >= 3) {\n                        const int raw_x = static_cast<int>(filtered_face_x);\n                        const int raw_y = static_cast<int>(filtered_face_y);\n                        const int mapped_x = std::clamp(\n                            static_cast<int>(filtered_face_y * static_cast<float>(width) / static_cast<float>(height)),\n                            0, width - 1);\n                        const int mapped_y = height / 2;\n                        face_x.store(mapped_x);\n                        face_y.store(mapped_y);\n                        frame_width.store(width);\n                        frame_height.store(height);\n                        face_seen_at.store(now);\n                        if (stable_face_samples == 3) {\n                            ESP_LOGI(kTag,\n                                     "Coordinate test raw=(%d,%d) mapped=(%d,%d) frame=%dx%d",\n                                     raw_x, raw_y, mapped_x, mapped_y, width, height);\n                        }\n                    }\n'''
+if new not in vision_text:
+    if old not in vision_text:
+        raise SystemExit("Unable to locate face-coordinate storage block")
+    vision_text = vision_text.replace(old, new, 1)
+
+old = '''        ESP_LOGI(kTag, "Stable face detected at (%d,%d) in %dx%d frame", face_x.load(), face_y.load(), width, height);\n'''
+new = '''        ESP_LOGI(kTag, "Stable mapped face at (%d,%d) in %dx%d frame", face_x.load(), face_y.load(), width, height);\n'''
+if new not in vision_text:
+    if old not in vision_text:
+        raise SystemExit("Unable to locate stable-face log line")
+    vision_text = vision_text.replace(old, new, 1)
+
+vision.write_text(vision_text)
 PY
 
 # Verify local vision invariants before continuing.
-python3 - "$display_file" <<'PY'
+python3 - "$display_file" "$vision_file" <<'PY'
 from pathlib import Path
 import sys
-text = Path(sys.argv[1]).read_text()
+
+display_text = Path(sys.argv[1]).read_text()
+vision_text = Path(sys.argv[2]).read_text()
 required = "    StartYukiVision();\n    EnableYukiVision();\n    StartYukiCuriosity();"
-if required not in text:
+if required not in display_text:
     raise SystemExit("Boot-time EnableYukiVision() was not inserted next to StartYukiVision()")
+if "Coordinate test raw=" not in vision_text:
+    raise SystemExit("Coordinate-mapping test instrumentation was not inserted")
 PY
 grep -q 'Kim edition: face following is a body-local reflex' "$vision_file"
 if grep -q 'if (!conversation_active)' "$vision_file"; then
