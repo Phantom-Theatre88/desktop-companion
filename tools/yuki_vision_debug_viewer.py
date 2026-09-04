@@ -16,7 +16,6 @@ import threading
 import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 import termios
 
 STATE_LOCK = threading.Lock()
@@ -53,19 +52,28 @@ HTML = r'''<!doctype html>
   code { color: #d8eaff; }
   .meta { min-width: 250px; line-height: 1.7; }
   .hint { color: #aaa; font-size: 13px; }
+  select { margin-top: 6px; padding: 5px 8px; font-size: 14px; background: #222; color: #eee; border: 1px solid #555; border-radius: 6px; }
 </style>
 <main>
   <h1>Yuki Vision Debug</h1>
   <div class="row">
     <div class="panel">
       <canvas id="view" width="640" height="480"></canvas>
-      <div class="hint">緑枠 = M5側の顔検出結果 / 赤表示 = 顔未検出</div>
+      <div class="hint">緑枠 = 回転補正後BBox / 点線 = 生BBox</div>
     </div>
     <div class="panel meta">
       <div id="status" class="status no-face">WAITING...</div>
       <div>Frame: <code id="frame">-</code></div>
-      <div>BBox: <code id="bbox">-</code></div>
-      <div>Center: <code id="center">-</code></div>
+      <div>Raw BBox: <code id="bbox">-</code></div>
+      <div>Raw Center: <code id="center">-</code></div>
+      <div>Overlay:
+        <select id="rotation">
+          <option value="cw">90° CW</option>
+          <option value="ccw">90° CCW</option>
+          <option value="swap">X/Y swap only</option>
+          <option value="raw">Raw</option>
+        </select>
+      </div>
       <div>Seq: <code id="seq">-</code></div>
       <div>Age: <code id="age">-</code></div>
     </div>
@@ -76,8 +84,27 @@ const canvas = document.getElementById('view');
 const ctx = canvas.getContext('2d');
 const imageCanvas = document.createElement('canvas');
 const imageCtx = imageCanvas.getContext('2d');
+const rotation = document.getElementById('rotation');
 
 function setText(id, value) { document.getElementById(id).textContent = value; }
+
+function transformPoint(x, y, w, h, mode) {
+  if (mode === 'cw') return {x: (1 - y / h) * w, y: (x / w) * h};
+  if (mode === 'ccw') return {x: (y / h) * w, y: (1 - x / w) * h};
+  if (mode === 'swap') return {x: (y / h) * w, y: (x / w) * h};
+  return {x, y};
+}
+
+function transformedBox(s, mode) {
+  const pts = [
+    transformPoint(s.x1, s.y1, s.frame_width, s.frame_height, mode),
+    transformPoint(s.x2, s.y1, s.frame_width, s.frame_height, mode),
+    transformPoint(s.x1, s.y2, s.frame_width, s.frame_height, mode),
+    transformPoint(s.x2, s.y2, s.frame_width, s.frame_height, mode),
+  ];
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  return {x1: Math.min(...xs), y1: Math.min(...ys), x2: Math.max(...xs), y2: Math.max(...ys)};
+}
 
 async function tick() {
   try {
@@ -102,11 +129,23 @@ async function tick() {
       if (s.face && s.frame_width > 0 && s.frame_height > 0) {
         const sx = canvas.width / s.frame_width;
         const sy = canvas.height / s.frame_height;
+
+        // Raw detector box stays visible as a dim dotted reference.
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,.45)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 6]);
+        ctx.strokeRect(s.x1 * sx, s.y1 * sy, (s.x2 - s.x1) * sx, (s.y2 - s.y1) * sy);
+        ctx.restore();
+
+        const b = transformedBox(s, rotation.value);
         ctx.strokeStyle = '#56e37d';
         ctx.lineWidth = 4;
-        ctx.strokeRect(s.x1 * sx, s.y1 * sy, (s.x2 - s.x1) * sx, (s.y2 - s.y1) * sy);
+        ctx.strokeRect(b.x1 * sx, b.y1 * sy, (b.x2 - b.x1) * sx, (b.y2 - b.y1) * sy);
+        const cx = (b.x1 + b.x2) / 2;
+        const cy = (b.y1 + b.y2) / 2;
         ctx.fillStyle = '#56e37d';
-        ctx.beginPath(); ctx.arc(s.cx * sx, s.cy * sy, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx * sx, cy * sy, 6, 0, Math.PI * 2); ctx.fill();
       }
     }
     const status = document.getElementById('status');
