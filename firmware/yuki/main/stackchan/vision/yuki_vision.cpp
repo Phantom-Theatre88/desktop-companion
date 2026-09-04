@@ -9,6 +9,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <memory>
 
@@ -18,6 +19,7 @@
 #include <freertos/task.h>
 #include <human_face_detect.hpp>
 #include <linux/videodev2.h>
+#include <mbedtls/base64.h>
 
 #include <hal/board/hal_bridge.h>
 #include <hal/board/stackchan_camera.h>
@@ -30,6 +32,9 @@ constexpr char kTag[]                  = "YukiVision";
 constexpr int kMaxFrameBytes           = 320 * 240 * 3;
 constexpr int kMotionColumns           = 40;
 constexpr int kMotionRows              = 30;
+constexpr int kDebugWidth              = 80;
+constexpr int kDebugHeight             = 60;
+constexpr uint32_t kDebugIntervalMs    = 1500;
 constexpr uint32_t kCaptureIntervalMs  = 280;
 constexpr uint32_t kStartupDelayMs     = 3000;
 constexpr uint32_t kFaceTimeoutMs      = 1100;
@@ -82,6 +87,59 @@ dl::image::pix_type_t to_dl_pixel_type(int format)
         default:
             return dl::image::DL_IMAGE_PIX_TYPE_RGB888;
     }
+}
+
+void emit_debug_frame(const uint8_t* frame, int width, int height, int format, const std::vector<dl::detect::result_t>& faces,
+                      uint8_t* debug_gray, uint8_t* debug_b64, size_t debug_b64_capacity, uint32_t sequence)
+{
+    for (int y = 0; y < kDebugHeight; ++y) {
+        const int source_y = y * height / kDebugHeight;
+        for (int x = 0; x < kDebugWidth; ++x) {
+            const int source_x = x * width / kDebugWidth;
+            debug_gray[y * kDebugWidth + x] = sample_luma(frame, width, source_x, source_y, format);
+        }
+    }
+
+    int x1 = -1;
+    int y1 = -1;
+    int x2 = -1;
+    int y2 = -1;
+    int cx = -1;
+    int cy = -1;
+    bool has_face = false;
+    if (!faces.empty()) {
+        const auto best = std::max_element(faces.begin(), faces.end(), [](const auto& left, const auto& right) {
+            return left.box_area() < right.box_area();
+        });
+        if (best != faces.end() && best->box.size() >= 4) {
+            x1 = best->box[0];
+            y1 = best->box[1];
+            x2 = best->box[2];
+            y2 = best->box[3];
+            cx = (x1 + x2) / 2;
+            cy = (y1 + y2) / 2;
+            has_face = true;
+        }
+    }
+
+    size_t encoded_len = 0;
+    const int rc = mbedtls_base64_encode(debug_b64, debug_b64_capacity, &encoded_len, debug_gray,
+                                         static_cast<size_t>(kDebugWidth * kDebugHeight));
+    if (rc != 0) {
+        ESP_LOGW(kTag, "Debug frame base64 encode failed: %d", rc);
+        return;
+    }
+
+    printf("YUKI_DBG_BEGIN %lu %d %d %d %d %d %d %d %d %d %d %d\n",
+           static_cast<unsigned long>(sequence), width, height, kDebugWidth, kDebugHeight, has_face ? 1 : 0,
+           x1, y1, x2, y2, cx, cy);
+    constexpr size_t kChunk = 240;
+    for (size_t offset = 0; offset < encoded_len; offset += kChunk) {
+        const size_t chunk_len = std::min(kChunk, encoded_len - offset);
+        printf("YUKI_DBG_DATA %.*s\n", static_cast<int>(chunk_len), reinterpret_cast<const char*>(debug_b64 + offset));
+    }
+    printf("YUKI_DBG_END %lu\n", static_cast<unsigned long>(sequence));
+    fflush(stdout);
 }
 
 class WaveDetector {
@@ -178,13 +236,17 @@ void yuki_vision_task(void*)
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 
-    // The first listening transition overlaps Xiaozhi's MCP tool discovery.
-    // Let those short TLS responses finish before the face model claims SRAM.
     vTaskDelay(pdMS_TO_TICKS(kStartupDelayMs));
 
     auto* frame = static_cast<uint8_t*>(heap_caps_malloc(kMaxFrameBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-    if (frame == nullptr) {
-        ESP_LOGE(kTag, "Unable to allocate vision frame buffer");
+    auto* debug_gray = static_cast<uint8_t*>(heap_caps_malloc(kDebugWidth * kDebugHeight, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    const size_t debug_b64_capacity = ((kDebugWidth * kDebugHeight + 2) / 3) * 4 + 8;
+    auto* debug_b64 = static_cast<uint8_t*>(heap_caps_malloc(debug_b64_capacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    if (frame == nullptr || debug_gray == nullptr || debug_b64 == nullptr) {
+        ESP_LOGE(kTag, "Unable to allocate vision/debug frame buffers");
+        if (frame) heap_caps_free(frame);
+        if (debug_gray) heap_caps_free(debug_gray);
+        if (debug_b64) heap_caps_free(debug_b64);
         vision_started.store(false);
         vTaskDelete(nullptr);
         return;
@@ -197,7 +259,10 @@ void yuki_vision_task(void*)
     float filtered_face_y = 0.0f;
     int stable_face_samples = 0;
     uint32_t last_stack_log_at = 0;
+    uint32_t last_debug_frame_at = 0;
+    uint32_t debug_sequence = 0;
     ESP_LOGI(kTag, "Face following and wave wake are active");
+    ESP_LOGI(kTag, "Mac vision debug stream is active on USB serial");
 
     while (true) {
         auto* camera = hal_bridge::board_get_camera();
@@ -219,6 +284,13 @@ void yuki_vision_task(void*)
                          static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
                 last_stack_log_at = now;
             }
+
+            if (last_debug_frame_at == 0 || now - last_debug_frame_at >= kDebugIntervalMs) {
+                emit_debug_frame(frame, width, height, format, faces, debug_gray, debug_b64, debug_b64_capacity,
+                                 debug_sequence++);
+                last_debug_frame_at = now;
+            }
+
             if (!faces.empty()) {
                 const auto best = std::max_element(faces.begin(), faces.end(), [](const auto& left, const auto& right) {
                     return left.box_area() < right.box_area();
@@ -338,16 +410,12 @@ void YukiFaceTrackingModifier::_update(Modifiable& stackchan)
         voice_pause_latched_ = false;
     }
     if (static_cast<int32_t>(voice_pause_until_ - now) > 0) {
-        // The pause is edge-triggered and bounded. A stale VAD signal must not
-        // keep the physical head frozen for the rest of the conversation.
         stackchan.motion().setModifyLock(false);
         return;
     }
     stackchan.motion().setModifyLock(true);
 
     if (!head_tracking_) {
-        // These servos do not return reliable position feedback. Keep tracking
-        // continuity in the motion engine instead of blocking on UART reads.
         stackchan.motion().setAutoAngleSyncEnabled(false);
         head_tracking_ = true;
         ESP_LOGI(kTag, "Physical face tracking enabled");
