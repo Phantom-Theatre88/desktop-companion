@@ -20,7 +20,9 @@ struct ExpressionParameters {
     int eye_width = 88;          // px
     int eye_height = 48;         // px
     int eye_roundness = 18;      // LVGL radius
-    int eyelid_open = 100;       // 0=closed, 100=fully open
+    int eyelid_open = 100;       // common openness multiplier, 0..100
+    int left_eyelid_open = 100;  // per-eye multiplier, enables wink/asymmetry
+    int right_eyelid_open = 100;
     int left_rotation = 0;       // LVGL 0.1-degree units
     int right_rotation = 0;
     int asymmetry = 0;           // -100..100; negative favors left, positive right
