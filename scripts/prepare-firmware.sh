@@ -25,6 +25,7 @@ rsync -a "$repo_root/firmware/yuki/" "$target_dir/firmware/"
 # - keep the legacy YukiVision source available as an asset
 # - do NOT start legacy YukiVision at boot
 # - start/enable the independent YukiVision2 person detector instead
+# - route any later runtime re-enable (e.g. LISTENING state) to Vision2 as well
 # - remove the old coordinate-remapping/debug injection from the prepare step
 #
 # This gives Vision2 the camera/person-recognition validation path without
@@ -66,12 +67,16 @@ if vision2_sequence not in text:
     else:
         raise SystemExit('Unable to locate legacy YukiVision boot sequence')
 
+# The original integration also re-enables vision when entering LISTENING.
+# After the boot cutover, any remaining legacy runtime enable must be routed
+# to Vision2; otherwise the old detector is silently revived later.
+text = text.replace('    EnableYukiVision();', '    EnableYukiVision2();')
+
 path.write_text(text)
 PY
 
-# Verify the generated workspace really boots Vision2 and does not boot the
-# legacy detector. This intentionally checks the exact generated file rather
-# than trusting the transform above.
+# Verify the generated workspace really boots Vision2 and does not boot or
+# re-enable the legacy detector anywhere in this display integration.
 python3 - "$display_file" <<'PY'
 from pathlib import Path
 import sys
@@ -83,7 +88,7 @@ if required not in text:
 if '    StartYukiVision();' in text:
     raise SystemExit('Legacy YukiVision is still started at boot')
 if '    EnableYukiVision();' in text:
-    raise SystemExit('Legacy YukiVision is still enabled at boot')
+    raise SystemExit('Legacy YukiVision is still enabled at runtime')
 if '#include <stackchan/vision2/yuki_vision2.h>' not in text:
     raise SystemExit('YukiVision2 header was not inserted')
 PY
