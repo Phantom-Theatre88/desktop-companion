@@ -5,6 +5,7 @@
 1. `docs/sacred/M5Stack Desktop Companion 設計思想 v0.1.md`
 2. `docs/sacred/M5Stack Desktop Companion 実装Step聖典 v0.3.md`
 3. `docs/sacred/PROJECT_LOCKS.md`
+4. `docs/status/CURRENT_STATUS.md`
 
 ## 最上位ルール
 
@@ -28,8 +29,25 @@
 
 必ず聖典の「適合手術」ルールに従い、構造差分確認 → 適合設計 → 変換／再実装 → 実機確認 → 既存機能との衝突確認まで行う。
 
+## 作業終了時
+
+作業終了時には、必ず `docs/status/CURRENT_STATUS.md` を更新する。
+
+最低限、以下を残す。
+
+- 現在のStep／区間
+- 今回確認した事実
+- 実機で正常動作しているもの
+- 未達・未確認・不具合中のもの
+- 今回行った変更
+- 根本解析中の論点
+- 次回最初に確認すること
+- 部分完成か、全体完成か
+
+必要に応じて `docs/status/history/` に日付付きカルテを追加する。
+
 ## 正本
 
-本リポジトリ内の `docs/sacred/` をプロジェクトの正本とする。
+本リポジトリ内の `docs/sacred/` をプロジェクトの設計正本、`docs/status/CURRENT_STATUS.md` を現状正本とする。
 
-会話・一時メモ・過去コードと内容が食い違う場合は、より新しい正式LOCKが明記された聖典／LOCK文書を優先する。
+会話・一時メモ・過去コードと内容が食い違う場合は、より新しい正式LOCKが明記された聖典／LOCK文書を優先し、現状判断はCURRENT_STATUSを必ず突き合わせる。
