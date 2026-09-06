@@ -98,11 +98,29 @@ Yuki、stack-chan-ko、Dotty StackChan、stackchan-local、M5Stack_RoboEyes、�
 
 の順で判断する。
 
+### 神経系の共通化
+
+M5Stack内部とM5Stack ↔ Pi5の通信は、同じ用途ではないため実装・搬送方式を無理に一本化しない。
+
+ただし、
+
+**意味モデル・語彙・ID・payload定義は共通化する。**
+
+原則は、
+
+**語彙は共通、文法と輸送手段は別**
+
+とする。
+
+M5Stack内部は低遅延・軽量な内部イベント／APIとして実装し、M5Stack ↔ Pi5は再接続・切断・バージョン・認証・帯域を考慮した通信として設計する。
+
+具体プロトコルは、最終的な感覚・認知・反射・Heart Engine・記憶・行動・身体出力の配置と、M5Stack／Pi5の役割分担を洗い出してから確定する。
+
 ## 7. 現在の次回開始点
 
 次に実装へ進む前に、まず以下を決める。
 
-**Desk Botの最終的な知覚・神経系の全体構造**
+**Desk Botの最終的な知覚・神経系の全体構造と、M5Stack／Pi5への脳機能配置**
 
 対象は、
 
@@ -113,16 +131,19 @@ Yuki、stack-chan-ko、Dotty StackChan、stackchan-local、M5Stack_RoboEyes、�
 - IMU
 - 照度
 - 将来の温湿度・圧力等
+- 各感覚野の前処理
+- 高度認知
 - 知覚統合
 - 反射層
 - Heart Engine
 - 短期記憶
+- 長期記憶
 - 行動選択
 - 表情・首・声
 
-の接続関係。
+の接続関係と配置。
 
-その後に、Yuki Visionをどこまで使うか、`stack-chan-ko` 側へどう適合させるかを判断する。
+その後に、Yuki Visionをどこまで使うか、`stack-chan-ko` 側へどう適合させるか、そしてM5Stack ↔ Pi5間の神経通信仕様を判断する。
 
 ## 8. 完成判定
 
