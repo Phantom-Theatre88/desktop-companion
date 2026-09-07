@@ -186,6 +186,30 @@ M5カメラとPi5カメラで同じ制御権を競合させない。
 
 SSDの具体機種・容量・接続方式について、本文書で未確認の内容は推測して固定しない。
 
+## LOCK 14｜神経系全体構造を先に固定し、感覚1本ずつ縦貫通実装する
+
+神経系は、センサーごとの局所実装を先行させて後から全体化しない。
+
+先に `M5Stack Desktop Companion 神経系全体ブロック図 v0.1.md` を全体構造の正本として固定し、以下の流れを共通骨格とする。
+
+**外界 → 感覚器官 → Raw Perception → Perception Integration → Semantic Neuron → Reflex / Heart / Pi5高次認知 → Behavior Selector → 身体出力**
+
+Perception Integrationでは、最低限 `timestamp`、`confidence`、複数感覚の時間的・意味的統合を扱う。
+
+反射はHeart EngineやPi5の判断完了を待たず、即時反応を先に行い、その出来事をHeartへ伝える。
+
+Pi5や一部センサーが停止しても、M5側の低次感覚・反射・Heart・基本行動は継続する。
+
+巨大なGhost／Neuronを一括実装せず、最終構造を固定したうえで感覚器官1本を縦に貫通させて完成させる。
+
+最初の縦貫通実証は **M5Stack Unit ToF4M / U172** とする。
+
+感覚野の設計順は、
+
+**ToF4M → TMOS PIR → ENV-Pro → 視覚 → タッチ → IMU → 聴覚 → その他感覚**
+
+とし、各感覚を **生データ → 意味化 → 反射 → Heart → Pi5 → 行動** まで定義する。
+
 ---
 
 この文書は要約索引であり、詳細・完成条件・手順は各聖典本文を正本とする。
