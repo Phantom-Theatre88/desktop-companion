@@ -4,8 +4,9 @@
 
 1. `docs/sacred/M5Stack Desktop Companion 設計思想 v0.1.md`
 2. `docs/sacred/M5Stack Desktop Companion 実装Step聖典 v0.3.md`
-3. `docs/sacred/PROJECT_LOCKS.md`
-4. `docs/status/CURRENT_STATUS.md`
+3. `docs/sacred/M5Stack Desktop Companion 感覚器官聖典 v0.1.md`
+4. `docs/sacred/PROJECT_LOCKS.md`
+5. `docs/status/CURRENT_STATUS.md`
 
 ## 最上位ルール
 
