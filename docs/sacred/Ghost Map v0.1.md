@@ -27,6 +27,22 @@ Xmind正本リンク: https://app.xmind.com/share/PKYi9w4H?utm_source=ChatGPT
 #### Perception Integration
 #### Nerve Input
 #### Semantic Neuron
+### 神経回路・Neuron・Synapse【LOCK】
+#### 神経回路 / Neural Circuit
+##### 感覚・反射・Heart・記憶・Pi5・身体を結ぶ生命情報網
+##### 神経回路を一括構築せず、感覚1本ずつ縦貫通実装する
+#### Neuron / Semantic Neuron
+##### 意味化された出来事・状態・要求を運ぶ神経線／神経語彙
+##### 製品固有の生値そのものはNeuronではない
+#### Synapse / シナプス
+##### Neuronの意味を必要な層へ接続・分岐する接続点／接続規則
+##### Reflex・Heart・Memory・Pi5等への配送先と接続条件を定める
+##### 人格・感情・行動選択そのものをSynapseへ持たせない
+##### 現段階では学習・可塑性・重み付きニューラルネットを必須としない
+#### 短縮要約
+##### Neuron＝意味を運ぶ
+##### Synapse＝意味を結ぶ
+##### 神経回路＝全体をつなぐ
 ### 神経入力の共通仕様
 #### Device固有値を神経へ直接入れない
 #### Device → Adapter → 意味化・正規化 → Nerve Input
