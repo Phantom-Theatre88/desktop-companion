@@ -9,7 +9,8 @@ namespace yuki::senses::tof4m {
 struct ToF4MConfig {
     float near_threshold_mm = 600.0f;
     float leave_threshold_mm = 750.0f;
-    float approaching_delta_mm = 80.0f;
+    float approaching_speed_threshold_mm_s = 250.0f;
+    float approach_release_speed_mm_s = 80.0f;
 };
 
 struct ToF4MSample {
@@ -39,7 +40,9 @@ private:
     ToF4MConfig config_;
     ProximityState state_ = ProximityState::kUnknown;
     float previous_distance_mm_ = 0.0f;
+    uint64_t previous_timestamp_ms_ = 0;
     bool has_previous_ = false;
+    bool approach_active_ = false;
 };
 
 }  // namespace yuki::senses::tof4m
