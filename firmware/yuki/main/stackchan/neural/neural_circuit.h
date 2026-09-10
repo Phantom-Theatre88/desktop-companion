@@ -21,6 +21,7 @@ struct SemanticEvent {
     struct Payload {
         float distance_mm = 0.0f;
         float delta_mm = 0.0f;
+        float velocity_mm_s = 0.0f;
     } payload;
 };
 
@@ -45,5 +46,10 @@ public:
 private:
     std::array<Synapse, kMaxSynapses> synapses_{};
 };
+
+// Shared semantic nerve bus for Yuki. Sensors, reflexes, Heart and later Pi5
+// adapters connect here instead of creating device-specific event paths.
+NeuralCircuit& GetNeuralCircuit();
+const char* SemanticEventName(SemanticEventId id);
 
 }  // namespace yuki::neural
