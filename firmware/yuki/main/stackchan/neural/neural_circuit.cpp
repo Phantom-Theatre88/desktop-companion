@@ -48,4 +48,23 @@ std::size_t NeuralCircuit::connection_count() const {
     return count;
 }
 
+NeuralCircuit& GetNeuralCircuit() {
+    static NeuralCircuit circuit;
+    return circuit;
+}
+
+const char* SemanticEventName(SemanticEventId id) {
+    switch (id) {
+        case SemanticEventId::kProximityNear:
+            return "PROXIMITY_NEAR";
+        case SemanticEventId::kProximityApproaching:
+            return "PROXIMITY_APPROACHING";
+        case SemanticEventId::kProximityLeave:
+            return "PROXIMITY_LEAVE";
+        case SemanticEventId::kUnknown:
+        default:
+            return "UNKNOWN";
+    }
+}
+
 }  // namespace yuki::neural
