@@ -1,6 +1,6 @@
 # Desktop Companion — CURRENT STATUS
 
-更新日: 2026-09-08
+更新日: 2026-09-10
 
 この文書は、このプロジェクトの「現在地」の正本である。
 設計判断は `docs/sacred/` の聖典を優先し、現状確認はこの文書を必ず参照する。
@@ -17,9 +17,13 @@ M5Stackを、単なる音声AI端末ではなく、
 
 ## 2. 現在の大きな論点
 
-現在は局所的なVision修正や個別センサー実装を先行せず、**M5Stack＝身体・低次脳、Pi5＝高次感覚野・認知脳**という全体構造から、知覚・神経・反射・Heart Engine・記憶・身体出力の配置を定義する段階。
+課題1「神経入力の共通仕様」と課題2「行動仲裁・対人Session・身体制御」はLOCK済み。
 
-感覚器官の正本として `docs/sacred/M5Stack Desktop Companion 感覚器官聖典 v0.1.md`、神経系全体構造の正本として `docs/sacred/M5Stack Desktop Companion 神経系全体ブロック図 v0.1.md` を使用する。
+神経回路・Neuron・Synapseの定義もLOCKし、現在は**最初の実神経となるToF4M / U172の縦貫通実装**へ移行した。
+
+- Neuron：意味を運ぶ神経
+- Synapse：Neuronが運ぶ意味を必要な受け手へ結ぶ接続点／接続規則
+- 神経回路：感覚・反射・Heart・記憶・Pi5・Behavior Selector・身体を結ぶ全体網
 
 ## 3. Visionの現在判断
 
@@ -34,19 +38,17 @@ Pi5側高次視覚カメラは **Raspberry Pi Camera Module 3 Wide** を採用LO
 
 ### M5Stack側感覚器官
 
-- **Unit ToF4M / U172**：購入済み。距離・接近感覚。公式仕様上、約4cm〜400cm、I2C `0x29`。
+- **Unit ToF4M / U172**：購入済み。距離・接近感覚。I2C `0x29`。
 - **Unit TMOS PIR / U185**：購入済み。人の在席・存在・活動感覚。I2C `0x5A`。
-- **Unit ENV-Pro / U169**：購入済み。温度・湿度・気圧を基本とする環境感覚。VOC、CO2相当値、IAQも取得可能。I2C `0x77`。
-- **Unit Hub / U006**：購入済み。HY2.0-4P/Groveを1→3分岐し、上記3ユニットを同時接続する構成部品。感覚器官ではなく末梢神経の分岐部として扱う。
+- **Unit ENV-Pro / U169**：購入済み。温度・湿度・気圧を基本とする環境感覚。I2C `0x77`。
+- **Unit Hub / U006**：購入済み。HY2.0-4P/Groveを1→3分岐する末梢神経の分岐部。
 
-3センサーはI2Cアドレスが異なるためアドレス上は同一バスで共存可能。Unit Hubは直結分岐のため、実機統合時に電源・バス負荷・タイミングを確認する。
+3センサーはI2Cアドレスが異なるためアドレス上は同一バスで共存可能。実機統合時に電源・バス負荷・タイミングを確認する。
 
 ### Raspberry Pi 5側
 
 - SSD：購入済み
 - 高次視覚：**Raspberry Pi Camera Module 3 Wide 採用LOCK**
-
-SSDの具体機種・容量・接続方式は未確認なので推測で固定しない。
 
 ## 5. M5Stack／Pi5の役割分担
 
@@ -64,27 +66,21 @@ Pi5が停止しても、見る・感じる・反応する・気分が変わる�
 
 ## 6. 神経系の現在LOCK
 
-全体骨格は以下。
+全体骨格：
 
-**外界 → 感覚器官 → Raw Perception → Perception Integration → Semantic Neuron → Reflex / Heart / Pi5高次認知 → Behavior Selector → 身体出力**
+**外界 → 感覚器官 → Raw Perception → Perception Integration → Semantic Neuron → Synapse → Reflex / Heart / Memory / Pi5高次認知 → Behavior Selector → 身体出力**
 
 重要ルール：
 
 - Perception Integrationで `timestamp`、`confidence`、複数感覚の統合を扱う。
 - 各センサー値を直接Heartへ垂れ流さない。
+- ToF単独では人物を断定せず、近接意味 `PROXIMITY_*` までを出す。
 - 反射はHeart Engine／Pi5の判断完了を待たない。
 - Pi5結果は原則Semantic Neuronへ意味として返す。
+- Synapseは接続先・分岐・接続条件を扱い、現段階では学習・重み・可塑性を必須仕様にしない。
 - 複数センサーやPi5が身体制御権を直接奪い合わない。
 - 一部センサーやPi5が停止しても、M5側の生命活動を継続する。
-- 感覚→意味化→Heart→行動の因果をログで追跡可能にする。
-
-M5Stack内部とM5Stack ↔ Pi5の通信は実装・搬送方式を無理に一本化しない。
-
-ただし、**意味モデル・語彙・ID・payload定義は共通化する。**
-
-原則：**語彙は共通、文法と輸送手段は別。**
-
-具体プロトコルは、最終的な機能配置を洗い出した後に確定する。
+- 感覚→意味化→神経配送→Heart／反射→行動の因果をログで追跡可能にする。
 
 ## 7. 聖典Stepへの暫定再マッピング
 
@@ -98,45 +94,63 @@ M5Stack内部とM5Stack ↔ Pi5の通信は実装・搬送方式を無理に一�
 - Step 7｜Pi5ローカル接続: **未実装**
 - Step 8｜ローカル会話: **未実装。現状Xiaozhi経由**
 - Step 9｜長期記憶: **未実装**
-- Step 10｜感覚器官追加: **主要追加センサー購入・感覚器官聖典登録・神経系全体構造LOCK済み。感覚野の個別仕様／縦貫通実装は未着手**
+- Step 10｜感覚器官追加: **ToF4M神経1本目の実装開始。Neuron/Synapse骨格とToF近接意味化コード作成済み。ハードウェア取得・身体反応・実機確認は未達**
 - Step 11｜v1.0: **未達**
 
-## 8. 現在の次回開始点
+## 8. 現在の小ゴール
 
-次の正式な小ゴールは、**最初の縦貫通実証となるToF4M / U172の感覚野を実装仕様まで落とすこと**。
+**ToF4M / U172を最初の実神経として、Neuron＋Synapseを含む神経回路を1本縦に通す。**
 
-まだコード実装には入らない。
+実装仕様正本：
+`docs/implementation/ToF4M_U172_神経1本目_実装仕様_v0.1.md`
 
-ToF4Mについて、以下を順に明文化する。
+今回作成済み：
 
-1. 何を感じる感覚なのか
-2. 生データ
-3. M5側前処理
-4. timestamp / confidence
-5. 意味化された知覚イベント／状態
-6. 反射層への入力
-7. Heart Engineへの意味
-8. Pi5へ渡す条件と内容
-9. Pi5から返る高次認知
-10. Pi5切断時のフォールバック
-11. Behavior Selectorとの接続
-12. Eyes / Neck等の身体出力
-13. ログと実機確認条件
+- `stackchan/neural/neural_circuit.h/.cpp`
+  - `SemanticEvent`
+  - `Synapse`
+  - `NeuralCircuit`
+- `stackchan/senses/tof4m/tof4m_perception.h/.cpp`
+  - 生距離サンプル受け
+  - `PROXIMITY_APPROACHING`
+  - `PROXIMITY_NEAR`
+  - `PROXIMITY_LEAVE`
+  - near/leaveのヒステリシス
 
-感覚野の設計順は、
+未達：
 
-**ToF4M → TMOS PIR → ENV-Pro → 視覚 → タッチ → IMU → 聴覚 → その他感覚**。
+1. U172実機からの距離取得ドライバ
+2. timestamp / confidenceの実取得
+3. SynapseからReflex Layerへの実接続
+4. Heart Engineへの配送先実装
+5. Behavior Selectorへの行動要求接続
+6. Eyes / Neck等の身体反応
+7. 因果ログ
+8. ESP-IDF 5.5.4ビルド確認
+9. 実機確認
 
-各感覚を **生データ → 意味化 → 反射 → Heart → Pi5 → 行動** まで定義する。
+## 9. 確認済み不整合・ブロッカー
 
-その後、Heart Engineを中心とする「Ghost」と、感覚・反射・Heart・記憶・Pi5認知・身体出力を結ぶ「Neuron」を詳細設計する。
+### U172ドライバ適合
 
-Ghost／Neuronはゼロから全て発明せず、GitHub上の先行OSS・先人の実装を調査し、適合手術ルールに従って採用・変換・再実装する。
+現行YukiはESP-IDF 5.5.4ネイティブC/C++。M5Stack公式U172ライブラリ／例はArduino/M5Unit系が中心のため、そのままコピーせずESP-IDF側へ適合させる必要がある。
 
-## 9. 完成判定
+### AGENTS.mdの参照切れ
 
-現在は **全体完成ではない**。
+`AGENTS.md` は `docs/sacred/M5Stack Desktop Companion 実装Step聖典 v0.3.md` を必読指定しているが、現リポジトリの `docs/sacred/` には当該ファイルが存在しない。
 
-感覚器官はハードウェア選定・登録に加え、神経系全体構造の設計正本まで前進した。
+この参照切れは今後修正が必要。内容を推測して新規作成・置換はしない。
 
-次の部分完成条件は、ToF4Mの感覚野仕様を全体ブロックへ矛盾なく接続できる状態まで定義すること。
+## 10. 次回最初に確認すること
+
+1. StackChan K151 / CoreS3の外部Grove I2Cが現行ESP-IDFファーム内でどのbus／HALを使用すべきか確認
+2. U172/VL53L1XのESP-IDF適合ドライバ方針決定
+3. 実機Raw Perception取得
+4. `ToF4MPerception` へ実サンプルを接続
+5. 最初のSynapseをReflex Layerへ接続
+
+## 11. 完成判定
+
+現在は **部分実装中**。
+
+Neuron/Synapseの最小骨格とToF近接意味化まではコード化したが、神経1本目の完成条件である実機入力→神経配送→身体反応までは未達。
