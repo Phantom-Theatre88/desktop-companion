@@ -1,103 +1,100 @@
-# Yuki: The Curious Desktop Robot
+# M5Stack Desktop Companion
 
-![Yuki character reference](docs/assets/yuki-character-reference.jpg)
+M5Stack CoreS3を、単なる音声AI端末ではなく、
 
-> An expressive desktop robot that follows your face, wakes to gestures, explores the web around your interests, and starts conversations through animation, voice, movement, and light.
+**「机の上に常にいて、周囲を感じ、反応し、気分が変わり、少しずつ関係性が育つ相棒」**
 
-Yuki is an embodied AI companion built for OpenAI Build Week 2026 on the M5Stack StackChan K151. The project extends the open-source factory firmware in native C and C++ instead of replacing it with a simplified demonstration.
+として成立させるプロジェクトです。
 
-## Code layout
+## 現在の正式実装方針
 
-The repository root contains only Yuki's authored code and the changes that integrate it:
+2026-09-11から、実装基盤は**ゼロベース**へ正式変更しています。
 
-- [`firmware/yuki/`](firmware/yuki/) - original native C++/LVGL character, ESP-DL vision, curiosity, and character assets
-- [`patches/yuki-stackchan-integration.patch`](patches/yuki-stackchan-integration.patch) - every modification or removal made to the StackChan firmware
-- [`patches/xiaozhi-esp32.patch`](patches/xiaozhi-esp32.patch) - Yuki's changes to the official Xiaozhi runtime, including activation, audio, MCP, and automatic wake behavior
-- [`gateway/`](gateway/) - an experimental Gemini Live gateway retained for later work; it is not connected to the current firmware
-- [`docs/slides/`](docs/slides/) - the five-page hackathon deck as 2560 x 1440 PNGs plus an editable PowerPoint file
-- [`upstream/stackchan/`](upstream/stackchan/) - unmodified M5Stack StackChan baseline, retained only to reproduce the firmware build
+初期構成は以下だけです。
 
-## Project status
+- M5Stack CoreS3
+- Arduino
+- M5Unified
+- M5GFX
+- 本プロジェクト独自コード
 
-Implemented during the hackathon:
+既存Stack-chan系OSSを親Repoにはしません。
 
-- `self.robot.get_recent_interaction`, an MCP tool that reports recent head-touch gestures and shaking with event age and counts
-- `self.robot.set_led_pattern`, an MCP tool that controls all 12 body LEDs individually or as repeating patterns
-- An original native C++/LVGL Yuki character skin with animated eyes, mouth, gaze, blinking, speech, and emotion states
-- On-device ESP-DL face detection with coordinated eye gaze and safety-limited pan/tilt tracking
-- Camera motion analysis that recognizes a deliberate left-right wave and wakes the conversation from standby
-- A mutex-protected camera path that allows continuous perception to coexist with photos and visual questions
-- Speech-state coordination that synchronizes Yuki's mouth, safety-aware head gestures, and two-color LED pulses while preserving face-tracking priority
-- Configurable interest-guided curiosity that autonomously asks the active backend to explore the web and start a short conversation, gated by idle state and recent face presence
-- MCP tools to configure curiosity, inspect its settings, and trigger an immediate demo without tying the firmware to one LLM provider
-- Official Xiaozhi service discovery, activation, and MQTT/WebSocket conversation transport
-- Automatic entry into listening mode as soon as the Xiaozhi service connection is ready
-- Dynamic MCP discovery that exposes the robot's actual camera, sensors, LEDs, and motion tools to the live model
-- An authenticated Vertex AI vision endpoint for camera tool calls, while continuous face tracking stays local on the ESP32
-- A verified ESP-IDF 5.5.4 build for the ESP32-S3 hardware
-- A verified 16 MB flash layout with dual OTA slots, a dedicated face-model partition, assets, coredump storage, and untouched calibration NVS
+`stack-chan-ko`、M5Stack/StackChan、Dotty StackChan、stackchan-local、RoboEyes、Xiaozhi、旧Yuki実装等は、初期基盤には入れません。
 
-In active development:
+## 現在地
 
-- Hardware tuning of face-tracking direction, gain, and wave-detection thresholds in varied lighting
-- Evaluation of a future Gemini Live backend after the official Xiaozhi path is stable on hardware
+- Step 0｜ゼロベース基準固定：**完了**
+- Step 1｜CoreS3素体確認：**次に開始**
 
-The runtime language-model backend is intentionally replaceable. Yuki's perception, animation, physical behavior, and MCP interface remain native to the robot.
+最初にM5Stackちゃんらしい機能は作らず、CoreS3公式環境だけでハードウェアを一つずつ確認します。
 
-## Voice Runtime
+確認順：
 
-The current firmware uses the official Xiaozhi service. At startup it fetches the device's runtime configuration, handles activation when required, selects the MQTT or WebSocket transport returned by the service, and automatically opens the conversation after the connection is ready. Yuki keeps Xiaozhi's streaming audio and MCP protocol while replacing the character, perception, physical behavior, and device tools.
+1. DISPLAY
+2. TOUCH
+3. IMU
+4. PROXIMITY
+5. MIC
+6. SPEAKER
+7. CAMERA
+8. その他必要ハード
 
-The firmware does not check for or install firmware updates. The Xiaozhi configuration endpoint is used only for service discovery, device activation, and server time. The experimental Gemini gateway under [`gateway/`](gateway/) is not part of the current device build.
+その後、
 
-## Hardware
+**Hardware → Device Driver → Adapter → Nerve Input → M5Stackちゃん**
 
-- M5Stack StackChan K151
-- M5Stack CoreS3 with ESP32-S3, 16 MB flash, and 8 MB PSRAM
-- 2-inch touch display and 0.3 MP camera
-- Two microphones and a speaker
-- Two feedback servos for pan and tilt
-- 12 individually addressable RGB LEDs
-- Head-touch sensor and 9-axis IMU
+の順で独自構築します。
 
-## Build
+## 正本
 
-The firmware requires ESP-IDF 5.5.4.
+設計・実装判断では、以下を正本とします。
 
-```sh
-./scripts/prepare-firmware.sh
-cd build/stackchan/firmware
-. "$HOME/esp/esp-idf/export.sh"
-python3 ./fetch_repos.py
-idf.py set-target esp32s3
-idf.py build
-```
+1. `docs/sacred/M5Stack Desktop Companion 設計思想 v0.1.md`
+2. `docs/sacred/M5Stack Desktop Companion 実装Step聖典 v0.3.md`
+3. `docs/sacred/M5Stack Desktop Companion 感覚器官聖典 v0.1.md`
+4. `docs/sacred/M5Stack Desktop Companion 神経系全体ブロック図 v0.1.md`
+5. `docs/sacred/PROJECT_LOCKS.md`
+6. `docs/status/CURRENT_STATUS.md`
 
-## Flash
+## LEGACY参考資産
 
-Use a full `idf.py flash`, not `app-flash`. Yuki uses a custom dual-OTA layout with separate face-model and asset partitions, so an app-only flash omits required runtime data.
+このリポジトリには、以前のYuki／StackChanベース開発のコード・patch・資料が残っています。
 
-```sh
-./scripts/prepare-firmware.sh
-cd build/stackchan/firmware
-. "$HOME/esp/esp-idf/export.sh"
-idf.py -p /dev/cu.usbmodem1101 flash
-```
+主な対象：
 
-> **Hardware warning:** Do not run `erase-flash` or `nvs_flash_erase()` on a configured StackChan. NVS contains device-specific servo calibration and identity values. The tilt servo must remain within its safe physical range.
+- `firmware/yuki/`
+- `patches/`
+- `upstream/stackchan/`
+- 旧StackChanビルド用スクリプト
+- 過去のBuild Week資料・スライド・DEVPOST
 
-For a quick curiosity demo, open `AI.AGENT`, remain in view of the camera, and ask Yuki to set your interests or to share something now. The request is deferred until the current conversation returns to standby, then Yuki sends the exploration prompt through the active Xiaozhi session.
+これらは**歴史資料・参考実装**として保持しています。
 
-## How Codex contributed
+現行Desktop Companionの、
 
-OpenAI Codex was used throughout the project to investigate the unfamiliar firmware, distinguish between multiple StackChan software lineages, trace events across FreeRTOS tasks, understand the flash and OTA layout, protect hardware-specific calibration, design the MCP interface, implement and review C++ changes, diagnose build issues, and verify the resulting firmware.
+- 親Repo
+- 初期基盤
+- 現在のビルド手順
+- 現在地
+- 完成判定
 
-Codex accelerated source analysis and implementation. Product decisions, including Yuki's interaction model, character direction, autonomous behavior, privacy boundaries, and coordinated expression system, were made by the project author.
+には使用しません。
 
-See [DEVPOST.md](DEVPOST.md) for the full project story.
+必要な機能を後から参考にする場合も、現行アーキテクチャへ適合させるための再評価を必須とします。
 
-## Hackathon work and upstream work
+## 現在のビルド手順
 
-This repository is based on [M5Stack/StackChan](https://github.com/m5stack/StackChan). The original firmware is isolated in `upstream/stackchan/`; all authored source and integration changes are visible at the root paths listed above.
+ゼロベースCoreS3用の新規プロジェクトは、これからStep 1で作成します。
 
-The original StackChan firmware is Copyright (c) 2026 M5Stack Technology CO LTD and distributed under the MIT License. See [LICENSE](LICENSE). StackChan is a product of M5Stack; Yuki is an independent hackathon project built on its open-source firmware.
+そのため、旧 `scripts/prepare-firmware.sh` やESP-IDF 5.5.4 / Xiaozhi / StackChan向け手順は、**現在のビルド手順ではありません**。
+
+新基盤の実機確認手順が確立した時点で、この節を更新します。
+
+## 最終判断基準
+
+機能数ではなく、
+
+**「そこにいる感じ」があるか。**
+
+これをDesktop Companionの最終判断基準とします。
