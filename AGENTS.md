@@ -2,12 +2,13 @@
 
 このリポジトリで設計・実装・デバッグ・移植・レビューを行う前に、必ず以下をこの順で読む。
 
-1. `docs/sacred/M5Stack Desktop Companion 設計思想 v0.1.md`
-2. `docs/sacred/M5Stack Desktop Companion 実装Step聖典 v0.3.md`
-3. `docs/sacred/M5Stack Desktop Companion 感覚器官聖典 v0.1.md`
-4. `docs/sacred/M5Stack Desktop Companion 神経系全体ブロック図 v0.1.md`
-5. `docs/sacred/PROJECT_LOCKS.md`
+1. `docs/sacred/PROJECT_LOCKS.md`
+2. `docs/sacred/M5Stack Desktop Companion 設計思想 v0.1.md`
+3. `docs/sacred/M5Stack Desktop Companion 実装Step聖典 v0.3.md`
+4. `docs/sacred/M5Stack Desktop Companion 感覚器官聖典 v0.1.md`
+5. `docs/sacred/M5Stack Desktop Companion 神経系全体ブロック図 v0.1.md`
 6. `docs/status/CURRENT_STATUS.md`
+7. `LEGACY.md`
 
 ## 最上位ルール
 
@@ -16,6 +17,8 @@
 **最終ゴール → 全体構造 → 現在の小ゴール**
 
 とする。
+
+直近LOCKと聖典が食い違う場合は、より新しい正式LOCKを優先し、必要なら聖典側を同時に更新する。
 
 ## 現在の実装基盤 LOCK
 
