@@ -1,28 +1,25 @@
 # M5Stack Desktop Companion 神経系全体ブロック図 v0.1
 
-更新日: 2026-09-08
+更新日: 2026-09-11
 
-本書は、Desktop Companionの感覚・反射・Heart Engine・記憶・Pi5高次認知・身体出力を一本の生命系として接続するための全体構造を定義する正本である。
+本書は、Desktop Companionの感覚・反射・Heart Engine・記憶・Pi5高次認知・身体出力を一本の生命系として接続する全体構造の正本である。
 
-上位基準は、
+上位基準：
 
 - `M5Stack Desktop Companion 設計思想 v0.1.md`
+- `M5Stack Desktop Companion 実装Step聖典 v0.3.md`
 - `M5Stack Desktop Companion 感覚器官聖典 v0.1.md`
 - `PROJECT_LOCKS.md`
 
-とする。
+## 1. 最上位ゴール
 
-## 1. 最上位ゴールとの関係
-
-Desktop Companionは、単なる音声AI端末ではなく、
+Desktop Companionを、
 
 **「机の上に常にいて、周囲を感じ、反応し、気分が変わり、少しずつ関係性が育つ相棒」**
 
 として成立させる。
 
-本神経系は、センサー値を集めるための通信基盤ではない。
-
-**外界を感じ、その意味を知覚し、反射し、Heartが変化し、必要に応じてPi5で高次認知し、身体として行動するための生命系**として設計する。
+神経系は単なる通信基盤ではなく、外界を感じ、その意味を知覚し、反射し、Heartが変化し、必要に応じてPi5で高次認知し、身体として行動するための生命系とする。
 
 ## 2. 神経系全体ブロック
 
@@ -38,32 +35,15 @@ ToF / TMOS / ENV-Pro / Touch / IMU / Mic / M5 Camera / Pi5 Camera
 【Perception Integration】
 timestamp / confidence / 複数感覚の統合
    ↓
-【Semantic Neuron】
-PERSON_PRESENT
-PERSON_APPROACHING
-HEAD_TOUCH
-ROOM_HOT
-LOUD_SOUND
-FACE_DETECTED
-…
+【Nerve Input / Semantic Neuron】
+PERSON_PRESENT / PROXIMITY_NEAR / HEAD_TOUCH / ROOM_HOT / LOUD_SOUND / FACE_DETECTED …
    ├────────→【Reflex Layer】
-   │             ↓
-   │       目・首・表情・即時反応
-   │
    ├────────→【Heart Engine / Ghost】
-   │             ↓
-   │   mood / affection / curiosity
-   │   boredom / sleepiness / attention
-   │
    ├────────→【Memory】
-   │       短期 / エピソード / 長期
-   │
    └────────→【Pi5 高次認知】
-                 ↓
-        人物・物体・状況・会話・LLM
-                 ↓
-           Semantic Neuron
-                 ↓
+                         ↓
+                  Semantic Neuron
+                         ↓
 【Behavior Selector】
    ↓
 【身体出力】
@@ -72,243 +52,133 @@ Eyes / Face / Neck / Servo / Voice / LED
 
 ## 3. 各層の責務
 
-### 3.1 感覚器官
+### 感覚器官
 
-外界の物理現象を取得する。
+外界の物理現象を取得する。センサー単体で人格・感情・行動を決めない。
 
-センサー単体で人格・感情・行動を決めてはならない。
+### Raw Perception
 
-### 3.2 Raw Perception
+製品固有の生値を一次知覚として扱う。
 
-センサーの生データを、各感覚野が扱える一次知覚へ変換する。
+### Perception Integration
 
-例：
+`timestamp`、`confidence`、複数感覚の時間的・意味的整合を扱う。
 
-- ToF4M：mm単位距離
-- TMOS：存在・動作系の検出値
-- ENV-Pro：温度・湿度・気圧等
-- IMU：加速度・角速度・姿勢
-- Camera：顔位置・動き・低次視覚特徴
+### Nerve Input / Semantic Neuron
 
-### 3.3 Perception Integration
+製品非依存の意味を神経系へ渡す。
 
-複数感覚を、時間関係と確信度を含めて一つの出来事へ統合する層。
+生値をそのまま上位へ渡さない。
 
-最低限、以下を設計要素として持つ。
+### Reflex Layer
 
-- `timestamp`：いつ観測したか
-- `confidence`：その知覚をどの程度信用できるか
-- センサー間の時間的整合
-- 同一対象・同一出来事として扱うための統合
+Heart EngineやPi5の判断を待たず、即時反応する。
 
-例：
+### Heart Engine / Ghost
 
-```text
-ToF：接近
-TMOS：人の存在
-M5 Camera：顔あり
-        ↓
-PERSON_APPROACHING
-```
+意味化された出来事を、時間・記憶・関係性と合わせて内面へ反映する。
 
-各センサーが直接Heart Engineへ独立に作用し、同じ出来事を重複加算する構造は避ける。
+### Memory
 
-### 3.4 Semantic Neuron
+短期、エピソード、長期関係記憶を扱う。
 
-Desk Bot内で共有する「意味」を運ぶ神経語彙。
+### Pi5高次認知
 
-M5Stack内部とM5Stack ↔ Pi5間で実装方式は分けても、意味モデル・語彙・ID・payload定義は共有する。
+人物・物体・状況・音声・会話・記憶照合等の重い処理を担当する。結果は原則Semantic Neuronへ意味として戻す。
 
-原則は、
+### Behavior Selector
 
-**語彙は共通、文法と輸送手段は別。**
+反射、Heart、対人Session、Pi5等からの要求を仲裁する。
 
-### 3.5 Reflex Layer
+### 身体出力
 
-即時反応を担当する。
-
-反射はHeart EngineやPi5の判断完了を待たない。
-
-例：急接近、強い揺れ、接触、突然の大きな音等。
-
-原則：
-
-**反射は先に身体を動かし、その出来事をHeart Engineへ後から伝える。**
-
-### 3.6 Heart Engine / Ghost
-
-Semantic Neuronから意味化された出来事を受け取り、時間・記憶・関係性によって内面を変化させる。
-
-最低限、
-
-- mood
-- affection
-- curiosity
-- boredom
-- sleepiness
-- attention
-
-を連続状態として扱う。
-
-Ghostは、Heart Engineを中心に、感情・欲求・注意・時間変化・記憶影響・自発行動理由を持つ「内面」として今後設計する。
-
-### 3.7 Memory
-
-短期記憶、エピソード記憶、長期関係記憶を扱う。
-
-記憶はHeartと高次認知の双方に影響するが、M5側の生命維持をPi5長期記憶へ依存させない。
-
-### 3.8 Pi5 高次認知
-
-人物・物体・状況・音声・会話・マルチモーダル文脈・記憶照合等、M5単体では重い高次処理を担当する。
-
-Pi5の結果は、直接身体を支配するのではなく、原則としてSemantic Neuronへ意味として戻す。
-
-### 3.9 Behavior Selector
-
-反射、Heart、記憶、Pi5高次認知等から受けた要求を統合し、実際の行動へ変換する。
-
-複数の感覚・認知が同時に身体制御権を奪い合わない構造とする。
-
-### 3.10 身体出力
-
-- Eyes
-- Face
-- Neck
-- Servo
-- Voice
-- LED
-
-等へ最終行動を出力する。
+Eyes / Face / Neck / Servo / Voice / LED等へ最終出力する。
 
 ## 4. M5Stack / Pi5の責務境界
 
 ### M5Stack
 
-**身体＋生命維持できる低次脳＋反射系＋Heart Engineの常時稼働部分**を担当する。
+**身体＋生命維持できる低次脳＋反射系＋Heart Engineの常時稼働部分**。
 
-Pi5停止時でも、
-
-- 感じる
-- 見る
-- 反射する
-- 気分が変わる
-- 基本的な自発行動をする
-
-ことを継続する。
+Pi5停止時でも、感じる・見る・反射する・気分が変わる・基本自発行動を継続する。
 
 ### Raspberry Pi 5
 
-**高次感覚野＋認知脳＋言語＋長期記憶**を担当する。
+**高次感覚野＋認知脳＋言語＋長期記憶**。
 
-高次認知はM5の生命活動を補強するが、存在そのものの必須条件にはしない。
+高次認知はM5側の生命活動を補強するが、存在そのものの必須条件にはしない。
 
-## 5. 故障・切断時の原則
+## 5. 故障・切断時
 
-センサー1個、Pi5、ネットワーク、カメラ等の一部が失われても、Desk Bot全体が停止してはならない。
+一部センサー、Pi5、ネットワーク、カメラ等が失われても、Desk Bot全体を停止させない。
 
-状態は、
-
-**「その感覚が使えないが、他の感覚とHeartは生きている」**
-
-として扱う。
-
-Pi5切断時は高次認知のみ失い、M5側の低次感覚・反射・Heart・基本行動を継続する。
+**「その感覚は使えないが、他の感覚とHeartは生きている」**状態として扱う。
 
 ## 6. 開発時ログ
 
-感覚→意味化→Heart→行動の因果を追跡できるログを残す。
+感覚 → 意味化 → 神経配送 → Heart／反射 → 行動の因果を追跡可能にする。
 
-例：
+## 7. ゼロベース実装順
+
+この全体構造はLOCKするが、神経系コードを最初に作らない。
+
+先に、
+
+1. CoreS3 + Arduino + M5Unified + M5GFXの新規プロジェクトを作る
+2. CoreS3公式APIだけでDISPLAY / TOUCH / IMU / PROXIMITY / MIC / SPEAKER / CAMERAを単独確認する
+3. Hardware / Device Driver境界を作る
+4. Adapter境界を作る
+5. Nerve Input境界を作る
+
+その後に、感覚1本を縦貫通実装する。
+
+## 8. 最初の外部感覚縦貫通
+
+最初の対象は **M5Stack Unit ToF4M / U172** とする。
+
+ただし、CoreS3素体確認より先には進めない。
 
 ```text
-08:41:12 ToF 1800mm
-08:41:13 TMOS presence=true
-08:41:13 PERSON_APPROACHING confidence=0.82
-08:41:14 attention 0.42 -> 0.61
-08:41:14 LOOK_AT
-```
-
-目的は、行動がおかしいときに「なぜそうなったか」を追えるようにすること。
-
-## 7. 実装方針
-
-巨大なGhost／Neuronを一括実装しない。
-
-最終構造を先に固定したうえで、**感覚器官1本を縦に貫通させて完成させる。**
-
-基本形：
-
-```text
-Sensor
+ToF4M
+↓
+Device Driver
 ↓
 Raw Perception
 ↓
-Perception Integration
+Adapter / Perception Integration
+↓
+PROXIMITY_* Nerve Input
 ↓
 Semantic Neuron
 ├→ Reflex
 ├→ Heart
-└→ Pi5 cognition
+└→ Pi5 cognition（必要時）
 ↓
 Behavior Selector
 ↓
 Body Output
 ```
 
-最初の縦貫通実証は **M5Stack Unit ToF4M / U172** とする。
+ToF単独で人物を断定しない。
 
-## 8. ToF4Mへ進む前のLOCK
+## 9. 感覚の実装順
 
-ToF4Mのコード実装へ入る前に、本ブロック図を全体構造として固定する。
-
-その後、ToF4Mについて、
-
-1. 何を感じる感覚なのか
-2. 生データ
-3. M5側前処理
-4. timestamp / confidence
-5. 意味化された知覚イベント／状態
-6. 反射層への入力
-7. Heart Engineへの意味
-8. Pi5へ渡す条件と内容
-9. Pi5から返る高次認知
-10. Pi5切断時のフォールバック
-11. Behavior Selectorとの接続
-12. Eyes / Neck等の身体出力
-13. ログと実機確認条件
-
-までを実装仕様へ落とす。
-
-## 9. 今後の順序
-
-感覚野の設計順は、
+CoreS3素体確認完了後、外部感覚は、
 
 **ToF4M → TMOS PIR → ENV-Pro → 視覚 → タッチ → IMU → 聴覚 → その他感覚**
 
-とする。
+の順を基本とする。
 
-各感覚を「生データ → 意味化 → 反射 → Heart → Pi5 → 行動」まで定義した後、その共通構造を基に、
-
-- Ghost：Heart Engineを中心とする内面
-- Neuron：感覚・反射・Heart・記憶・Pi5・身体を結ぶ神経系
-
-を詳細設計する。
-
-Ghost／Neuronはゼロからすべて発明せず、GitHub上のOSS・先行実装を調査し、`PROJECT_LOCKS.md` の適合手術ルールに従って採用・変換・再実装する。
+各感覚を、生データ取得だけでなく **意味化 → 反射 → Heart → 必要時Pi5 → 行動** まで通す。
 
 ## 10. 神経入力の共通仕様 LOCK
 
-神経系へ入る入力は、センサー製品・メーカー・通信方式に依存しない共通の意味として扱う。
-
-### 10.1 基本原則
-
-製品固有のセンサー出力を、そのままSemantic Neuronへ渡してはならない。
-
-基本構造は、
+基本構造：
 
 ```text
 Device
+↓
+Device Driver
 ↓
 Adapter / device-specific processing
 ↓
@@ -319,49 +189,11 @@ Nerve Input
 Semantic Neuron
 ```
 
-とする。
+製品固有の距離値、座標、加速度、静電容量値等は前段情報とする。
 
-製品固有の差異は、原則としてAdapterまたはその前段で吸収する。
+上位へは `NEAR`、`APPROACH`、`LEAVE`、`STROKE_DETECTED`、`PICKED_UP`、`LOUD_SOUND` 等の意味を渡す。
 
-センサー製品やメーカーを交換しても、同じ外界の意味を検出した場合は、神経以降へ同じNerve Inputを渡す。
-
-例：
-
-```text
-ToF製品A：distance = 380 mm
-ToF製品B：range = 0.38 m
-        ↓
-各製品固有処理
-        ↓
-NEAR / APPROACH / LEAVE 等の共通意味
-        ↓
-Nerve Input
-```
-
-神経以降のHeart Engine、反射、記憶、行動系を、センサー製品交換のたびに変更する構造にはしない。
-
-### 10.2 生値と神経入力を分離する
-
-距離値、座標、加速度、静電容量値等の生値は、Raw Perceptionまたはデバイス固有処理側の情報である。
-
-神経へ上げる主情報は、
-
-- `NEAR`
-- `APPROACH`
-- `LEAVE`
-- `STROKE_DETECTED`
-- `PICKED_UP`
-- `LOUD_SOUND`
-
-等の、外界で何が起きたかを表す意味化された入力とする。
-
-必要な場合は補助情報として元の数値をpayloadに保持してよいが、上位層の基本判断を製品固有の生値へ依存させない。
-
-### 10.3 カメラは別経路を持つ
-
-カメラはToFやタッチ等の単純センサーと同じ前段処理へ無理に統一しない。
-
-カメラは画像そのものから高次の意味を抽出する認識処理を必要とするため、基本構造を、
+カメラは例外的に、
 
 ```text
 Camera
@@ -371,68 +203,14 @@ Vision / Recognition
 意味抽出
 ↓
 Nerve Input
-↓
-Semantic Neuron
 ```
 
 とする。
 
-Vision / Recognitionでは、必要に応じて、
+## 11. OSSの扱い
 
-- 人物検出
-- 顔検出・顔認識
-- 視線推定
-- 姿勢推定
-- 対象の動き
-- 状況認識
+神経系・Ghost・視覚等の先行OSSは、現行基盤の成立後に参考候補として調査してよい。
 
-等を扱う。
+ただし、既存OSSを親Repoや初期基盤にしない。旧Yuki／StackChan実装へ新設計を合わせない。
 
-画像そのものを人格・Heart Engine・身体制御へ直接渡さない。
-
-### 10.4 センサー系と認識系の関係
-
-前段は二系統を許容する。
-
-```text
-【センサー系】
-Device → Adapter → 意味化 → Nerve Input
-
-【認識系】
-Camera等 → Vision / Recognition → 意味化 → Nerve Input
-```
-
-前段処理の方式は異なってよい。
-
-ただし、**神経へ入る直前のNerve Inputは共通の意味モデルへ収束させる。**
-
-### 10.5 このLOCKの責務境界
-
-本節で固定するのは、
-
-**「外界の認識結果を、製品非依存の共通意味として神経へ渡すところまで」**
-
-である。
-
-以下は本節の範囲外とし、後続設計で扱う。
-
-- Semantic Neuron内部で一つの入力をどう複数の神経イベントへ展開するか
-- Reflex Layerとの優先関係
-- Heart Engineへどの程度影響させるか
-- 感情状態をどう更新するか
-- Behavior Selectorがどの行動を選ぶか
-- 表情・首・声へどう反映するか
-
-これらを神経入力仕様へ混在させない。
-
-### 10.6 実装上の判断基準
-
-新しい感覚器官を追加する際は、先にドライバを書くのではなく、
-
-1. その感覚は外界の何を検出するのか
-2. 製品固有値から何を認識するのか
-3. 神経へ何という共通意味で渡すのか
-
-を定義してから実装する。
-
-この境界を守ることで、感覚器官の交換・追加がHeart Engineや行動系の局所修正連鎖を起こさない構造を維持する。
+必要機能を採用する場合は、現行アーキテクチャへ合わせて再評価・変換・再実装する。
