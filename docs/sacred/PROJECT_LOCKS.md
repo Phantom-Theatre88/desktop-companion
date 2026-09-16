@@ -1,6 +1,6 @@
 # M5Stack Desktop Companion — 重要LOCK集
 
-更新日: 2026-09-11
+更新日: 2026-09-17
 
 この文書は、プロジェクト全体へ常時適用する正式LOCKの索引である。
 
@@ -190,3 +190,65 @@ Pi5側高次視覚カメラは Raspberry Pi Camera Module 3 Wide を採用LOCK�
 - RoboEyes、Xiaozhi、Dotty、stackchan-local等を最初から組み込む
 
 このLOCK 16に反する過去文書・過去コード・会話記録は、歴史資料またはLEGACY参考資産としてのみ扱う。
+
+## LOCK 17｜Desktop Robo参照実装の正式採用
+
+Ghost本体は独自実装のままとし、他のDesktop Roboを親Repo・基盤・完成形として採用しない。
+
+一方で、既に実装済みの優れた機能を0から再発明しないため、以下を**正式な参照実装（ドナー）**として採用する。
+
+### Yuki Desktop Robot
+
+主な参照範囲：
+
+- Face / Eye / Mouth
+- 顔検出後の視線追従
+- 首のPan/Tilt追従
+- 顔位置の平滑化
+- デッドゾーン、移動量制限、更新周期制限
+- 顔消失時の追従解除
+- 会話状態・VADと身体動作の優先制御
+- ジェスチャー検出
+
+YukiのESP-IDF / LVGL / StackChan構造そのものは採用しない。アルゴリズムと実装知見を現行のArduino + M5Unified + M5GFX + 独自構造へ適合させて再実装する。
+
+### AuraBot
+
+主な参照範囲：
+
+- Raspberry Pi 5 とESP32系デバイスの役割分担
+- Vision / Speech / LLM / Presence等の高次処理と身体側の分離
+- Pi5 ↔ CoreS3通信設計
+- MQTT / WebSocket等を含む通信境界の考え方
+- Perception構造と責任分界
+
+AuraBotの構造をそのまま複製せず、Desktop Companionの神経系・Semantic Neuron・Ghost構造を優先する。
+
+### KariPom
+
+主な参照範囲：
+
+- 待機中の微小な動き
+- 瞬き、視線、小さな身体動作
+- 発話・音声に連動した表現
+- 「何もしていない時にも存在している」ためのMicroBehavior
+
+MicroBehaviorはGhost / Behavior配下の生命感表現として扱い、単純ランダム動作だけで人格を表現しない。
+
+### 採用原則
+
+参照実装から取り込む対象は主として、
+
+- Perception
+- Body
+- Tracking
+- Communication Boundary
+- MicroBehavior
+
+とする。
+
+**Heart / Memory / Time / Relationship / Behaviorの中核判断はDesktop Companion独自のGhostを正本とする。**
+
+参照コードを直接コピーするか、アルゴリズムのみ再実装するかは、ライセンス・依存関係・現行構造との差分を確認して個別決定する。
+
+このLOCKはLOCK 2・LOCK 3・LOCK 9を上書きしない。既存OSSを親Repoにしないゼロベース基盤は維持する。
