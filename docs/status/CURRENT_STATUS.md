@@ -1,6 +1,6 @@
 # Desktop Companion — CURRENT STATUS
 
-更新日: 2026-09-11
+更新日: 2026-09-17
 
 この文書は、このプロジェクトの「現在地」の正本である。
 
@@ -16,9 +16,7 @@ M5Stackを、単なる音声AI端末ではなく、
 
 ## 2. 現在の正式実装方針
 
-2026-09-11、実装基盤をゼロベースへ正式変更した。
-
-初期構成は、
+実装基盤はゼロベースを維持する。
 
 - M5Stack CoreS3
 - Arduino
@@ -26,60 +24,78 @@ M5Stackを、単なる音声AI端末ではなく、
 - M5GFX
 - 独自コード
 
-のみ。
-
 既存OSSを親Repoにしない。
 
-`stack-chan-ko`、M5Stack/StackChan、Dotty StackChan、stackchan-local、RoboEyes、Xiaozhi、旧Yuki実装等は初期基盤へ入れない。
+基盤コードは実装済みで、プロジェクト上は**OS相当の基盤準備完了**として次段へ進む。
 
-## 3. 旧実装の扱い
+Ghostは後付け機能ではなく、最初から本体中核として接続する。
 
-リポジトリに残っている `firmware/yuki/`、`patches/`、`upstream/`、旧ビルド用 `scripts/`、旧ToF神経コード等は **LEGACY参考資産** とする。
+## 3. Desktop Robo参照実装
 
-これらは削除しないが、現行実装の正本・親Repo・現在地には含めない。
+Ghost本体は独自実装のまま維持し、以下を正式な参照実装として採用済み。
 
-旧実装で「動いた／部分達成」とされた内容は、新基盤で再確認するまで現行の完成判定へ引き継がない。
+- Yuki Desktop Robot：Face / Eye / Mouth / Tracking / Head Motion
+- AuraBot：Pi5-CoreS3 Boundary / Perception Architecture / Communication
+- KariPom：MicroBehavior / Life Presence
 
-## 4. 現在のStep
+参照実装の都合でGhost構造を曲げない。
 
-**Step 0｜ゼロベース基準固定：完了**
+## 4. 現在の実装段階
 
-**Step 1｜CoreS3素体確認：これから開始**
+**基盤／OS相当：準備完了**
 
-最初にM5Stackちゃんらしい機能を作らず、CoreS3公式環境だけで各機能を単独確認する。
+**神経・シナプス層：実装開始**
 
-確認順：
+現在、`heart-engine` ブランチの `firmware/cores3_base/` に以下を実装済み。
 
-1. DISPLAY
-2. TOUCH
-3. IMU
-4. PROXIMITY
-5. MIC
-6. SPEAKER
-7. CAMERA
-8. その他必要ハード
+- `SemanticNeuron`：製品非依存の意味イベント
+- `SynapseRouter`：Neuronを必要な層へ分岐する固定長ルータ
+- `GhostCore`：GhostのNeuron受け口と短期イベント保持
+- `ReflexLayer`：即時反応用の意味→ReflexIntent変換
+- `DesktopCompanionRuntime`：Synapse / Ghost / Reflexを束ねる常駐Runtime
 
-## 5. 現在の小ゴール
+起動時にRuntimeを初期化し、以後のAdapterは `runtime.emit(SemanticNeuron)` で神経系へ接続できる構造になっている。
 
-**IDE上でゼロから新規プロジェクトを作り、CoreS3 + Arduino + M5Unified + M5GFXだけで最初のハードウェア単体確認を成立させる。**
+## 5. 現在の神経構造
 
-旧Yuki／StackChanコードから始めない。
+**Hardware → Device Driver → Adapter → Nerve Input → Semantic Neuron → Synapse → Reflex / Ghost / Memory / Pi5 → Behavior → Body**
 
-## 6. その後の構造
+Neuron＝意味を運ぶ。
 
-CoreS3素体確認後、
+Synapse＝どの層へ結ぶかを決める。
 
-**Hardware → Device Driver → Adapter → Nerve Input → M5Stackちゃん**
+Ghost＝Heart / Memory / Time / Relationship / Behaviorの中核。
 
-の順で独自構築する。
+## 6. Heart Engineの扱い
 
-神経系上位構造は、
+Heartの器は実装を開始しているが、詳細な数値変化ルールは未LOCKのため、現時点では勝手に固定しない。
 
-**外界 → 感覚器官 → Raw Perception → Perception Integration → Semantic Neuron → Synapse → Reflex / Heart / Memory / Pi5高次認知 → Behavior Selector → 身体出力**
+初期状態項目は、
 
-を維持する。
+- mood
+- affection
+- curiosity
+- boredom
+- sleepiness
+- attention
 
-## 7. 購入済みハードウェア
+を保持する。
+
+Semantic NeuronがGhostへ到達する本番配線を先に成立させる。
+
+## 7. 最初の感覚縦貫通
+
+最初の外部感覚対象は引き続き **Unit ToF4M / U172**。
+
+ただしToF4Mは実機側で未検出問題が残っているため、神経・シナプス本体をセンサー固有問題へ巻き込まない。
+
+ToF4M側は、
+
+**Device Driver → Adapter → PROXIMITY_* Semantic Neuron**
+
+までを独立実装し、検出問題解決後に現在のRuntimeへ接続する。
+
+## 8. 購入済みハードウェア
 
 ### M5Stack側
 
@@ -93,11 +109,7 @@ CoreS3素体確認後、
 - SSD
 - Raspberry Pi Camera Module 3 Wide
 
-外部センサー実装はCoreS3素体確認後に進める。
-
-最初の外部感覚縦貫通対象はToF4M / U172のままとする。
-
-## 8. M5Stack／Pi5の役割
+## 9. M5Stack／Pi5の役割
 
 ### M5Stack
 
@@ -109,26 +121,18 @@ CoreS3素体確認後、
 
 Pi5停止時でもM5Stack側の基本生命活動を継続する。
 
-## 9. 失効した旧現在地
+## 10. 次の実装
 
-以下は現在地として失効した。
+現在のRuntimeを基準に、感覚器官ごとのAdapterを1本ずつ接続する。
 
-- StackChan／Yukiファームを基盤とするESP-IDF 5.5.4改造路線
-- 親Repoの基準動作確認
-- 旧Yuki上での表情・反射・自発行動の部分達成判定
-- ToF4M神経コードを旧Yukiへ直接つなぐ作業
-- Xiaozhi経由会話を現行会話基盤とする判断
+最優先はToF4Mだが、ハード未検出問題はDevice Driver層として切り分ける。
 
-必要な知見はLEGACY参考資産として参照できるが、現行実装へ自動継承しない。
+その後、TMOS PIR、ENV-Pro、視覚、Touch、IMU、聴覚へ拡張する。
 
-## 10. 次回最初に行うこと
-
-CoreS3公式環境の新規プロジェクトを作成し、Step 1の最初の対象から実機確認する。
-
-旧OSSや旧ファームを読み込んでから始めない。
+各感覚は生データ取得で終わらせず、Semantic Neuron → Synapse → Ghost / Reflexまで縦貫通させる。
 
 ## 11. 完成判定
 
-現在は **新基盤の実装開始前／Step 0固定完了**。
-
 Desktop Companion全体としては未完成。
+
+ただし、**ゼロベース基盤から生命情報を流す神経Runtime実装へ移行した段階**に入った。
