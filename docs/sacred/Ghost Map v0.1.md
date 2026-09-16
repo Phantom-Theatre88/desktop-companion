@@ -1,6 +1,6 @@
 # Ghost Map v0.1｜M5Stack Desktop Companion 統合設計
 
-更新日: 2026-09-11
+更新日: 2026-09-17
 
 Xmind正本リンク: https://app.xmind.com/share/PKYi9w4H?utm_source=ChatGPT
 
@@ -46,6 +46,74 @@ M5Stackちゃんらしい機能は、この素体確認より先に作らない�
 ### 独自構造
 
 **Hardware → Device Driver → Adapter → Nerve Input → M5Stackちゃん**
+
+## 参照実装【LOCK】
+
+Ghost本体は独自実装を正本とし、他のDesktop Roboを親Repoや完成形として採用しない。
+
+一方で、既存実装から再利用できるアルゴリズム・構造・身体表現は正式なドナーとして参照する。
+
+### Yuki Desktop Robot
+
+**担当：Face / Eye / Mouth / Tracking / Head Motion**
+
+参照対象：
+
+- 顔追従
+- 視線追従
+- 首Pan/Tilt追従
+- 顔位置の平滑化
+- デッドゾーン
+- 移動量制限
+- 更新周期制限
+- 顔消失時の追従解除
+- 会話状態・VADと身体動作の優先制御
+- ジェスチャー検出
+
+ESP-IDF / LVGL / StackChan構造そのものは現行基盤へ持ち込まず、現行のArduino + M5Unified + M5GFX + 独自構造へ適合させて再実装する。
+
+### AuraBot
+
+**担当：Pi5-CoreS3 Boundary / Perception Architecture / Communication**
+
+参照対象：
+
+- Raspberry Pi 5とESP32系デバイスの役割分担
+- Vision / Speech / LLM / Presence等の高次処理と身体側の分離
+- Pi5 ↔ CoreS3通信境界
+- MQTT / WebSocket等を含む通信設計
+- Perception構造
+
+Desktop CompanionではAuraBotの構造をそのまま複製せず、Semantic Neuron・Synapse・Ghostを中心とした独自神経系を優先する。
+
+### KariPom
+
+**担当：MicroBehavior / Life Presence**
+
+参照対象：
+
+- blink
+- glance
+- tiny movement
+- breathing的な周期表現
+- 発話・音声に連動した小さな身体表現
+- 待機中にも存在感を保つ動き
+
+MicroBehaviorは単純ランダム動作だけで構成せず、Ghost状態・外界・直近履歴の影響を受ける。
+
+### 参照範囲の境界
+
+他実装から主に参照するのは、
+
+**Perception / Body / Tracking / Communication Boundary / MicroBehavior**
+
+とする。
+
+以下はDesktop Companion独自Ghostを正本とする。
+
+**Heart / Memory / Time / Relationship / Behavior**
+
+参照実装の都合でGhostの構造を曲げない。
 
 ## 感覚・神経入力【LOCK】
 
@@ -152,6 +220,17 @@ M5Stackちゃんらしい機能は、この素体確認より先に作らない�
 - Heart状態＋外界＋直近履歴から選ぶ
 - 「何もしない」も正式な行動
 
+### MicroBehavior【LOCK】
+
+- blink
+- glance
+- tiny movement
+- breathing的な周期表現
+- listening時の微小反応
+- speaking時の微小反応
+
+MicroBehaviorは「会話していない時にも生きている感じ」を支える身体表現とする。
+
 ## 表情【LOCK】
 
 - 固定顔画像一覧を中心にしない
@@ -192,6 +271,8 @@ M5Stackちゃんらしい機能は、この素体確認より先に作らない�
 
 旧Yuki／StackChan上の実装は、この順序の達成として数えない。
 
+参照実装の採用はこの実装順を変更しない。必要な段階へ到達した時点で、対応するドナーを参照する。
+
 ## 旧GitHub実装【LEGACY参考】
 
 - Yuki Avatar
@@ -210,6 +291,8 @@ M5Stackちゃんらしい機能は、この素体確認より先に作らない�
 - 反射・Heart・対人反応・自発行動の優先順位
 - 対人Session
 - 身体制御の仲裁原則
+- Yuki / AuraBot / KariPomの参照範囲
+- MicroBehaviorをGhost配下の生命感表現として扱うこと
 
 ### 未決
 
