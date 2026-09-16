@@ -252,3 +252,14 @@ MicroBehaviorはGhost / Behavior配下の生命感表現として扱い、単純
 参照コードを直接コピーするか、アルゴリズムのみ再実装するかは、ライセンス・依存関係・現行構造との差分を確認して個別決定する。
 
 このLOCKはLOCK 2・LOCK 3・LOCK 9を上書きしない。既存OSSを親Repoにしないゼロベース基盤は維持する。
+
+## LOCK 18｜Heart Engine数値表現
+
+Heart Engineの `mood / affection / curiosity / boredom / sleepiness / attention` は、以下の共通仕様で扱う。
+
+- 内部値：`0.0〜1.0`
+- 表示・デバッグ値：`0〜100`
+- イベント1回あたりの変化量：原則 `-0.1〜+0.1`
+- 計算後は必ず `0.0〜1.0` の範囲へ収める
+
+表示値は内部値を人間が確認しやすくするための表現であり、Heart Engine内部計算は `0.0〜1.0` を正本とする。
