@@ -1,6 +1,10 @@
 #include <M5Unified.h>
 #include <M5GFX.h>
 
+#include "src/core/DesktopCompanionRuntime.h"
+
+deskbot::core::DesktopCompanionRuntime runtime;
+
 void setup() {
   auto cfg = M5.config();
   M5.begin(cfg);
@@ -14,14 +18,19 @@ void setup() {
   M5.Display.setTextSize(2);
   M5.Display.drawString("CoreS3 BASE", M5.Display.width() / 2, M5.Display.height() / 2 - 16);
   M5.Display.setTextSize(1);
-  M5.Display.drawString("STEP 0 / CLEAN START", M5.Display.width() / 2, M5.Display.height() / 2 + 18);
+  M5.Display.drawString("NERVE / GHOST READY", M5.Display.width() / 2, M5.Display.height() / 2 + 18);
 
   Serial.println("[BOOT] M5Stack Desktop Companion");
-  Serial.println("[STEP0] CoreS3 clean base started");
-  Serial.println("[STEP0] No Stack-chan / AI_StackChan_Ex / stack-chan-ko / RoboEyes");
+  Serial.println("[BASE] CoreS3 clean base started");
+  Serial.println("[BASE] No Stack-chan / AI_StackChan_Ex / stack-chan-ko / RoboEyes");
+
+  const bool nerve_ready = runtime.begin(millis());
+  Serial.printf("[NERVE] Synapse bindings: %u\n", static_cast<unsigned>(runtime.synapse().bindingCount()));
+  Serial.printf("[NERVE] Runtime: %s\n", nerve_ready ? "READY" : "ERROR");
 }
 
 void loop() {
   M5.update();
+  runtime.tick(millis());
   delay(10);
 }
