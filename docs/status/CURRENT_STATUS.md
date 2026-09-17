@@ -42,7 +42,7 @@ Ghost本体は独自実装のまま維持し、以下を正式な参照実装と
 
 **基盤／OS相当：準備完了**
 
-**神経・シナプス層：本番骨格実装済み、Step 4最小本番実装を継続中**
+**神経・シナプス層：本番骨格実装済み、Step 4最小本番実装を完了直前まで進行中**
 
 `heart-engine` ブランチの `firmware/cores3_base/` には現在、以下の本番骨格がある。
 
@@ -103,7 +103,7 @@ NVS主保存の第一段として `HeartPersistence` を実装し、2026-09-17�
 
 2026-09-17、このReflex感度修飾入口追加後も、`m5stack_cores3` 向けに `ReflexLayer.cpp / MemoryEngine.cpp / DesktopCompanionRuntime.cpp` がビルド・リンク対象へ入り、CoreS3への書き込み、Hash検証、再起動まで正常に通過した。
 
-さらにLOCK 51のmicroSD側について、**保存形式やマウント方法を先行固定せず、Heart状態をmicroSD保存実装へ渡せる本番境界**として `HeartMicroSdBackup` を追加した。
+LOCK 51のmicroSD側については、**保存形式やマウント方法を先行固定せず、Heart状態をmicroSD保存実装へ渡せる本番境界**として `HeartMicroSdBackup` を追加した。
 
 - `HeartBackupSaveHandler`
 - `HeartBackupLoadHandler`
@@ -111,9 +111,20 @@ NVS主保存の第一段として `HeartPersistence` を実装し、2026-09-17�
 - `HeartPersistence` からmicroSDバックアップ境界へ接続
 - `HeartEngine` から現在Heart状態を保存／バックアップ候補を読込できる公開境界
 
-microSDのファイル形式、パス、世代数、マウント方式、復旧優先順位は未LOCKのため固定していない。これらを決めずに、後からCoreS3側の具体的microSD実装を差し込める形にしている。
+microSDのファイル形式、パス、世代数、マウント方式、復旧優先順位は未LOCKのため固定していない。
 
-このmicroSDバックアップ境界追加分は、次回CoreS3ビルド確認待ち。
+2026-09-17、`HeartMicroSdBackup.cpp / HeartPersistence.cpp / HeartEngine.cpp` が `m5stack_cores3` 向けビルド／リンク対象へ入り、CoreS3への書き込み、Hash検証、再起動まで正常に通過した。
+
+さらにLOCK 20の状態別復元について、数値チューニングに踏み込まず、各Heart項目を別方式で復元する本番境界を追加した。
+
+- `affection`：`PRESERVE_SAVED`
+- `mood`：`DECAY_TOWARD_DYNAMIC_BASELINE`
+- `curiosity`：`DECAY_TOWARD_DYNAMIC_BASELINE`
+- `boredom`：`RECALCULATE_FROM_ELAPSED_CONTEXT`
+- `sleepiness`：`RECALCULATE_FROM_TIME_RHYTHM`
+- `attention`：`RESET_TO_DYNAMIC_BASELINE`
+
+通常起動時は、具体ルールなしで確定できる `affection` のみ保存値を現在Heartへ戻す。その他5項目は、必要な経過時間・動的平常値・生活リズム等が未実装のため、機械的コピーせず `restorePending()` で未完了を明示する。
 
 ## 5. 現在の神経構造
 
@@ -150,9 +161,9 @@ Heart永続化はLOCK 51に従い、**NVSを主保存、microSDをバックア�
 
 現在、NVS主保存のストレージ境界と再起動時の既存snapshot読込確認まで完了している。
 
-microSD側は保存／読込handlerを差し込める本番境界まで実装済み。具体的なファイル形式やマウント処理は未固定。
+microSD側も保存／読込handlerを差し込める本番境界まで実装し、CoreS3向けビルド／書き込み確認済み。
 
-LOCK 20の状態別復元のうち、`mood / curiosity` の減衰量、`boredom / sleepiness` の再計算方法など具体式は未固定のため、推測で実装しない。
+LOCK 20の状態別復元では、復元方式の責務境界まで実装済み。`affection` は保存値を引き継ぐ。`mood / curiosity / boredom / sleepiness / attention` は、未LOCKの係数や未実装の生活履歴を推測で補わず、必要入力が揃うまでpendingとする。
 
 ## 7. Memory Engineの扱い
 
@@ -201,18 +212,22 @@ Step 5で、
 
 ## 11. 次の実装
 
-現在はStep 4を完了させる。
+現在はStep 4の最後の実機確認を行う。
 
-次は、今回追加した **HeartMicroSdBackup / microSDバックアップ境界** がCoreS3でコンパイル・リンク・書き込み・起動できることを確認する。
+次は、今回追加した **LOCK 20状態別復元Plan** がCoreS3でコンパイル・リンク・書き込み・起動できることを確認する。
 
-確認後、Step 4で残る主要論点は **LOCK 20状態別復元** のみ。ただし、具体式を決めないと本番コードが書けない箇所だけ追加設計へ戻る。
+通常起動時のSerialでは、既存NVS snapshot読込に続いて、
 
-係数・閾値・保存件数・減衰率・microSDファイル形式等は先行固定しない。
+`[HEART][RESTORE] LOCK20 field plan: PENDING_STEP9_INPUTS`
 
-Step 4完了後、Step 5としてToF4M / U172のDevice Driver層へ戻る。
+が出ることを確認する。
+
+これは失敗ではなく、Step 4では未LOCKの係数・動的平常値・生活リズムを捏造せず、復元方式だけを本番骨格として固定したことを意味する。
+
+この確認が通ればStep 4の本番骨格を完了とし、**長居せずStep 5のToF4M / U172 Device Driver層へ戻る**。
 
 ## 12. 完成判定
 
 Desktop Companion全体としては未完成。
 
-ただし、**神経Runtime / Ghost本番骨格、Reflex結果の内面フィードバック、Heart NVS主保存の再起動復元境界、Memory本番境界、Reflex感度修飾入口までCoreS3実機で成立。現在はHeartのmicroSDバックアップ境界を実装し、実機確認へ進む段階**にある。
+ただし、**神経Runtime / Ghost本番骨格、Reflex結果の内面フィードバック、Heart NVS主保存、Memory本番境界、Reflex感度修飾入口、microSDバックアップ境界、LOCK 20状態別復元Planまで本番骨格を実装。現在はStep 4最終実機確認の段階**にある。
