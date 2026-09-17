@@ -1,6 +1,6 @@
 # Desktop Companion — CURRENT STATUS
 
-更新日: 2026-09-17
+更新日: 2026-09-18
 
 この文書は、このプロジェクトの「現在地」の正本である。
 
@@ -28,9 +28,11 @@ M5Stackを、単なる音声AI端末ではなく、
 
 Ghostは後付け機能ではなく、最初から本体中核として接続する。
 
-2026-09-17、LOCK 52を追加し、**外付け感覚器官を増やす前に、CoreS3単体でDeskRoboとして生きている状態を成立させる**ことを正式順序とした。
+LOCK 52により、外付け感覚器官を増やす前に、CoreS3単体でDeskRoboとして生きている状態を成立させることを正式順序とした。
 
-ToF4M / U172は引き続き最初の外部感覚縦貫通対象だが、その開始条件を **CoreS3単体DeskRobo成立後** とする。
+2026-09-18、LOCK 53を追加し、**CoreS3単体DeskRobo成立後は、ToF4M / U172より先にCoreS3内蔵カメラをM5Stack側の「反射の目」として仕上げる**ことを正式順序とした。
+
+ToF4M / U172は引き続き最初の**外部感覚**縦貫通対象とする。
 
 ## 3. Desktop Robo参照実装
 
@@ -66,11 +68,11 @@ Ghost本体は独自実装のまま維持し、以下を正式な参照実装と
 
 LOCK 47〜49に従い、`ReflexResult` はRuntimeからGhostへ戻り、Heart / Memoryへ渡る。
 
-2026-09-17、CoreS3実機でこのReflex結果フィードバック追加後のコードについて、コンパイル／書き込み／起動まで確認済み。
+CoreS3実機でこのReflex結果フィードバック追加後のコードについて、コンパイル／書き込み／起動まで確認済み。
 
 LOCK 51に従い、Heart永続化は **NVS主保存＋microSDバックアップ** とする。
 
-NVS主保存の第一段として `HeartPersistence` を実装し、2026-09-17、CoreS3実機で以下を確認済み。
+NVS主保存の第一段として `HeartPersistence` を実装し、CoreS3実機で以下を確認済み。
 
 - `HeartPersistence.cpp` が実際にビルド対象へ入る
 - Arduino `Preferences` がリンクされる
@@ -91,7 +93,7 @@ NVS主保存の第一段として `HeartPersistence` を実装し、2026-09-17�
 - 各Memory Laneへ将来の保存実装を接続できるhandler境界
 - `lastCandidate()`：直近の記憶候補を保持する最小境界
 
-2026-09-17、`MemoryEngine.cpp` がCoreS3向けビルド／リンク対象に入り、書き込み・再起動後もRuntime READY、NVS既存snapshot読込、Face表示まで正常であることを実機確認した。
+CoreS3でビルド・書き込み・再起動確認まで通過済み。
 
 具体的な保持件数、分類条件、減衰率、長期保存条件は未LOCKのため実装していない。
 
@@ -105,9 +107,7 @@ NVS主保存の第一段として `HeartPersistence` を実装し、2026-09-17�
 
 現段階ではMemory側の具体的な危険分類・閾値・増減率・時間定数が未LOCKのため、返す値は `BASELINE` のみ。入口経路だけを本番構造として成立させている。
 
-2026-09-17、このReflex感度修飾入口追加後も、`m5stack_cores3` 向けに `ReflexLayer.cpp / MemoryEngine.cpp / DesktopCompanionRuntime.cpp` がビルド・リンク対象へ入り、CoreS3への書き込み、Hash検証、再起動まで正常に通過した。
-
-LOCK 51のmicroSD側については、**保存形式やマウント方法を先行固定せず、Heart状態をmicroSD保存実装へ渡せる本番境界**として `HeartMicroSdBackup` を追加した。
+LOCK 51のmicroSD側については、保存形式やマウント方法を先行固定せず、Heart状態をmicroSD保存実装へ渡せる本番境界として `HeartMicroSdBackup` を追加した。
 
 - `HeartBackupSaveHandler`
 - `HeartBackupLoadHandler`
@@ -116,8 +116,6 @@ LOCK 51のmicroSD側については、**保存形式やマウント方法を先�
 - `HeartEngine` から現在Heart状態を保存／バックアップ候補を読込できる公開境界
 
 microSDのファイル形式、パス、世代数、マウント方式、復旧優先順位は未LOCKのため固定していない。
-
-2026-09-17、`HeartMicroSdBackup.cpp / HeartPersistence.cpp / HeartEngine.cpp` が `m5stack_cores3` 向けビルド／リンク対象へ入り、CoreS3への書き込み、Hash検証、再起動まで正常に通過した。
 
 さらにLOCK 20の状態別復元について、数値チューニングに踏み込まず、各Heart項目を別方式で復元する本番境界を追加した。
 
@@ -130,15 +128,13 @@ microSDのファイル形式、パス、世代数、マウント方式、復旧�
 
 通常起動時は、具体ルールなしで確定できる `affection` のみ保存値を現在Heartへ戻す。その他5項目は、必要な経過時間・動的平常値・生活リズム等が未実装のため、機械的コピーせず `restorePending()` で未完了を明示する。
 
-2026-09-17、CoreS3実機で通常起動時に `[HEART][RESTORE] LOCK20 field plan: PENDING_STEP9_INPUTS` が出力されることを確認した。
-
-これは、LOCK 20の項目別復元Planが本番コードに存在し、後段で必要となる生活履歴・動的平常値・時間情報が未投入であることを明示するもの。係数や減衰率を推測実装していない。
+CoreS3実機で通常起動時に `[HEART][RESTORE] LOCK20 field plan: PENDING_STEP9_INPUTS` が出力されることを確認済み。
 
 以上により、**Step 4の本番骨格は完了**とする。
 
 ## 5. 現在の神経構造
 
-**Hardware → Device Driver → Adapter → Nerve Input → Semantic Neuron → Synapse → Reflex / Ghost / Memory / Pi5 → Behavior → Body**
+**Hardware → Device Driver → Adapter / Vision → Nerve Input → Semantic Neuron → Synapse → Reflex / Ghost / Memory / Pi5 → Behavior → Body**
 
 Neuron＝意味を運ぶ。
 
@@ -146,11 +142,11 @@ Synapse＝どの層へ結ぶかを決める。
 
 Ghost＝Heart / Memory / Time / Relationship / Behaviorの中核。
 
+Camera Raw frameはGhostへ直接渡さず、Vision / Recognitionで意味化してからNerve Inputへ渡す。
+
 ReflexはHeartやPi5を待たず先行でき、完了結果はRuntime → Ghost → Heart / Memoryへ戻せる。
 
 危険・恐怖系の経験が将来成立した場合は、Memory / GhostからReflexへ感度修飾Hintを先行入力できる境界を持つ。
-
-LOCK 52以降は、外付け感覚より先に、**Heart / Time → Behavior / MicroBehavior → Face / Body** の単体生命ループを成立させる。
 
 ## 6. Heart Engineの扱い
 
@@ -184,9 +180,7 @@ Step 4では、最初から以下へ拡張できる本番境界を持つ。
 - 特別長期記憶
 - Relationshipへ影響する記憶
 
-2026-09-17、この4系統を `MemoryLane` として実コード上に置き、Semantic event / Reflex resultとHeart Contextを結び付けた `MemoryRecord` を渡せる境界を追加した。
-
-同日、CoreS3でビルド・書き込み・再起動確認まで通過した。
+Semantic event / Reflex resultとHeart Contextを結び付けた `MemoryRecord` を渡せる境界を実装済み。
 
 分類ルール・保持条件・保存件数はまだ固定しない。
 
@@ -198,7 +192,7 @@ Reflex結果はHeart / Memoryへ戻る本番境界を実装済み。
 
 繰り返し危険だった刺激による将来のReflex感度修飾については、具体的閾値・増減率を固定せず、Step 4では修飾入口の本番境界までを対象とする。
 
-2026-09-17、`Memory → Ghost → ReflexSensitivityProvider → ReflexLayer` の入口境界を実装し、CoreS3向けビルド／書き込み／再起動まで確認済み。具体的な感度変化は未実装。
+`Memory → Ghost → ReflexSensitivityProvider → ReflexLayer` の入口境界を実装済み。具体的な感度変化は未実装。
 
 ## 9. Face / 表情・単体DeskRoboの現在地
 
@@ -215,11 +209,7 @@ LOCK 52の第一実装として、`BehaviorEngine` に `MicroBehaviorFrame` を�
 
 を生成する経路を実装した。
 
-`GhostCore::tick()` から毎tick Heart ContextをBehaviorへ渡し、`cores3_base.ino` でその出力をFaceRendererへ接続する。
-
-MicroBehaviorは単純ランダムではなく、`curiosity / attention / sleepiness` と時間位相の影響を受ける。周期・振幅等は調整可能な実装初期値であり、人格LOCKではない。
-
-2026-09-17、CoreS3実機で以下を確認した。
+CoreS3実機で以下を確認済み。
 
 - `[DESKROBO] Standalone Heart/Time -> Behavior -> Face life loop started` が出る
 - 待機中に瞬き・微小な視線移動が継続する
@@ -229,43 +219,63 @@ MicroBehaviorは単純ランダムではなく、`curiosity / attention / sleepi
 - IMUは状態遷移を `REST → LIFT_CANDIDATE → HELD → SETDOWN_CANDIDATE → REST` とし、SHAKE後のPICKED_UP二重解釈を抑制できた
 - Touch / PICKED_UP / SHAKE はBehaviorへ接続され、顔反応の本番経路が成立している
 
-`PICKED_UP` の見開き反応は現状やや分かりにくく、今後の表現調整対象とする。ただし、LOCK 52の最低成立判定を妨げるものではない。
+`PICKED_UP` の見開き反応は現状やや分かりにくく、今後の表現調整対象とする。ただしLOCK 52の最低成立判定を妨げるものではない。
 
 以上により、**CoreS3単体DeskRoboの最低成立条件は実機で通過**とする。
 
-## 10. 最初の外部感覚縦貫通
+## 10. CoreS3内蔵カメラ低次視覚の現在地
+
+LOCK 53により、ToF4Mより先にCoreS3内蔵カメラをM5Stack側の「反射の目」として仕上げる。
+
+2026-09-18、CoreS3実機で以下を確認済み。
+
+- 内蔵GC0308を初期化できる
+- 320x240 RGB565フレーム取得
+- Camera使用前に内部I2Cを解放し、使用後に復元できる
+- 毎回 `[SENSE][CAMERA] Internal I2C restored: YES` を確認
+- Camera使用後もTouch / IMUがREADYのまま継続する
+- 一回Probeだけでなく、約2秒周期で継続撮像できる
+- `CoreS3CameraDriver → CameraFrameView → CameraVisionInput` の本番境界を実装
+- Vision層でaverage lumaを取得できる
+
+現在は、**「目が開き、見続ける」Device Driver → Vision経路まで実機成立**した段階。
+
+次はVision層で明暗変化・動き等の低次視覚意味を生成し、製品非依存のSemantic Neuronへ接続する。
+
+人物・物体・個人識別等の高次認識はPi5側の責務とし、CoreS3側へ持ち込まない。
+
+## 11. 最初の外部感覚縦貫通
 
 最初の外部感覚対象は **Unit ToF4M / U172** のまま維持する。
 
-LOCK 52の開始条件である **CoreS3単体DeskRobo成立** は2026-09-17に実機通過したため、次工程からToF4M / U172へ進める。
+ただしLOCK 53により、開始条件は **CoreS3単体DeskRobo成立 ＋ CoreS3内蔵カメラ低次視覚経路成立後** とする。
 
-実機未検出問題はDevice Driver層の問題として保持し、Ghost / Runtimeへ持ち込まない。
-
-その後、
-
-**Device → Device Driver → Adapter → Nerve Input → Semantic Neuron → Synapse → Reflex / Ghost → Behavior → Body Output**
-
-を一本通す。
+ToF4Mの実機未検出問題はDevice Driver層の問題として保持し、Ghost / Runtimeへ持ち込まない。
 
 ToF単独で人物を断定しない。
 
-## 11. 次の実装
+## 12. 次の実装
 
-**次工程は最初の外部感覚縦貫通である ToF4M / U172。**
+**現在の小ゴールはCoreS3内蔵カメラのVision → Semantic Neuron接続。**
 
-以前の `NOT FOUND` を局所修正で繰り返さず、デバッグ規約に従ってDevice Driver層から根本原因を切り分ける。
+次に、
 
-- CoreS3側のI2C bus / Port A / 電源 / 配線を確認
-- U172の検出をDevice Driver層だけで成立させる
-- Device固有値をAdapterで意味化し、製品非依存のNeuronへ変換する
-- ToF単独では人物を断定せず、距離・接近・離脱などの意味入力として扱う
+- Vision側で低次視覚変化を意味化する
+- Raw frameを神経へ流さない
+- 最初の意味入力として明暗変化／動き等を候補とする
+- 意味化された入力だけをSemantic Neuronへ渡す
+- Ghost / Reflex / Behaviorへ接続した時もDeskRobo生命ループを壊さない
 
-Faceの表情バリエーションや`PICKED_UP`反応の見やすさは課題として保持するが、ToF開始を止めるブロッカーにはしない。
+ことを確認する。
 
-## 12. 完成判定
+この低次視覚経路を成立させた後、ToF4M / U172のDevice Driver層へ進む。
+
+Faceの表情バリエーションや`PICKED_UP`反応の見やすさは課題として保持するが、Camera / ToF工程を止めるブロッカーにはしない。
+
+## 13. 完成判定
 
 Desktop Companion全体としては未完成。
 
-ただし、**神経Runtime / Ghost本番骨格、Heart / Memory / ReflexのStep 4最小本番骨格、およびLOCK 52のCoreS3単体DeskRobo最低成立条件はCoreS3実機で成立済み。**
+ただし、**神経Runtime / Ghost本番骨格、Heart / Memory / ReflexのStep 4最小本番骨格、LOCK 52のCoreS3単体DeskRobo最低成立条件はCoreS3実機で成立済み。**
 
-現在地は、**CoreS3単体DeskRobo成立を越え、最初の外部感覚であるToF4M / U172のDevice Driver層へ進める段階**とする。
+現在地は、**LOCK 53に従い、CoreS3内蔵カメラを「反射の目」として低次視覚のSemantic Neuronまで通す工程**とする。
