@@ -13,12 +13,14 @@ constexpr uint32_t kBlinkPeriodMs = 4200;
 constexpr uint32_t kBlinkCloseMs = 90;
 constexpr uint32_t kBlinkHoldMs = 45;
 constexpr uint32_t kBlinkOpenMs = 110;
+constexpr uint32_t kTouchResponseMs = 500;
 
 }  // namespace
 
 void BehaviorEngine::begin(uint32_t now_ms) {
   started_ms_ = now_ms;
   last_event_ms_ = now_ms;
+  last_event_type_ = nerve::NeuronType::NONE;
   micro_behavior_ = MicroBehaviorFrame{};
   micro_behavior_.generated_ms = now_ms;
 }
@@ -27,6 +29,7 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
                               const HeartContext& event_context) {
   (void)event_context;
   last_event_ms_ = neuron.timestamp_ms;
+  last_event_type_ = neuron.type;
 }
 
 void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
@@ -35,7 +38,7 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   // A small Heart-influenced resting openness. Sleepiness closes the eyes a
   // little, while attention keeps them more awake. This is continuous output,
   // not a fixed expression preset.
-  const float resting_openness = clamp01(
+  float resting_openness = clamp01(
       0.78f + (heart.attention * 0.16f) - (heart.sleepiness * 0.28f));
 
   // Deterministic micro gaze. We intentionally avoid pure random motion: the
@@ -45,6 +48,18 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   const float gaze_energy = 0.05f + (heart.curiosity * 0.10f) + (heart.attention * 0.05f);
   micro_behavior_.gaze_x = clampSigned(sinf(t * 0.47f) * gaze_energy);
   micro_behavior_.gaze_y = clampSigned(sinf((t * 0.31f) + 1.2f) * gaze_energy * 0.45f);
+
+  // LOCK 52: a touch should become a visible body response through the normal
+  // SemanticNeuron -> Ghost -> Behavior path. These amplitudes are temporary
+  // implementation tuning values, not personality LOCK values.
+  const bool touch_response =
+      last_event_type_ == nerve::NeuronType::TOUCH &&
+      (now_ms - last_event_ms_) < kTouchResponseMs;
+  if (touch_response) {
+    resting_openness = clamp01(resting_openness + 0.10f);
+    micro_behavior_.gaze_x *= 0.35f;
+    micro_behavior_.gaze_y = clampSigned(micro_behavior_.gaze_y - 0.08f);
+  }
 
   // Blink envelope. This gives the standalone body a life rhythm without
   // requiring any external sensor. Detailed rhythm/personality tuning remains
