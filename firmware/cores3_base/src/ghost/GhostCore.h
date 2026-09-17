@@ -7,6 +7,7 @@
 #include "RelationshipEngine.h"
 #include "TimeEngine.h"
 #include "../nerve/NerveTypes.h"
+#include "../reflex/ReflexLayer.h"
 
 namespace deskbot {
 namespace ghost {
@@ -15,6 +16,7 @@ class GhostCore {
  public:
   void begin(uint32_t now_ms);
   void onNeuron(const nerve::SemanticNeuron& neuron);
+  void onReflexResult(const reflex::ReflexResult& result);
   void tick(uint32_t now_ms);
 
   const HeartState& heart() const { return heart_.state(); }
