@@ -1,4 +1,4 @@
-# M5Stack Desktop Companion 実装Step聖典 v0.4
+# M5Stack Desktop Companion 実装Step聖典 v0.3（2026-09-17改訂）
 
 更新日: 2026-09-17
 
