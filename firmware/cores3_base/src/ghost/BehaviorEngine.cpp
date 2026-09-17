@@ -14,6 +14,8 @@ constexpr uint32_t kBlinkCloseMs = 90;
 constexpr uint32_t kBlinkHoldMs = 45;
 constexpr uint32_t kBlinkOpenMs = 110;
 constexpr uint32_t kTouchResponseMs = 500;
+constexpr uint32_t kPickedUpResponseMs = 700;
+constexpr uint32_t kShakeResponseMs = 650;
 
 }  // namespace
 
@@ -49,16 +51,37 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   micro_behavior_.gaze_x = clampSigned(sinf(t * 0.47f) * gaze_energy);
   micro_behavior_.gaze_y = clampSigned(sinf((t * 0.31f) + 1.2f) * gaze_energy * 0.45f);
 
-  // LOCK 52: a touch should become a visible body response through the normal
-  // SemanticNeuron -> Ghost -> Behavior path. These amplitudes are temporary
+  // LOCK 52: internal senses should become visible body responses through the
+  // normal SemanticNeuron -> Ghost -> Behavior path. These amplitudes/times are
   // implementation tuning values, not personality LOCK values.
+  const uint32_t event_age_ms = now_ms - last_event_ms_;
   const bool touch_response =
       last_event_type_ == nerve::NeuronType::TOUCH &&
-      (now_ms - last_event_ms_) < kTouchResponseMs;
+      event_age_ms < kTouchResponseMs;
+  const bool picked_up_response =
+      last_event_type_ == nerve::NeuronType::PICKED_UP &&
+      event_age_ms < kPickedUpResponseMs;
+  const bool shake_response =
+      last_event_type_ == nerve::NeuronType::SHAKE &&
+      event_age_ms < kShakeResponseMs;
+
   if (touch_response) {
     resting_openness = clamp01(resting_openness + 0.10f);
     micro_behavior_.gaze_x *= 0.35f;
     micro_behavior_.gaze_y = clampSigned(micro_behavior_.gaze_y - 0.08f);
+  } else if (picked_up_response) {
+    // Being lifted is treated as immediate attention/arousal rather than a
+    // fixed emotion preset.
+    resting_openness = clamp01(resting_openness + 0.18f);
+    micro_behavior_.gaze_x *= 0.20f;
+    micro_behavior_.gaze_y = clampSigned(micro_behavior_.gaze_y + 0.10f);
+  } else if (shake_response) {
+    // A shake is a stronger body event. Keep the response procedural and
+    // temporary; exact expression design remains a later Face task.
+    resting_openness = clamp01(resting_openness + 0.12f);
+    const float shake_phase = static_cast<float>(event_age_ms) * 0.035f;
+    micro_behavior_.gaze_x = clampSigned(sinf(shake_phase) * 0.22f);
+    micro_behavior_.gaze_y = clampSigned(cosf(shake_phase * 0.7f) * 0.10f);
   }
 
   // Blink envelope. This gives the standalone body a life rhythm without
@@ -90,6 +113,13 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   // mirrored while keeping the output subtle and continuous.
   micro_behavior_.left_eye_bias = sinf((t * 0.23f) + 0.4f) * 0.025f;
   micro_behavior_.right_eye_bias = sinf((t * 0.19f) + 2.0f) * 0.025f;
+
+  if (shake_response) {
+    const float shake_bias = sinf(static_cast<float>(event_age_ms) * 0.045f) * 0.05f;
+    micro_behavior_.left_eye_bias += shake_bias;
+    micro_behavior_.right_eye_bias -= shake_bias;
+  }
+
   micro_behavior_.generated_ms = now_ms;
 }
 
