@@ -75,5 +75,24 @@ bool HeartPersistence::savePrimary(const HeartState& state) {
   return ok;
 }
 
+void HeartPersistence::setMicroSdBackupHandlers(
+    HeartBackupSaveHandler save_handler,
+    HeartBackupLoadHandler load_handler,
+    void* context) {
+  micro_sd_backup_.setHandlers(save_handler, load_handler, context);
+}
+
+bool HeartPersistence::microSdBackupAvailable() const {
+  return micro_sd_backup_.canSave() || micro_sd_backup_.canLoad();
+}
+
+bool HeartPersistence::saveBackup(const HeartState& state) const {
+  return micro_sd_backup_.save(state);
+}
+
+bool HeartPersistence::loadBackup(HeartState& out_state) const {
+  return micro_sd_backup_.load(out_state);
+}
+
 }  // namespace ghost
 }  // namespace deskbot
