@@ -57,6 +57,11 @@ class MemoryEngine {
                       void* context = nullptr);
   bool offerToLane(MemoryLane lane, const MemoryRecord& record) const;
 
+  // LOCK 46 / 50 production boundary. At Step 4 this returns a semantic hint
+  // only; Memory does not invent thresholds, gains or decay rates.
+  reflex::ReflexSensitivityHint reflexSensitivityHint(
+      const nerve::SemanticNeuron& neuron) const;
+
   const ShortMemory& shortMemory() const { return short_memory_; }
   const MemoryRecord& lastCandidate() const { return last_candidate_; }
 
