@@ -59,6 +59,7 @@ Ghost本体は独自実装のまま維持し、以下を正式な参照実装と
 - `ReflexLayer`：即時反応用の意味→ReflexIntent変換
 - `DesktopCompanionRuntime`：Synapse / Ghost / Reflexを束ねる常駐Runtime
 - `FaceRenderer`：M5GFXによる身体出力側の顔描画器官
+- `HeartPersistence`：Arduino `Preferences` を使ったNVS主保存の本番境界
 
 起動時にRuntimeを初期化し、以後のAdapterは `runtime.emit(SemanticNeuron)` で神経系へ接続できる構造になっている。
 
@@ -66,7 +67,20 @@ Ghost本体は独自実装のまま維持し、以下を正式な参照実装と
 
 LOCK 47〜49に従い、`ReflexResult` をRuntimeからGhostへ戻し、Heart / Memoryへ渡す本番フィードバック境界を追加した。2026-09-17、追加後のコードについてもCoreS3実機でコンパイル／書き込み／起動まで確認済み。具体的なHeart変化量、Memory保持条件、Reflex感度変化量は未LOCKのため実装していない。
 
-さらにLOCK 51として、Heart永続化の保存方式を **NVS主保存＋microSDバックアップ** に固定した。NVSは起動時の主復元元、microSDは独立したバックアップ／復旧経路とし、microSD未挿入・マウント失敗でも基本生命活動を止めない。
+さらにLOCK 51として、Heart永続化の保存方式を **NVS主保存＋microSDバックアップ** に固定した。
+
+2026-09-17、NVS主保存の第一段として `HeartPersistence` を追加し、
+
+- NVSにHeart 6状態を保存できる
+- NVSに既存snapshotがあるか判定できる
+- NVSから保存済みHeart snapshotを読み出せる
+- 初回起動時はLOCK 28初期値をNVSへ初期保存する
+- 通常起動時は既存NVS snapshotを読み込んだことをHeartEngineで判別できる
+- Serialで初回初期化／既存snapshot読込を確認できる
+
+本番境界を実装した。
+
+ただし、LOCK 20の状態別復元については、`mood / curiosity` の減衰量、`boredom / sleepiness` の再計算方法などが未固定のため、保存済みsnapshotをそのまま現在Heartへ機械的に適用していない。ここは推測で埋めない。
 
 ## 5. 現在の神経構造
 
@@ -101,7 +115,20 @@ Heart Contextはread-only snapshotとして扱い、1イベント開始時のsna
 
 Semantic NeuronおよびReflex結果がGhostへ到達する本番配線を先に成立させる。
 
-Heart永続化はLOCK 51に従い、**CoreS3内部NVS（Arduino `Preferences`）を主保存、microSDをバックアップ**とする。保存周期・バックアップ世代数・ファイル形式・破損判定方式等は、実装上必要になるまで先行固定しない。
+Heart永続化はLOCK 51に従い、**CoreS3内部NVS（Arduino `Preferences`）を主保存、microSDをバックアップ**とする。
+
+現在はNVS主保存のストレージ境界まで実装済み。初回起動と通常起動を区別し、保存済みsnapshotを取得できる。
+
+まだ実装しないもの：
+
+- 保存周期
+- microSDバックアップ世代数
+- microSDファイル形式
+- 破損判定方式
+- Heart係数・閾値
+- LOCK 20の状態別復元式の未決部分
+
+これらは推測で固定しない。
 
 ## 7. 最初の感覚縦貫通
 
@@ -145,11 +172,18 @@ Pi5停止時でもM5Stack側の基本生命活動を継続する。
 
 現在はStep 4を完了させる。
 
-次はLOCK 19・20・51に従い、Heartの永続化を実装する。
+まず、今回追加した **HeartPersistence / NVS主保存境界** がCoreS3上でコンパイル・書き込み・起動できることを確認する。
 
-まずNVS側に主保存／復元の本番境界を置き、初回起動と通常起動を区別できる構造にする。その後、同じHeart状態をmicroSDへバックアップできる本番境界を追加する。
+確認時はSerialで、
 
-この段階でも、保存周期・バックアップ世代数・ファイル形式・Heart係数・閾値等を推測で固定しない。コードを書くために具体的決定が必要になった項目だけ追加設計へ戻る。
+- 初回なら `[HEART][NVS] First boot snapshot initialized: OK`
+- 既存snapshotがあれば `[HEART][NVS] Existing primary snapshot loaded`
+
+のどちらになるかを見る。
+
+実機確認後、LOCK 20に従う「保存snapshot → 現在Heart」の状態別復元を進める。ただし、コードを書くために必要な復元ルールが未決なら、その具体点だけ追加設計へ戻る。
+
+その後、同じHeart状態をmicroSDへバックアップできる本番境界を追加する。
 
 Heart永続化の本番骨格確認後、Step 4に残るMemory本番境界とReflex感度修飾入口を確認する。Step 4完了後、Step 5として最初の外部感覚 **ToF4M / U172** を Device Driver層から再開する。ToF4M未検出問題はセンサー固有層で切り分け、Ghost / Runtimeを巻き込まない。
 
@@ -157,4 +191,4 @@ Heart永続化の本番骨格確認後、Step 4に残るMemory本番境界とRef
 
 Desktop Companion全体としては未完成。
 
-ただし、**ゼロベース基盤から生命情報を流す神経RuntimeとGhost本番骨格が実機起動し、Reflex結果の内面フィードバック経路まで実機確認済み。現在はHeart永続化の本番実装へ進む段階**にある。
+ただし、**ゼロベース基盤から生命情報を流す神経RuntimeとGhost本番骨格が実機起動し、Reflex結果の内面フィードバック経路まで実機確認済み。現在はHeartのNVS主保存境界を実装し、実機確認へ進む段階**にある。
