@@ -1,12 +1,8 @@
-# CoreS3 Base — Step 0
+# CoreS3 Base — 現行実装基準点
 
-M5Stack Desktop Companion の新しい実装基準点。
+M5Stack Desktop Companion の新しいゼロベース実装基準点。
 
-## 目的
-
-過去の Stack-chan 系・派生OSS・混在ライブラリ・旧初期化前提を一切引き継がず、M5Stack CoreS3 公式環境から独自実装を開始する。
-
-## 固定する素体
+## 基盤
 
 - Hardware: M5Stack CoreS3
 - Framework: Arduino
@@ -14,34 +10,59 @@ M5Stack Desktop Companion の新しい実装基準点。
 - Graphics: M5GFX
 - Application: M5Stack Desktop Companion 独自コード
 
-## このStepでは入れないもの
+既存Stack-chan系OSSは親Repo・初期基盤として使用しない。
 
-- Stack-chan本家
-- AI_StackChan_Ex
-- stack-chan-ko
-- RoboEyes
-- esp32-camera
-- 外付けセンサー用ライブラリ
-- Heart Engine
-- Nerve / Semantic Neuron
-- 表情・人格・会話
+## 現在地
 
-これらはStep 0の起動基準には含めない。
+Step 0のClean Base確認後、現在は神経RuntimeとGhost本番骨格の実装へ進んでいる。
 
-## 実機ゼロ化
+現在の主な構成：
 
-新しい素体を書き込む前に、CoreS3のFlashを全消去する。
+- `SemanticNeuron`
+- `SynapseRouter`
+- `DesktopCompanionRuntime`
+- `ReflexLayer`
+- `GhostCore`
+- `HeartEngine`
+- `MemoryEngine`
+- `TimeEngine`
+- `RelationshipEngine`
+- `BehaviorEngine`
 
-目的は旧Firmwareだけでなく、旧設定・NVS等の残留状態を新基準へ持ち込まないこと。
+Ghostは後付けせず、`Heart / Memory / Time / Relationship / Behavior` を本番境界として最初から保持する。
 
-Flash全消去後に `cores3_base.ino` を書き込む。
+## Heart Engine 現在実装
 
-## Step 0 完成条件
+LOCK済みの初回起動値を使用する。
 
-1. 旧Firmwareを前提にせずビルドできる。
-2. CoreS3へ書き込める。
-3. 起動後、画面に `CoreS3 BASE` と `STEP 0 / CLEAN START` が表示される。
-4. Serial 115200で `[STEP0] CoreS3 clean base started` が確認できる。
-5. Stack-chan系コード・RoboEyes・Camera・センサー・Heart等が起動に一切関与していない。
+- mood = 0.60
+- affection = 0.55
+- curiosity = 0.65
+- boredom = 0.15
+- sleepiness = 0.15
+- attention = 0.50
 
-ここまで成功した状態を、Step 1「CoreS3素体検査」の基準点とする。
+内部値は0.0〜1.0で扱い、`HeartContext` はread-only snapshotとして取得する。
+
+1イベント処理では開始時点のHeart Contextを固定し、同一イベント中の各Ghost要素へ同じsnapshotを渡す。
+
+イベントごとの具体的なHeart変化量、時間減衰率、回復係数等は、未LOCK値を勝手に実装しない。
+
+## 起動確認
+
+画面：
+
+- `CoreS3 BASE`
+- `NERVE / GHOST READY`
+
+Serial 115200：
+
+- Runtime READY / ERROR
+- Synapse binding数
+- Heart初期6値
+
+を確認できる。
+
+## 旧資産
+
+Stack-chan本家、AI_StackChan_Ex、stack-chan-ko、RoboEyes、旧Yuki実装等はLEGACY参考資産として扱い、現行基盤へ自動的に混在させない。
