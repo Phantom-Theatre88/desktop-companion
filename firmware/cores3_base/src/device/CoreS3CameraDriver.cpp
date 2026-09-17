@@ -41,14 +41,18 @@ camera_config_t makeCoreS3CameraConfig() {
 
 }  // namespace
 
-CameraProbeResult CoreS3CameraDriver::probeOnce() {
-  CameraProbeResult result;
+CameraCaptureResult CoreS3CameraDriver::captureOnce(
+    uint32_t now_ms,
+    CameraFrameConsumer* consumer) {
+  CameraCaptureResult result;
+  result.timestamp_ms = now_ms;
 
   // CoreS3's GC0308 SCCB shares GPIO11/12 with M5Unified's internal I2C.
-  // Follow M5Stack's official camera example and release the internal bus
-  // before esp_camera_init(). This first implementation intentionally performs
-  // a one-shot probe only, then deinitializes the camera and restores the
-  // existing M5Unified I2C bus so Touch/IMU remain the standing DeskRobo senses.
+  // For now we intentionally keep each capture transaction self-contained:
+  // release internal I2C -> init/capture -> deinit camera -> restore internal I2C.
+  // This is slower than a persistent camera session, but it keeps Touch/IMU
+  // ownership explicit while we prove that repeated vision does not break the
+  // already-working standalone DeskRobo senses.
   M5.In_I2C.release();
 
   camera_config_t config = makeCoreS3CameraConfig();
@@ -70,43 +74,23 @@ CameraProbeResult CoreS3CameraDriver::probeOnce() {
     result.width = frame->width;
     result.height = frame->height;
     result.bytes = frame->len;
-    result.average_luma = estimateLumaRgb565(frame->buf, frame->len);
+
+    if (consumer != nullptr) {
+      CameraFrameView view;
+      view.data = frame->buf;
+      view.bytes = frame->len;
+      view.width = frame->width;
+      view.height = frame->height;
+      view.timestamp_ms = now_ms;
+      consumer->onCameraFrame(view);
+    }
+
     esp_camera_fb_return(frame);
   }
 
   esp_camera_deinit();
   result.internal_i2c_restored = M5.In_I2C.begin();
   return result;
-}
-
-uint8_t CoreS3CameraDriver::estimateLumaRgb565(const uint8_t* data, size_t bytes) {
-  if (data == nullptr || bytes < 2) {
-    return 0;
-  }
-
-  uint32_t sum = 0;
-  uint32_t count = 0;
-
-  // A sparse sample is enough for the first camera diagnostic and avoids doing
-  // image-processing work inside the Device Driver layer.
-  constexpr size_t kStrideBytes = 512;
-  for (size_t i = 0; i + 1 < bytes; i += kStrideBytes) {
-    const uint16_t pixel = static_cast<uint16_t>(data[i]) |
-                           (static_cast<uint16_t>(data[i + 1]) << 8);
-    const uint8_t r5 = (pixel >> 11) & 0x1F;
-    const uint8_t g6 = (pixel >> 5) & 0x3F;
-    const uint8_t b5 = pixel & 0x1F;
-
-    const uint16_t r = (r5 * 255u) / 31u;
-    const uint16_t g = (g6 * 255u) / 63u;
-    const uint16_t b = (b5 * 255u) / 31u;
-    const uint16_t y = static_cast<uint16_t>((r * 30u + g * 59u + b * 11u) / 100u);
-
-    sum += y;
-    ++count;
-  }
-
-  return count == 0 ? 0 : static_cast<uint8_t>(sum / count);
 }
 
 }  // namespace device
