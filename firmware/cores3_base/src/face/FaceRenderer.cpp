@@ -5,14 +5,23 @@ namespace face {
 
 void FaceRenderer::begin(M5GFX& display) {
   display_ = &display;
+
+  if (canvas_ == nullptr) {
+    canvas_ = new M5Canvas(&display);
+    canvas_->setColorDepth(16);
+    canvas_->createSprite(display.width(), display.height());
+  }
 }
 
 void FaceRenderer::render(const ExpressionParams& expression) {
-  if (display_ == nullptr) {
+  if (display_ == nullptr || canvas_ == nullptr) {
     return;
   }
 
-  display_->fillScreen(TFT_BLACK);
+  // Draw the complete frame offscreen, then push it in one operation.
+  // This prevents the visible black-clear -> eye-redraw flashing that occurs
+  // when the physical LCD is cleared on every life-loop frame.
+  canvas_->fillSprite(TFT_BLACK);
 
   const int16_t w = display_->width();
   const int16_t h = display_->height();
@@ -31,6 +40,8 @@ void FaceRenderer::render(const ExpressionParams& expression) {
           expression.right,
           false,
           expression.eye_color);
+
+  canvas_->pushSprite(0, 0);
 }
 
 void FaceRenderer::drawEye(int16_t cx,
@@ -38,7 +49,7 @@ void FaceRenderer::drawEye(int16_t cx,
                            const EyeParams& eye,
                            bool is_left,
                            uint32_t color) {
-  if (display_ == nullptr) {
+  if (display_ == nullptr || canvas_ == nullptr) {
     return;
   }
 
@@ -55,7 +66,7 @@ void FaceRenderer::drawEye(int16_t cx,
   const int16_t y = cy - eh / 2;
   const int16_t radius = eh / 2;
 
-  display_->fillRoundRect(x, y, ew, eh, radius, color);
+  canvas_->fillRoundRect(x, y, ew, eh, radius, color);
 
   // Shape the eyelid by cutting the upper edge with the black background.
   // Positive tilt makes the inner corner lower: a sharper/angrier look.
@@ -66,21 +77,21 @@ void FaceRenderer::drawEye(int16_t cx,
     const int16_t right_top = y;
 
     if (is_left) {
-      display_->fillTriangle(x,
-                             left_top,
-                             x + ew,
-                             right_top,
-                             x + ew,
-                             right_top + cut,
-                             TFT_BLACK);
+      canvas_->fillTriangle(x,
+                            left_top,
+                            x + ew,
+                            right_top,
+                            x + ew,
+                            right_top + cut,
+                            TFT_BLACK);
     } else {
-      display_->fillTriangle(x,
-                             left_top,
-                             x + ew,
-                             right_top,
-                             x,
-                             left_top + cut,
-                             TFT_BLACK);
+      canvas_->fillTriangle(x,
+                            left_top,
+                            x + ew,
+                            right_top,
+                            x,
+                            left_top + cut,
+                            TFT_BLACK);
     }
   }
 }
