@@ -5,6 +5,22 @@ namespace ghost {
 
 void HeartEngine::begin(uint32_t now_ms) {
   state_ = HeartState{};
+  primary_snapshot_ = HeartState{};
+  primary_snapshot_loaded_ = false;
+  first_boot_initialized_ = false;
+  primary_save_ok_ = false;
+
+  // LOCK 19 / LOCK 51:
+  // NVS is the primary Heart storage. This stage establishes the real
+  // first-boot / normal-boot boundary without inventing LOCK 20's still-open
+  // state-specific restoration coefficients or time rules.
+  if (persistence_.loadPrimary(primary_snapshot_)) {
+    primary_snapshot_loaded_ = true;
+  } else {
+    first_boot_initialized_ = true;
+    primary_save_ok_ = persistence_.savePrimary(state_);
+  }
+
   clampState();
   last_tick_ms_ = now_ms;
   last_event_type_ = nerve::NeuronType::NONE;
