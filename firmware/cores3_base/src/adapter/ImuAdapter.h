@@ -18,7 +18,8 @@ class ImuAdapter {
     SEEKING_REST = 0,
     REST_ARMED,
     LIFT_CANDIDATE,
-    POST_EVENT_SUPPRESS,
+    HELD,
+    SETDOWN_CANDIDATE,
   };
 
   static float magnitude(float x, float y, float z);
@@ -34,7 +35,10 @@ class ImuAdapter {
   uint32_t rest_started_ms_ = 0;
   uint32_t lift_started_ms_ = 0;
   uint32_t lift_quiet_started_ms_ = 0;
-  uint32_t suppress_until_ms_ = 0;
+  uint32_t setdown_quiet_started_ms_ = 0;
+  bool setdown_impact_seen_ = false;
+
+  uint32_t pickup_suppress_until_ms_ = 0;
   uint32_t last_shake_ms_ = 0;
 };
 
