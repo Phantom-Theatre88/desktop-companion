@@ -86,9 +86,19 @@ NVS主保存の第一段として `HeartPersistence` を実装し、2026-09-17�
 - 各Memory Laneへ将来の保存実装を接続できるhandler境界
 - `lastCandidate()`：直近の記憶候補を保持する最小境界
 
+2026-09-17、`MemoryEngine.cpp` がCoreS3向けビルド／リンク対象に入り、書き込み・再起動後もRuntime READY、NVS既存snapshot読込、Face表示まで正常であることを実機確認した。
+
 具体的な保持件数、分類条件、減衰率、長期保存条件は未LOCKのため実装していない。
 
-このMemory追加分は**次回CoreS3ビルド確認待ち**。
+続いてLOCK 46・50に従い、Memory/GhostからReflexへ経験由来の感度修飾を渡せる入口境界を実装した。
+
+- `ReflexSensitivityDirection`：`BASELINE / HEIGHTEN / RELAX`
+- `ReflexSensitivityHint`：対象刺激と経験由来かを示す意味境界
+- `ReflexSensitivityProvider`：Reflexが反応選択前にMemory/Ghostへ問い合わせる入口
+- `MemoryEngine::reflexSensitivityHint()`：将来の危険記憶から修飾を返す本番境界
+- Runtimeで `Memory → Ghost → Reflex` の参照経路を接続
+
+現段階ではMemory側の具体的な危険分類・閾値・増減率・時間定数が未LOCKのため、返す値は `BASELINE` のみ。入口経路だけを本番構造として成立させている。
 
 ## 5. 現在の神経構造
 
@@ -101,6 +111,8 @@ Synapse＝どの層へ結ぶかを決める。
 Ghost＝Heart / Memory / Time / Relationship / Behaviorの中核。
 
 ReflexはHeartやPi5を待たず先行でき、完了結果はRuntime → Ghost → Heart / Memoryへ戻せる。
+
+危険・恐怖系の経験が将来成立した場合は、Memory / GhostからReflexへ感度修飾Hintを先行入力できる境界を持つ。
 
 ## 6. Heart Engineの扱い
 
@@ -136,6 +148,8 @@ Step 4では、最初から以下へ拡張できる本番境界を持つ。
 
 2026-09-17、この4系統を `MemoryLane` として実コード上に置き、Semantic event / Reflex resultとHeart Contextを結び付けた `MemoryRecord` を渡せる境界を追加した。
 
+同日、CoreS3でビルド・書き込み・再起動確認まで通過した。
+
 分類ルール・保持条件・保存件数はまだ固定しない。
 
 ## 8. Reflexの扱い
@@ -146,7 +160,17 @@ Reflex結果はHeart / Memoryへ戻る本番境界を実装済み。
 
 繰り返し危険だった刺激による将来のReflex感度修飾については、具体的閾値・増減率を固定せず、Step 4では修飾入口の本番境界までを対象とする。
 
-## 9. 最初の感覚縦貫通
+2026-09-17、`Memory → Ghost → ReflexSensitivityProvider → ReflexLayer` の入口境界を実装した。具体的な感度変化は未実装。
+
+## 9. Face / 表情の現在地
+
+`FaceRenderer` は現時点では身体出力の接続確認用として正常動作している。
+
+ただし実機観察で、現行の丸い2眼Neutral表示は **「かわいくない」** というUI課題が確認された。
+
+表情の完成はStep 8で扱う。固定画像切替を中心にせず、目の形・開き・傾き・視線・左右差・瞬き等の連続パラメータとHeart / 外界 / 直近履歴を結び付ける。Step 4を中断して表情調整へ逸れないが、この課題は消さない。
+
+## 10. 最初の感覚縦貫通
 
 最初の外部感覚対象は **Unit ToF4M / U172**。
 
@@ -158,24 +182,23 @@ Step 5で、
 
 として再開する。
 
-## 10. 次の実装
+## 11. 次の実装
 
 現在はStep 4を完了させる。
 
-次は、今回追加した **MemoryRecord / MemoryLane本番境界** がCoreS3でコンパイル・書き込み・起動できることを確認する。
+次は、今回追加した **Reflex感度修飾入口境界** がCoreS3でコンパイル・書き込み・起動できることを確認する。
 
-確認後は、Step 4で残る次の項目を順に処理する。
+確認後、Step 4で残る主要項目は次の2点。
 
-1. Reflex感度修飾の入口境界
-2. HeartのmicroSDバックアップ境界
-3. LOCK 20状態別復元で、実コード上どうしても必要になった未決事項だけ追加設計
+1. HeartのmicroSDバックアップ境界
+2. LOCK 20状態別復元で、実コード上どうしても必要になった未決事項だけ追加設計
 
 係数・閾値・保存件数・減衰率等は先行固定しない。
 
 Step 4完了後、Step 5としてToF4M / U172のDevice Driver層へ戻る。
 
-## 11. 完成判定
+## 12. 完成判定
 
 Desktop Companion全体としては未完成。
 
-ただし、**神経Runtime / Ghost本番骨格、Reflex結果の内面フィードバック、Heart NVS主保存の再起動復元境界までCoreS3実機で成立。現在はMemory本番境界の実装確認へ進んだ段階**にある。
+ただし、**神経Runtime / Ghost本番骨格、Reflex結果の内面フィードバック、Heart NVS主保存の再起動復元境界、Memory本番境界までCoreS3実機で成立。現在はReflex感度修飾入口を実装し、実機確認へ進む段階**にある。
