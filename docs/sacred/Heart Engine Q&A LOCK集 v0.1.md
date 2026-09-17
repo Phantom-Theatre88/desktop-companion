@@ -129,6 +129,41 @@ Semantic NeuronからHeartへ入る1つのイベントは、Heartの1項目だ�
 
 これにより、1つの出来事から複数の内面変化が自然に連動し、単純な「1イベント＝1数値更新」ではないGhostらしい反応を可能にする。
 
+## LOCK 33｜Heart Contextが神経回路・行動反応を修飾する
+Heartは「笑う」「首を振る」「視線を向ける」などの身体動作を直接命令する主体にはしない。
+
+Heartは `mood / affection / curiosity / boredom / sleepiness / attention` 等の現在状態を、**Heart Context（その瞬間の内面状態）**として神経回路・Synapse・Behavior側から参照可能にする。
+
+基本構造は、
+
+**Semantic Neuron → Synapse → Reflex / Heart / Memory / Pi5高次認知 → Behavior Selector → 身体出力**
+
+を維持し、各神経や各デバイス実装が個別にHeartへ直接問い合わせて独自判断する構造にはしない。
+
+Heart Contextは、同じSemantic Neuron入力に対しても、Synapseでの通り方、反応の強さ、Behavior Selectorで選ばれる表現を変化させるための共通コンテキストとして扱う。
+
+たとえば同じ「人が近づいた」という入力でも、
+
+- `affection` が高ければ、相手へ寄る・嬉しそうに反応する方向が強まり得る
+- `curiosity` が高ければ、注目・観察する反応が強まり得る
+- `mood` が低ければ、同じ入力でも反応が鈍く・小さくなり得る
+- `attention` が低ければ、大きな身体反応を起こさず小さな反応に留まり得る
+
+というように、**同じ神経信号でもHeart状態によって反応性が変わる**構造とする。
+
+これは「各神経がHeartへ質問しに行く」という実装ではなく、**Heartの状態が神経回路全体の反応性に乗っている**状態を目指す。
+
+したがって、
+
+- Heart = 内面状態を保持する
+- Synapse = 入力をどこへ・どの条件で・どの程度通すかをHeart Context等で修飾できる
+- Behavior Selector = Heart Context、現在の外界状況、対人Session、安全優先度、身体資源競合などを合わせて最終的な身体表現を選ぶ
+- Body = 選ばれた表現を実行する
+
+という責任分離を維持する。
+
+Heart Contextの参照方式、キャッシュ方式、更新通知方式、係数、具体的な閾値は現段階では固定しない。まずは**Heartが行動命令を直接出さず、共通Contextとして神経回路・Behaviorの反応を修飾する**という骨格のみをLOCKする。
+
 ---
 
-この文書はLOCK18〜32の集約版であり、`PROJECT_LOCKS.md` および個別LOCK文書と矛盾する場合は、より新しい正式LOCKを優先する。
+この文書はLOCK18〜33の集約版であり、`PROJECT_LOCKS.md` および個別LOCK文書と矛盾する場合は、より新しい正式LOCKを優先する。
