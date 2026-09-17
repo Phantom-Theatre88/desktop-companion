@@ -6,6 +6,20 @@ namespace core {
 bool DesktopCompanionRuntime::begin(uint32_t now_ms) {
   ghost_.begin(now_ms);
 
+  // LOCK 46 / 50: Reflex may consult Memory/Ghost before selecting a response.
+  // Step 4 wires the boundary only; numeric sensitivity changes stay unimplemented
+  // until concrete thresholds/gains/time constants are LOCKed.
+  reflex_.setSensitivityProvider(
+      [](const nerve::SemanticNeuron& neuron,
+         void* context) -> reflex::ReflexSensitivityHint {
+        auto* self = static_cast<DesktopCompanionRuntime*>(context);
+        if (self == nullptr) {
+          return reflex::ReflexSensitivityHint{};
+        }
+        return self->ghost_.reflexSensitivityHint(neuron);
+      },
+      this);
+
   bool ok = true;
 
   const nerve::NeuronType ghost_inputs[] = {
