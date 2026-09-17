@@ -14,14 +14,27 @@ class ImuAdapter {
                 nerve::SemanticNeuron& out_neuron);
 
  private:
+  enum class MotionState : uint8_t {
+    SEEKING_REST = 0,
+    REST_ARMED,
+    LIFT_CANDIDATE,
+    POST_EVENT_SUPPRESS,
+  };
+
   static float magnitude(float x, float y, float z);
+
+  void resetRestDetection(uint32_t now_ms);
 
   bool has_previous_ = false;
   float previous_ax_ = 0.0f;
   float previous_ay_ = 0.0f;
   float previous_az_ = 0.0f;
-  uint8_t pickup_motion_hits_ = 0;
-  uint32_t last_pickup_ms_ = 0;
+
+  MotionState motion_state_ = MotionState::SEEKING_REST;
+  uint32_t rest_started_ms_ = 0;
+  uint32_t lift_started_ms_ = 0;
+  uint32_t lift_quiet_started_ms_ = 0;
+  uint32_t suppress_until_ms_ = 0;
   uint32_t last_shake_ms_ = 0;
 };
 
