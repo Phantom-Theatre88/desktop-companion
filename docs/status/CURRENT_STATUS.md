@@ -26,8 +26,6 @@ M5Stackを、単なる音声AI端末ではなく、
 
 既存OSSを親Repoにしない。
 
-基盤コードは実装済みで、プロジェクト上は**OS相当の基盤準備完了**として次段へ進む。
-
 Ghostは後付け機能ではなく、最初から本体中核として接続する。
 
 ## 3. Desktop Robo参照実装
@@ -46,41 +44,51 @@ Ghost本体は独自実装のまま維持し、以下を正式な参照実装と
 
 **神経・シナプス層：本番骨格実装済み、Step 4最小本番実装を継続中**
 
-現在、`heart-engine` ブランチの `firmware/cores3_base/` に以下を実装済み。
+`heart-engine` ブランチの `firmware/cores3_base/` には現在、以下の本番骨格がある。
 
-- `SemanticNeuron`：製品非依存の意味イベント
-- `SynapseRouter`：Neuronを必要な層へ分岐する固定長ルータ
-- `GhostCore`：Ghostの本番受け口
-- `HeartEngine`：LOCK 28初期値、Heart Context snapshot境界
-- `MemoryEngine`：短期イベント保持と将来拡張の本番境界
-- `TimeEngine`：時間処理の本番境界
-- `RelationshipEngine`：関係性処理の本番境界
-- `BehaviorEngine`：Behavior処理の本番境界
-- `ReflexLayer`：即時反応用の意味→ReflexIntent変換
-- `DesktopCompanionRuntime`：Synapse / Ghost / Reflexを束ねる常駐Runtime
-- `FaceRenderer`：M5GFXによる身体出力側の顔描画器官
-- `HeartPersistence`：Arduino `Preferences` を使ったNVS主保存の本番境界
+- `SemanticNeuron`
+- `SynapseRouter`
+- `GhostCore`
+- `HeartEngine`
+- `MemoryEngine`
+- `TimeEngine`
+- `RelationshipEngine`
+- `BehaviorEngine`
+- `ReflexLayer`
+- `DesktopCompanionRuntime`
+- `FaceRenderer`
+- `HeartPersistence`
 
-起動時にRuntimeを初期化し、以後のAdapterは `runtime.emit(SemanticNeuron)` で神経系へ接続できる構造になっている。
+LOCK 47〜49に従い、`ReflexResult` はRuntimeからGhostへ戻り、Heart / Memoryへ渡る。
 
-2026-09-17、CoreS3実機で現行 `heart-engine` の基盤・Ghost・FaceRendererまでコンパイル／書き込み／起動を確認した。
+2026-09-17、CoreS3実機でこのReflex結果フィードバック追加後のコードについて、コンパイル／書き込み／起動まで確認済み。
 
-LOCK 47〜49に従い、`ReflexResult` をRuntimeからGhostへ戻し、Heart / Memoryへ渡す本番フィードバック境界を追加した。2026-09-17、追加後のコードについてもCoreS3実機でコンパイル／書き込み／起動まで確認済み。具体的なHeart変化量、Memory保持条件、Reflex感度変化量は未LOCKのため実装していない。
+LOCK 51に従い、Heart永続化は **NVS主保存＋microSDバックアップ** とする。
 
-さらにLOCK 51として、Heart永続化の保存方式を **NVS主保存＋microSDバックアップ** に固定した。
+NVS主保存の第一段として `HeartPersistence` を実装し、2026-09-17、CoreS3実機で以下を確認済み。
 
-2026-09-17、NVS主保存の第一段として `HeartPersistence` を追加し、
+- `HeartPersistence.cpp` が実際にビルド対象へ入る
+- Arduino `Preferences` がリンクされる
+- CoreS3へ正常書き込みできる
+- 再起動後に `[HEART][NVS] Existing primary snapshot loaded` が出る
+- Heart 6状態をNVS snapshotとして読み出せる起動経路が成立する
 
-- NVSにHeart 6状態を保存できる
-- NVSに既存snapshotがあるか判定できる
-- NVSから保存済みHeart snapshotを読み出せる
-- 初回起動時はLOCK 28初期値をNVSへ初期保存する
-- 通常起動時は既存NVS snapshotを読み込んだことをHeartEngineで判別できる
-- Serialで初回初期化／既存snapshot読込を確認できる
+これにより、**HeartのNVS主保存／復元の本番骨格は実機確認まで通過**とする。
 
-本番境界を実装した。
+さらにStep 4のMemory本番境界として、以下を `heart-engine` へ追加した。
 
-ただし、LOCK 20の状態別復元については、`mood / curiosity` の減衰量、`boredom / sleepiness` の再計算方法などが未固定のため、保存済みsnapshotをそのまま現在Heartへ機械的に適用していない。ここは推測で埋めない。
+- `MemoryRecord`：Semantic eventまたはReflex resultと、その時点のHeart Contextを結び付けられる記録候補
+- `MemoryLane`：
+  - `INDIVIDUAL_EXPERIENCE`
+  - `REPEATED_TREND`
+  - `SPECIAL_LONG_TERM`
+  - `RELATIONSHIP_IMPACT`
+- 各Memory Laneへ将来の保存実装を接続できるhandler境界
+- `lastCandidate()`：直近の記憶候補を保持する最小境界
+
+具体的な保持件数、分類条件、減衰率、長期保存条件は未LOCKのため実装していない。
+
+このMemory追加分は**次回CoreS3ビルド確認待ち**。
 
 ## 5. 現在の神経構造
 
@@ -92,13 +100,11 @@ Synapse＝どの層へ結ぶかを決める。
 
 Ghost＝Heart / Memory / Time / Relationship / Behaviorの中核。
 
-ReflexはHeartやPi5を待たず先行でき、完了結果はRuntime → Ghost → Heart / Memoryへ戻せる境界を持つ。
+ReflexはHeartやPi5を待たず先行でき、完了結果はRuntime → Ghost → Heart / Memoryへ戻せる。
 
 ## 6. Heart Engineの扱い
 
-Heartの器は本番骨格として実装済みだが、詳細な数値変化ルールは未LOCKのため、現時点では勝手に固定しない。
-
-初期状態項目は、
+Heart状態は、
 
 - mood
 - affection
@@ -107,88 +113,69 @@ Heartの器は本番骨格として実装済みだが、詳細な数値変化ル
 - sleepiness
 - attention
 
-を保持する。
+を `0.0〜1.0` で保持する。
 
-初回値はLOCK 28の具体値を使用する。
+初回値はLOCK 28を使用する。
 
-Heart Contextはread-only snapshotとして扱い、1イベント開始時のsnapshotを同一イベント内で固定する。
+Heart Contextはread-only snapshotとし、1イベント処理中は開始時snapshotを固定する。
 
-Semantic NeuronおよびReflex結果がGhostへ到達する本番配線を先に成立させる。
+Heart永続化はLOCK 51に従い、**NVSを主保存、microSDをバックアップ**とする。
 
-Heart永続化はLOCK 51に従い、**CoreS3内部NVS（Arduino `Preferences`）を主保存、microSDをバックアップ**とする。
+現在、NVS主保存のストレージ境界と再起動時の既存snapshot読込確認まで完了している。
 
-現在はNVS主保存のストレージ境界まで実装済み。初回起動と通常起動を区別し、保存済みsnapshotを取得できる。
+LOCK 20の状態別復元のうち、`mood / curiosity` の減衰量、`boredom / sleepiness` の再計算方法など具体式は未固定のため、推測で実装しない。
 
-まだ実装しないもの：
+## 7. Memory Engineの扱い
 
-- 保存周期
-- microSDバックアップ世代数
-- microSDファイル形式
-- 破損判定方式
-- Heart係数・閾値
-- LOCK 20の状態別復元式の未決部分
+Step 4では、最初から以下へ拡張できる本番境界を持つ。
 
-これらは推測で固定しない。
+- 個別経験記憶
+- 反復傾向記憶
+- 特別長期記憶
+- Relationshipへ影響する記憶
 
-## 7. 最初の感覚縦貫通
+2026-09-17、この4系統を `MemoryLane` として実コード上に置き、Semantic event / Reflex resultとHeart Contextを結び付けた `MemoryRecord` を渡せる境界を追加した。
 
-最初の外部感覚対象は引き続き **Unit ToF4M / U172**。
+分類ルール・保持条件・保存件数はまだ固定しない。
 
-ただしToF4Mは実機側で未検出問題が残っているため、神経・シナプス本体をセンサー固有問題へ巻き込まない。
+## 8. Reflexの扱い
 
-ToF4M側は、
+安全・強い反射はHeart / Pi5より先に動ける。
+
+Reflex結果はHeart / Memoryへ戻る本番境界を実装済み。
+
+繰り返し危険だった刺激による将来のReflex感度修飾については、具体的閾値・増減率を固定せず、Step 4では修飾入口の本番境界までを対象とする。
+
+## 9. 最初の感覚縦貫通
+
+最初の外部感覚対象は **Unit ToF4M / U172**。
+
+ただし実機未検出問題が残っているため、センサー固有問題をGhost / Runtimeへ持ち込まない。
+
+Step 5で、
 
 **Device Driver → Adapter → PROXIMITY_* Semantic Neuron**
 
-までを独立実装し、検出問題解決後に現在のRuntimeへ接続する。
-
-## 8. 購入済みハードウェア
-
-### M5Stack側
-
-- Unit ToF4M / U172
-- Unit TMOS PIR / U185
-- ENV-Pro / U169
-- Unit Hub / U006
-
-### Raspberry Pi 5側
-
-- SSD
-- Raspberry Pi Camera Module 3 Wide
-
-## 9. M5Stack／Pi5の役割
-
-### M5Stack
-
-身体＋生命維持できる低次脳＋反射系＋Heart Engineの常時稼働部分。
-
-### Raspberry Pi 5
-
-高次感覚野＋認知脳＋言語＋長期記憶。
-
-Pi5停止時でもM5Stack側の基本生命活動を継続する。
+として再開する。
 
 ## 10. 次の実装
 
 現在はStep 4を完了させる。
 
-まず、今回追加した **HeartPersistence / NVS主保存境界** がCoreS3上でコンパイル・書き込み・起動できることを確認する。
+次は、今回追加した **MemoryRecord / MemoryLane本番境界** がCoreS3でコンパイル・書き込み・起動できることを確認する。
 
-確認時はSerialで、
+確認後は、Step 4で残る次の項目を順に処理する。
 
-- 初回なら `[HEART][NVS] First boot snapshot initialized: OK`
-- 既存snapshotがあれば `[HEART][NVS] Existing primary snapshot loaded`
+1. Reflex感度修飾の入口境界
+2. HeartのmicroSDバックアップ境界
+3. LOCK 20状態別復元で、実コード上どうしても必要になった未決事項だけ追加設計
 
-のどちらになるかを見る。
+係数・閾値・保存件数・減衰率等は先行固定しない。
 
-実機確認後、LOCK 20に従う「保存snapshot → 現在Heart」の状態別復元を進める。ただし、コードを書くために必要な復元ルールが未決なら、その具体点だけ追加設計へ戻る。
-
-その後、同じHeart状態をmicroSDへバックアップできる本番境界を追加する。
-
-Heart永続化の本番骨格確認後、Step 4に残るMemory本番境界とReflex感度修飾入口を確認する。Step 4完了後、Step 5として最初の外部感覚 **ToF4M / U172** を Device Driver層から再開する。ToF4M未検出問題はセンサー固有層で切り分け、Ghost / Runtimeを巻き込まない。
+Step 4完了後、Step 5としてToF4M / U172のDevice Driver層へ戻る。
 
 ## 11. 完成判定
 
 Desktop Companion全体としては未完成。
 
-ただし、**ゼロベース基盤から生命情報を流す神経RuntimeとGhost本番骨格が実機起動し、Reflex結果の内面フィードバック経路まで実機確認済み。現在はHeartのNVS主保存境界を実装し、実機確認へ進む段階**にある。
+ただし、**神経Runtime / Ghost本番骨格、Reflex結果の内面フィードバック、Heart NVS主保存の再起動復元境界までCoreS3実機で成立。現在はMemory本番境界の実装確認へ進んだ段階**にある。
