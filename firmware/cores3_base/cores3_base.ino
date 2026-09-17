@@ -1,8 +1,10 @@
 #include <M5Unified.h>
 #include <M5GFX.h>
 
+#include "src/adapter/ImuAdapter.h"
 #include "src/adapter/TouchAdapter.h"
 #include "src/core/DesktopCompanionRuntime.h"
+#include "src/device/CoreS3ImuDriver.h"
 #include "src/device/CoreS3TouchDriver.h"
 #include "src/face/FaceRenderer.h"
 
@@ -10,6 +12,8 @@ deskbot::core::DesktopCompanionRuntime runtime;
 deskbot::face::FaceRenderer face_renderer;
 deskbot::device::CoreS3TouchDriver touch_driver;
 deskbot::adapter::TouchAdapter touch_adapter;
+deskbot::device::CoreS3ImuDriver imu_driver;
+deskbot::adapter::ImuAdapter imu_adapter;
 
 namespace {
 
@@ -41,6 +45,22 @@ void pollTouch(uint32_t now_ms) {
     Serial.printf("[SENSE][TOUCH] TOUCH x=%ld y=%ld\n",
                   static_cast<long>(neuron.payload.x),
                   static_cast<long>(neuron.payload.y));
+  }
+}
+
+void pollImu(uint32_t now_ms) {
+  const auto sample = imu_driver.sample(now_ms);
+  deskbot::nerve::SemanticNeuron neuron;
+  if (!imu_adapter.toNeuron(sample, neuron)) {
+    return;
+  }
+
+  runtime.emit(neuron);
+
+  if (neuron.type == deskbot::nerve::NeuronType::PICKED_UP) {
+    Serial.printf("[SENSE][IMU] PICKED_UP motion=%.3f\n", neuron.payload.scalar);
+  } else if (neuron.type == deskbot::nerve::NeuronType::SHAKE) {
+    Serial.printf("[SENSE][IMU] SHAKE motion=%.3f\n", neuron.payload.scalar);
   }
 }
 
@@ -91,6 +111,11 @@ void setup() {
   Serial.printf("[SENSE][TOUCH] Device driver: %s\n",
                 M5.Touch.isEnabled() ? "READY" : "UNAVAILABLE");
 
+  imu_driver.begin();
+  imu_adapter.begin(millis());
+  Serial.printf("[SENSE][IMU] Device driver: %s\n",
+                imu_driver.available() ? "READY" : "UNAVAILABLE");
+
   face_renderer.begin(M5.Display);
   runtime.tick(millis());
   renderLivingFace(millis());
@@ -102,6 +127,7 @@ void loop() {
 
   const uint32_t now_ms = millis();
   pollTouch(now_ms);
+  pollImu(now_ms);
   runtime.tick(now_ms);
   renderLivingFace(now_ms);
 
