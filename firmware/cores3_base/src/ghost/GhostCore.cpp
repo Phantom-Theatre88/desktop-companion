@@ -4,24 +4,30 @@ namespace deskbot {
 namespace ghost {
 
 void GhostCore::begin(uint32_t now_ms) {
-  last_tick_ms_ = now_ms;
+  heart_.begin(now_ms);
+  memory_.begin(now_ms);
+  time_.begin(now_ms);
+  relationship_.begin(now_ms);
+  behavior_.begin(now_ms);
 }
 
 void GhostCore::onNeuron(const nerve::SemanticNeuron& neuron) {
-  memory_.last_type = neuron.type;
-  memory_.last_source = neuron.source;
-  memory_.last_event_ms = neuron.timestamp_ms;
-  ++memory_.event_count;
+  // LOCK 35: capture Heart Context once at the start of this event and use
+  // the same read-only snapshot throughout the event processing unit.
+  const HeartContext event_context = heart_.snapshot(neuron.timestamp_ms);
 
-  // Heart numeric rules are intentionally not hard-coded here yet.
-  // The sacred docs still mark detailed Heart tuning as undecided.
-  // This ingress is production wiring: semantic events now reach Ghost.
+  heart_.onNeuron(neuron, event_context);
+  memory_.onNeuron(neuron, event_context);
+  relationship_.onNeuron(neuron, event_context);
+  behavior_.onNeuron(neuron, event_context);
 }
 
 void GhostCore::tick(uint32_t now_ms) {
-  // Time enters Ghost from the first implementation, but detailed state
-  // transition rates are added only after the Heart numeric spec is LOCKed.
-  last_tick_ms_ = now_ms;
+  time_.tick(now_ms);
+  heart_.tick(now_ms);
+  memory_.tick(now_ms);
+  relationship_.tick(now_ms);
+  behavior_.tick(now_ms);
 }
 
 void GhostCore::synapseHandler(const nerve::SemanticNeuron& neuron, void* context) {
