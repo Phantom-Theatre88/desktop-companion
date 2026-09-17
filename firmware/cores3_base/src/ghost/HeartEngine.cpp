@@ -62,6 +62,25 @@ HeartContext HeartEngine::snapshot(uint32_t now_ms) const {
   return context;
 }
 
+void HeartEngine::setMicroSdBackupHandlers(
+    HeartBackupSaveHandler save_handler,
+    HeartBackupLoadHandler load_handler,
+    void* context) {
+  persistence_.setMicroSdBackupHandlers(save_handler, load_handler, context);
+}
+
+bool HeartEngine::microSdBackupAvailable() const {
+  return persistence_.microSdBackupAvailable();
+}
+
+bool HeartEngine::saveMicroSdBackup() const {
+  return persistence_.saveBackup(state_);
+}
+
+bool HeartEngine::loadMicroSdBackup(HeartState& out_state) const {
+  return persistence_.loadBackup(out_state);
+}
+
 float HeartEngine::clamp01(float value) {
   if (value < 0.0f) {
     return 0.0f;
