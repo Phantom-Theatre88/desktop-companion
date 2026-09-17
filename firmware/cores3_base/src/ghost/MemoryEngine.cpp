@@ -69,5 +69,18 @@ bool MemoryEngine::offerToLane(MemoryLane lane,
   return true;
 }
 
+reflex::ReflexSensitivityHint MemoryEngine::reflexSensitivityHint(
+    const nerve::SemanticNeuron& neuron) const {
+  // The production connection exists now, but Step 4 intentionally has no
+  // retention/classification rule that can justify a non-baseline modifier yet.
+  // Future danger-memory logic can return HEIGHTEN/RELAX here without changing
+  // ReflexLayer's public contract.
+  reflex::ReflexSensitivityHint hint;
+  hint.direction = reflex::ReflexSensitivityDirection::BASELINE;
+  hint.stimulus = neuron.type;
+  hint.from_experience = false;
+  return hint;
+}
+
 }  // namespace ghost
 }  // namespace deskbot
