@@ -7,6 +7,30 @@
 deskbot::core::DesktopCompanionRuntime runtime;
 deskbot::face::FaceRenderer face_renderer;
 
+namespace {
+
+uint32_t last_face_render_ms = 0;
+constexpr uint32_t kFaceRenderIntervalMs = 40;
+
+void renderLivingFace(uint32_t now_ms) {
+  if ((now_ms - last_face_render_ms) < kFaceRenderIntervalMs) {
+    return;
+  }
+  last_face_render_ms = now_ms;
+
+  const auto& micro = runtime.ghost().behaviorEngine().microBehavior();
+  auto expression = deskbot::face::FaceRenderer::neutral();
+
+  expression.left.openness = micro.eye_openness + micro.left_eye_bias;
+  expression.right.openness = micro.eye_openness + micro.right_eye_bias;
+  expression.offset_x = micro.gaze_x;
+  expression.offset_y = micro.gaze_y;
+
+  face_renderer.render(expression);
+}
+
+}  // namespace
+
 void setup() {
   auto cfg = M5.config();
   M5.begin(cfg);
@@ -49,12 +73,17 @@ void setup() {
   }
 
   face_renderer.begin(M5.Display);
-  face_renderer.render(deskbot::face::FaceRenderer::neutral());
-  Serial.println("[FACE] Neutral expression rendered");
+  runtime.tick(millis());
+  renderLivingFace(millis());
+  Serial.println("[DESKROBO] Standalone Heart/Time -> Behavior -> Face life loop started");
 }
 
 void loop() {
   M5.update();
-  runtime.tick(millis());
+
+  const uint32_t now_ms = millis();
+  runtime.tick(now_ms);
+  renderLivingFace(now_ms);
+
   delay(10);
 }
