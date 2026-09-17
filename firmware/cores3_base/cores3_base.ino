@@ -39,6 +39,8 @@ void setup() {
 
   if (heart_engine.primarySnapshotLoaded()) {
     Serial.println("[HEART][NVS] Existing primary snapshot loaded");
+    Serial.printf("[HEART][RESTORE] LOCK20 field plan: %s\n",
+                  heart_engine.restorePending() ? "PENDING_STEP9_INPUTS" : "READY");
   } else if (heart_engine.firstBootInitialized()) {
     Serial.printf("[HEART][NVS] First boot snapshot initialized: %s\n",
                   heart_engine.primarySaveOk() ? "OK" : "ERROR");
