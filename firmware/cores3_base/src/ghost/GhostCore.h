@@ -23,6 +23,11 @@ class GhostCore {
   HeartContext heartContext(uint32_t now_ms) const { return heart_.snapshot(now_ms); }
   const ShortMemory& memory() const { return memory_.shortMemory(); }
 
+  reflex::ReflexSensitivityHint reflexSensitivityHint(
+      const nerve::SemanticNeuron& neuron) const {
+    return memory_.reflexSensitivityHint(neuron);
+  }
+
   HeartEngine& heartEngine() { return heart_; }
   MemoryEngine& memoryEngine() { return memory_; }
   TimeEngine& timeEngine() { return time_; }
