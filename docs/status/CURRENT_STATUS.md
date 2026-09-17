@@ -44,17 +44,27 @@ Ghost本体は独自実装のまま維持し、以下を正式な参照実装と
 
 **基盤／OS相当：準備完了**
 
-**神経・シナプス層：実装開始**
+**神経・シナプス層：本番骨格実装済み、Step 4最小本番実装を継続中**
 
 現在、`heart-engine` ブランチの `firmware/cores3_base/` に以下を実装済み。
 
 - `SemanticNeuron`：製品非依存の意味イベント
 - `SynapseRouter`：Neuronを必要な層へ分岐する固定長ルータ
-- `GhostCore`：GhostのNeuron受け口と短期イベント保持
+- `GhostCore`：Ghostの本番受け口
+- `HeartEngine`：LOCK 28初期値、Heart Context snapshot境界
+- `MemoryEngine`：短期イベント保持と将来拡張の本番境界
+- `TimeEngine`：時間処理の本番境界
+- `RelationshipEngine`：関係性処理の本番境界
+- `BehaviorEngine`：Behavior処理の本番境界
 - `ReflexLayer`：即時反応用の意味→ReflexIntent変換
 - `DesktopCompanionRuntime`：Synapse / Ghost / Reflexを束ねる常駐Runtime
+- `FaceRenderer`：M5GFXによる身体出力側の顔描画器官
 
 起動時にRuntimeを初期化し、以後のAdapterは `runtime.emit(SemanticNeuron)` で神経系へ接続できる構造になっている。
+
+2026-09-17、CoreS3実機で現行 `heart-engine` の基盤・Ghost・FaceRendererまでコンパイル／書き込み／起動を確認した。
+
+その後、LOCK 47〜49に従い、`ReflexResult` をRuntimeからGhostへ戻し、Heart / Memoryへ渡す本番フィードバック境界を追加した。具体的なHeart変化量、Memory保持条件、Reflex感度変化量は未LOCKのため実装していない。この追加分は次回実機ビルド確認待ち。
 
 ## 5. 現在の神経構造
 
@@ -66,9 +76,11 @@ Synapse＝どの層へ結ぶかを決める。
 
 Ghost＝Heart / Memory / Time / Relationship / Behaviorの中核。
 
+ReflexはHeartやPi5を待たず先行でき、完了結果はRuntime → Ghost → Heart / Memoryへ戻せる境界を持つ。
+
 ## 6. Heart Engineの扱い
 
-Heartの器は実装を開始しているが、詳細な数値変化ルールは未LOCKのため、現時点では勝手に固定しない。
+Heartの器は本番骨格として実装済みだが、詳細な数値変化ルールは未LOCKのため、現時点では勝手に固定しない。
 
 初期状態項目は、
 
@@ -81,7 +93,11 @@ Heartの器は実装を開始しているが、詳細な数値変化ルールは
 
 を保持する。
 
-Semantic NeuronがGhostへ到達する本番配線を先に成立させる。
+初回値はLOCK 28の具体値を使用する。
+
+Heart Contextはread-only snapshotとして扱い、1イベント開始時のsnapshotを同一イベント内で固定する。
+
+Semantic NeuronおよびReflex結果がGhostへ到達する本番配線を先に成立させる。
 
 ## 7. 最初の感覚縦貫通
 
@@ -123,16 +139,16 @@ Pi5停止時でもM5Stack側の基本生命活動を継続する。
 
 ## 10. 次の実装
 
-現在のRuntimeを基準に、感覚器官ごとのAdapterを1本ずつ接続する。
+現在はStep 4を完了させる。
 
-最優先はToF4Mだが、ハード未検出問題はDevice Driver層として切り分ける。
+まず、今回追加した **Reflex結果 → Runtime → Ghost → Heart / Memory** の本番境界がCoreS3上でビルド・起動できることを確認する。
 
-その後、TMOS PIR、ENV-Pro、視覚、Touch、IMU、聴覚へ拡張する。
+その後も、係数・閾値・保存件数を推測で固定せず、Step 4で既にLOCKされている責務境界だけを実装する。
 
-各感覚は生データ取得で終わらせず、Semantic Neuron → Synapse → Ghost / Reflexまで縦貫通させる。
+Step 4の本番骨格確認後、Step 5として最初の外部感覚 **ToF4M / U172** を Device Driver層から再開する。ToF4M未検出問題はセンサー固有層で切り分け、Ghost / Runtimeを巻き込まない。
 
 ## 11. 完成判定
 
 Desktop Companion全体としては未完成。
 
-ただし、**ゼロベース基盤から生命情報を流す神経Runtime実装へ移行した段階**に入った。
+ただし、**ゼロベース基盤から生命情報を流す神経RuntimeとGhost本番骨格が実機起動し、Reflex結果を内面へ戻すフィードバック経路の実装へ進んだ段階**にある。
