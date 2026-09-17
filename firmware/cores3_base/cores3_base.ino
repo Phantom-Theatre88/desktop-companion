@@ -31,10 +31,20 @@ void setup() {
   Serial.printf("[NERVE] Runtime: %s\n", nerve_ready ? "READY" : "ERROR");
 
   const auto& heart = runtime.ghost().heart();
+  const auto& heart_engine = runtime.ghost().heartEngine();
   Serial.printf("[HEART] mood=%.2f affection=%.2f curiosity=%.2f\n",
                 heart.mood, heart.affection, heart.curiosity);
   Serial.printf("[HEART] boredom=%.2f sleepiness=%.2f attention=%.2f\n",
                 heart.boredom, heart.sleepiness, heart.attention);
+
+  if (heart_engine.primarySnapshotLoaded()) {
+    Serial.println("[HEART][NVS] Existing primary snapshot loaded");
+  } else if (heart_engine.firstBootInitialized()) {
+    Serial.printf("[HEART][NVS] First boot snapshot initialized: %s\n",
+                  heart_engine.primarySaveOk() ? "OK" : "ERROR");
+  } else {
+    Serial.println("[HEART][NVS] Primary snapshot state unknown");
+  }
 
   face_renderer.begin(M5.Display);
   face_renderer.render(deskbot::face::FaceRenderer::neutral());
