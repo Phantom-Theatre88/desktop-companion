@@ -27,6 +27,12 @@ void setup() {
   const bool nerve_ready = runtime.begin(millis());
   Serial.printf("[NERVE] Synapse bindings: %u\n", static_cast<unsigned>(runtime.synapse().bindingCount()));
   Serial.printf("[NERVE] Runtime: %s\n", nerve_ready ? "READY" : "ERROR");
+
+  const auto& heart = runtime.ghost().heart();
+  Serial.printf("[HEART] mood=%.2f affection=%.2f curiosity=%.2f\n",
+                heart.mood, heart.affection, heart.curiosity);
+  Serial.printf("[HEART] boredom=%.2f sleepiness=%.2f attention=%.2f\n",
+                heart.boredom, heart.sleepiness, heart.attention);
 }
 
 void loop() {
