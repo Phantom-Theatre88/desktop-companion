@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include "HeartEngine.h"
 #include "../nerve/NerveTypes.h"
+#include "../reflex/ReflexLayer.h"
 
 namespace deskbot {
 namespace ghost {
@@ -28,6 +29,15 @@ class MemoryEngine {
     short_memory_.last_source = neuron.source;
     short_memory_.last_event_ms = neuron.timestamp_ms;
     ++short_memory_.event_count;
+  }
+
+  void onReflexResult(const reflex::ReflexResult& result,
+                      const HeartContext& result_context) {
+    // LOCK 49: Reflex results can enter Memory when they are meaningful for
+    // future experience/safety/trend formation. Retention criteria and storage
+    // counts are intentionally not invented here.
+    (void)result;
+    (void)result_context;
   }
 
   void tick(uint32_t now_ms) { (void)now_ms; }
