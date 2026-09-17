@@ -204,7 +204,7 @@ Reflex結果はHeart / Memoryへ戻る本番境界を実装済み。
 
 `FaceRenderer` は身体出力の本番境界として接続済み。
 
-実機観察で、現行の丸い2眼Neutral表示は **「かわいくない」** というUI課題が確認されている。この課題は単体DeskRobo成立工程で扱い、固定表情画像切替を完成形にはしない。
+Neutralの目形状は、元の参照イメージに合わせて大きさ・輪郭を修正し、実機で「かわいい」方向へ改善した。完成形の表情設計は別工程とし、固定表情画像切替を完成形にはしない。
 
 LOCK 52の第一実装として、`BehaviorEngine` に `MicroBehaviorFrame` を追加し、Heart ContextとTimeから連続的に、
 
@@ -219,13 +219,25 @@ LOCK 52の第一実装として、`BehaviorEngine` に `MicroBehaviorFrame` を�
 
 MicroBehaviorは単純ランダムではなく、`curiosity / attention / sleepiness` と時間位相の影響を受ける。周期・振幅等は調整可能な実装初期値であり、人格LOCKではない。
 
-この追加分はCoreS3実機コンパイル／書き込み／観察待ち。
+2026-09-17、CoreS3実機で以下を確認した。
+
+- `[DESKROBO] Standalone Heart/Time -> Behavior -> Face life loop started` が出る
+- 待機中に瞬き・微小な視線移動が継続する
+- Canvas描画へ変更後、画面全体の明滅は解消した
+- Touch Driver / Adapterが実機で動作し、`TOUCH` SemanticNeuronが発生する
+- IMU Driver / Adapterが実機で動作し、`PICKED_UP / SHAKE` SemanticNeuronが発生する
+- IMUは状態遷移を `REST → LIFT_CANDIDATE → HELD → SETDOWN_CANDIDATE → REST` とし、SHAKE後のPICKED_UP二重解釈を抑制できた
+- Touch / PICKED_UP / SHAKE はBehaviorへ接続され、顔反応の本番経路が成立している
+
+`PICKED_UP` の見開き反応は現状やや分かりにくく、今後の表現調整対象とする。ただし、LOCK 52の最低成立判定を妨げるものではない。
+
+以上により、**CoreS3単体DeskRoboの最低成立条件は実機で通過**とする。
 
 ## 10. 最初の外部感覚縦貫通
 
 最初の外部感覚対象は **Unit ToF4M / U172** のまま維持する。
 
-ただしLOCK 52により、外部感覚縦貫通の開始は **CoreS3単体DeskRobo成立後** とする。
+LOCK 52の開始条件である **CoreS3単体DeskRobo成立** は2026-09-17に実機通過したため、次工程からToF4M / U172へ進める。
 
 実機未検出問題はDevice Driver層の問題として保持し、Ghost / Runtimeへ持ち込まない。
 
@@ -239,23 +251,21 @@ ToF単独で人物を断定しない。
 
 ## 11. 次の実装
 
-**現在はLOCK 52に基づくCoreS3単体DeskRobo成立工程。**
+**次工程は最初の外部感覚縦貫通である ToF4M / U172。**
 
-第一段として、Heart / Time → Behavior / MicroBehavior → Face の生命ループを実装した。
+以前の `NOT FOUND` を局所修正で繰り返さず、デバッグ規約に従ってDevice Driver層から根本原因を切り分ける。
 
-次にCoreS3実機で、
+- CoreS3側のI2C bus / Port A / 電源 / 配線を確認
+- U172の検出をDevice Driver層だけで成立させる
+- Device固有値をAdapterで意味化し、製品非依存のNeuronへ変換する
+- ToF単独では人物を断定せず、距離・接近・離脱などの意味入力として扱う
 
-- `BehaviorEngine.cpp` がビルド／リンクされること
-- 起動ログに `[DESKROBO] Standalone Heart/Time -> Behavior -> Face life loop started` が出ること
-- 待機中に瞬き・微小な視線移動が継続すること
-- 既存のNVS / Ghost / Runtime動作を壊していないこと
-
-を確認する。
-
-その後、CoreS3内蔵感覚（Touch / IMU等）をこのDeskRobo反応へ接続し、単体DeskRoboの最低成立条件を満たしてからToF4M / U172へ進む。
+Faceの表情バリエーションや`PICKED_UP`反応の見やすさは課題として保持するが、ToF開始を止めるブロッカーにはしない。
 
 ## 12. 完成判定
 
 Desktop Companion全体としては未完成。
 
-ただし、**神経Runtime / Ghost本番骨格、Heart / Memory / ReflexのStep 4最小本番骨格はCoreS3実機で成立済み。現在はLOCK 52に従い、外付け感覚追加より先にCoreS3単体DeskRoboを成立させる段階**にある。
+ただし、**神経Runtime / Ghost本番骨格、Heart / Memory / ReflexのStep 4最小本番骨格、およびLOCK 52のCoreS3単体DeskRobo最低成立条件はCoreS3実機で成立済み。**
+
+現在地は、**CoreS3単体DeskRobo成立を越え、最初の外部感覚であるToF4M / U172のDevice Driver層へ進める段階**とする。
