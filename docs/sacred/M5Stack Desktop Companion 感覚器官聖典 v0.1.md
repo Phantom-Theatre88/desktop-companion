@@ -1,6 +1,6 @@
 # M5Stack Desktop Companion 感覚器官聖典 v0.1
 
-更新日: 2026-09-11
+更新日: 2026-09-18
 
 本書は、Desktop Companionの外界認識を「センサー機能の寄せ集め」ではなく、Desk Botが何を感じられるかという感覚器官として定義する正本である。
 
@@ -22,13 +22,21 @@
 
 生データを表示できるだけでは完成とみなさない。
 
+カメラは例外的に前段が重いため、
+
+**Camera → Device Driver → Vision / Recognition → Nerve Input**
+
+とし、生画像をそのまま神経・Ghostへ渡さない。
+
 ## 2. 実装開始条件
 
 外部感覚器官の統合は、CoreS3素体確認より先に行わない。
 
 先にCoreS3公式環境だけで、DISPLAY、TOUCH、IMU、PROXIMITY、MIC、SPEAKER、CAMERA等の単独動作を確認する。
 
-その後、Device Driver → Adapter → Nerve Inputの独自境界を作る。
+その後、Device Driver → Adapter / Vision → Nerve Inputの独自境界を作る。
+
+LOCK 52・53により、外付けUnitより先にCoreS3本体だけで使える感覚をDeskRoboへ接続し、特にCoreS3内蔵カメラの低次視覚をToF4Mより先に仕上げる。
 
 ## 3. M5Stack / Pi5の分担
 
@@ -46,6 +54,18 @@ Pi5停止時でも、接触・接近・在席・環境変化・低次視覚等�
 
 ## 4. 購入済み・正式登録済み感覚器官
 
+### CoreS3内蔵カメラ
+
+状態：**本体内蔵・実装中**
+
+役割：**M5Stack側の反射の目／低次視覚**
+
+Pi5なしでも周囲の明暗・変化・低次的な動きを感じられる入口とする。
+
+人物・物体・状況の高次理解を担当させず、Raw frameはVision層で低次意味へ変換してから神経へ渡す。
+
+LOCK 53により、ToF4Mより先に低次視覚経路を成立させる。
+
 ### M5Stack Unit ToF4M — U172
 
 状態：**購入済み**
@@ -54,7 +74,7 @@ Pi5停止時でも、接触・接近・在席・環境変化・低次視覚等�
 
 距離値そのものを人格へ渡さず、近づいた／近くにいる／離れた等の共通意味へ変換する。
 
-最初の外部感覚縦貫通対象とする。ただしCoreS3素体確認完了後に開始する。
+最初の**外部感覚**縦貫通対象とする。ただしCoreS3単体DeskRobo成立および内蔵カメラ低次視覚成立後に開始する。
 
 ### M5Stack Unit TMOS PIR — U185
 
@@ -94,7 +114,7 @@ M5Stack側カメラは反射の目、Pi5側カメラは高次認知の目とす�
 
 ### M5Stack側・低次感覚
 
-- M5カメラ：反射の目
+- CoreS3内蔵カメラ：反射の目／低次視覚
 - Unit ToF4M U172：距離・接近
 - Unit TMOS PIR U185：在席・存在・活動
 - Unit ENV-Pro U169：温湿度・気圧・環境変化
@@ -115,26 +135,31 @@ M5Stack側カメラは反射の目、Pi5側カメラは高次認知の目とす�
 
 1. 製品固有値をHeart Engineへ直接流さない。
 2. Device Driverでハード差を扱う。
-3. Adapterで製品差を吸収し、意味化・正規化する。
+3. Adapter / Visionで製品差を吸収し、意味化・正規化する。
 4. 神経へは製品非依存のNerve Inputを渡す。
-5. 即時性が必要なものはM5Stack側で反射可能にする。
-6. 高次理解が必要なものだけPi5へ渡す。
-7. Pi5切断時でもM5Stack側の低次感覚と基本反応を継続する。
-8. 複数センサーが同じ対象を見ても、身体制御権を直接競合させない。
+5. Camera Raw frameをGhostへ直接渡さない。
+6. 即時性が必要なものはM5Stack側で反射可能にする。
+7. 高次理解が必要なものだけPi5へ渡す。
+8. Pi5切断時でもM5Stack側の低次感覚と基本反応を継続する。
+9. 複数センサーが同じ対象を見ても、身体制御権を直接競合させない。
 
 ## 7. 感覚の実装順
 
-CoreS3素体確認後、基本順を、
+LOCK 52・53適用後の基本順を、
 
-**ToF4M → TMOS PIR → ENV-Pro → 視覚 → タッチ → IMU → 聴覚 → その他感覚**
+**CoreS3内蔵カメラ低次視覚 → ToF4M → TMOS PIR → ENV-Pro → 聴覚 → その他感覚**
 
 とする。
+
+Touch / IMUはCoreS3単体DeskRobo成立工程で先行接続済みとして扱う。
+
+CoreS3内蔵カメラは外付け感覚ではないため、ToF4Mが「最初の外部感覚縦貫通対象」であるLOCKは維持する。
 
 各感覚について、
 
 - 生データ
 - Device Driver
-- Adapter
+- Adapter / Vision
 - 意味化されたNerve Input
 - 反射への意味
 - Heart Engineへの意味
@@ -145,7 +170,23 @@ CoreS3素体確認後、基本順を、
 
 を定義する。
 
-## 8. OSSの扱い
+## 8. CoreS3内蔵カメラの現在地
+
+2026-09-18、CoreS3実機で以下を確認済み。
+
+- GC0308の初期化
+- 320x240 RGB565フレーム取得
+- Camera使用時の内部I2C解放／復元
+- Camera使用後もTouch / IMUが継続
+- 周期撮像
+- `CoreS3CameraDriver → CameraFrameView → CameraVisionInput` の本番境界
+- Vision層でaverage lumaを取得
+
+次は、Vision層で明暗変化・動き等の低次視覚意味を生成し、製品非依存のSemantic Neuronへ接続する。
+
+人物・物体・個人識別等の高次認識はPi5側の責務とし、この段階では行わない。
+
+## 9. OSSの扱い
 
 先行OSSやGitHub実装は、ゼロベース基盤と独自層が成立した後に参考候補として調査してよい。
 
