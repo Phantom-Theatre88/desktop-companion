@@ -6,16 +6,22 @@ namespace ghost {
 void HeartEngine::begin(uint32_t now_ms) {
   state_ = HeartState{};
   primary_snapshot_ = HeartState{};
+  restore_plan_ = HeartRestorePlan{};
   primary_snapshot_loaded_ = false;
   first_boot_initialized_ = false;
   primary_save_ok_ = false;
+  restore_pending_ = false;
 
-  // LOCK 19 / LOCK 51:
-  // NVS is the primary Heart storage. This stage establishes the real
-  // first-boot / normal-boot boundary without inventing LOCK 20's still-open
-  // state-specific restoration coefficients or time rules.
+  // LOCK 19 / LOCK 20 / LOCK 51:
+  // NVS is the primary Heart storage. On normal boot, LOCK 20 requires each
+  // Heart field to follow a different restoration path. Only affection can be
+  // restored exactly from the saved snapshot without inventing missing tuning
+  // rules. The other five fields remain explicitly pending their required
+  // time/baseline/life-rhythm inputs instead of being mechanically copied.
   if (persistence_.loadPrimary(primary_snapshot_)) {
     primary_snapshot_loaded_ = true;
+    state_.affection = primary_snapshot_.affection;
+    restore_pending_ = true;
   } else {
     first_boot_initialized_ = true;
     primary_save_ok_ = persistence_.savePrimary(state_);
