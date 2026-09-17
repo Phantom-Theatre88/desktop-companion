@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include "HeartPersistence.h"
 #include "../nerve/NerveTypes.h"
 #include "../reflex/ReflexLayer.h"
 
@@ -32,11 +33,21 @@ class HeartEngine {
   HeartContext snapshot(uint32_t now_ms) const;
   const HeartState& state() const { return state_; }
 
+  bool primarySnapshotLoaded() const { return primary_snapshot_loaded_; }
+  bool firstBootInitialized() const { return first_boot_initialized_; }
+  bool primarySaveOk() const { return primary_save_ok_; }
+  const HeartState& primarySnapshot() const { return primary_snapshot_; }
+
  private:
   static float clamp01(float value);
   void clampState();
 
   HeartState state_{};
+  HeartState primary_snapshot_{};
+  HeartPersistence persistence_{};
+  bool primary_snapshot_loaded_ = false;
+  bool first_boot_initialized_ = false;
+  bool primary_save_ok_ = false;
   uint32_t last_tick_ms_ = 0;
   nerve::NeuronType last_event_type_ = nerve::NeuronType::NONE;
   uint32_t last_event_ms_ = 0;
