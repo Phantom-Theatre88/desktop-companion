@@ -38,6 +38,7 @@ class FaceRenderer {
   static float clampSigned(float value);
 
   M5GFX* display_ = nullptr;
+  M5Canvas* canvas_ = nullptr;
 };
 
 }  // namespace face
