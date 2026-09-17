@@ -4,6 +4,7 @@
 #include "src/adapter/ImuAdapter.h"
 #include "src/adapter/TouchAdapter.h"
 #include "src/core/DesktopCompanionRuntime.h"
+#include "src/device/CoreS3CameraDriver.h"
 #include "src/device/CoreS3ImuDriver.h"
 #include "src/device/CoreS3TouchDriver.h"
 #include "src/face/FaceRenderer.h"
@@ -14,6 +15,7 @@ deskbot::device::CoreS3TouchDriver touch_driver;
 deskbot::adapter::TouchAdapter touch_adapter;
 deskbot::device::CoreS3ImuDriver imu_driver;
 deskbot::adapter::ImuAdapter imu_adapter;
+deskbot::device::CoreS3CameraDriver camera_driver;
 
 namespace {
 
@@ -64,6 +66,25 @@ void pollImu(uint32_t now_ms) {
   }
 }
 
+void runCameraProbe() {
+  const auto probe = camera_driver.probeOnce();
+
+  if (probe.initialized && probe.captured) {
+    Serial.printf("[SENSE][CAMERA] Probe: READY frame=%ux%u bytes=%u luma=%u\n",
+                  static_cast<unsigned>(probe.width),
+                  static_cast<unsigned>(probe.height),
+                  static_cast<unsigned>(probe.bytes),
+                  static_cast<unsigned>(probe.average_luma));
+  } else if (probe.initialized) {
+    Serial.println("[SENSE][CAMERA] Probe: INIT_OK CAPTURE_FAILED");
+  } else {
+    Serial.println("[SENSE][CAMERA] Probe: INIT_FAILED");
+  }
+
+  Serial.printf("[SENSE][CAMERA] Internal I2C restored: %s\n",
+                probe.internal_i2c_restored ? "YES" : "NO");
+}
+
 }  // namespace
 
 void setup() {
@@ -106,6 +127,12 @@ void setup() {
   } else {
     Serial.println("[HEART][NVS] Primary snapshot state unknown");
   }
+
+  // First camera milestone: one real frame from the built-in GC0308 without
+  // yet promoting pixels into Vision/SemanticNeuron. The probe releases the
+  // shared internal I2C only during camera init/capture and restores it before
+  // Touch/IMU become standing DeskRobo senses again.
+  runCameraProbe();
 
   touch_driver.begin();
   Serial.printf("[SENSE][TOUCH] Device driver: %s\n",
