@@ -38,6 +38,13 @@ class HeartEngine {
   bool primarySaveOk() const { return primary_save_ok_; }
   const HeartState& primarySnapshot() const { return primary_snapshot_; }
 
+  void setMicroSdBackupHandlers(HeartBackupSaveHandler save_handler,
+                                HeartBackupLoadHandler load_handler,
+                                void* context = nullptr);
+  bool microSdBackupAvailable() const;
+  bool saveMicroSdBackup() const;
+  bool loadMicroSdBackup(HeartState& out_state) const;
+
  private:
   static float clamp01(float value);
   void clampState();
