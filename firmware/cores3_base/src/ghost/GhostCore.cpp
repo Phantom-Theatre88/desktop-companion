@@ -35,7 +35,11 @@ void GhostCore::tick(uint32_t now_ms) {
   heart_.tick(now_ms);
   memory_.tick(now_ms);
   relationship_.tick(now_ms);
-  behavior_.tick(now_ms);
+
+  // LOCK 52: standalone DeskRobo life must exist before external sensors.
+  // Behavior receives the current read-only Heart snapshot every runtime tick
+  // and produces continuous micro-behavior for the body/face layer.
+  behavior_.tick(now_ms, heart_.snapshot(now_ms));
 }
 
 void GhostCore::synapseHandler(const nerve::SemanticNeuron& neuron, void* context) {
