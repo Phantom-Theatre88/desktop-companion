@@ -19,6 +19,19 @@ struct ReflexIntent {
   nerve::NeuronType cause = nerve::NeuronType::NONE;
 };
 
+enum class ReflexOutcome : uint8_t {
+  UNKNOWN = 0,
+  SUCCEEDED,
+  FAILED,
+};
+
+struct ReflexResult {
+  ReflexIntent intent{};
+  ReflexOutcome outcome = ReflexOutcome::UNKNOWN;
+  bool danger_continues = false;
+  uint32_t completed_ms = 0;
+};
+
 using ReflexIntentHandler = void (*)(const ReflexIntent& intent, void* context);
 
 class ReflexLayer {
