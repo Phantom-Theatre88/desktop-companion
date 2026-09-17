@@ -13,6 +13,7 @@ class DesktopCompanionRuntime {
   bool begin(uint32_t now_ms);
   void tick(uint32_t now_ms);
   void emit(const nerve::SemanticNeuron& neuron);
+  void reportReflexResult(const reflex::ReflexResult& result);
 
   nerve::SynapseRouter& synapse() { return synapse_; }
   ghost::GhostCore& ghost() { return ghost_; }
