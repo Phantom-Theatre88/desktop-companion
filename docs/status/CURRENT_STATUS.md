@@ -28,6 +28,10 @@ M5Stackを、単なる音声AI端末ではなく、
 
 Ghostは後付け機能ではなく、最初から本体中核として接続する。
 
+2026-09-17、LOCK 52を追加し、**外付け感覚器官を増やす前に、CoreS3単体でDeskRoboとして生きている状態を成立させる**ことを正式順序とした。
+
+ToF4M / U172は引き続き最初の外部感覚縦貫通対象だが、その開始条件を **CoreS3単体DeskRobo成立後** とする。
+
 ## 3. Desktop Robo参照実装
 
 Ghost本体は独自実装のまま維持し、以下を正式な参照実装として採用済み。
@@ -128,7 +132,7 @@ microSDのファイル形式、パス、世代数、マウント方式、復旧�
 
 2026-09-17、CoreS3実機で通常起動時に `[HEART][RESTORE] LOCK20 field plan: PENDING_STEP9_INPUTS` が出力されることを確認した。
 
-これは、LOCK 20の項目別復元Planが本番コードに存在し、Step 9で必要となる生活履歴・動的平常値・時間情報が未投入であることを明示するもの。係数や減衰率を推測実装していない。
+これは、LOCK 20の項目別復元Planが本番コードに存在し、後段で必要となる生活履歴・動的平常値・時間情報が未投入であることを明示するもの。係数や減衰率を推測実装していない。
 
 以上により、**Step 4の本番骨格は完了**とする。
 
@@ -145,6 +149,8 @@ Ghost＝Heart / Memory / Time / Relationship / Behaviorの中核。
 ReflexはHeartやPi5を待たず先行でき、完了結果はRuntime → Ghost → Heart / Memoryへ戻せる。
 
 危険・恐怖系の経験が将来成立した場合は、Memory / GhostからReflexへ感度修飾Hintを先行入力できる境界を持つ。
+
+LOCK 52以降は、外付け感覚より先に、**Heart / Time → Behavior / MicroBehavior → Face / Body** の単体生命ループを成立させる。
 
 ## 6. Heart Engineの扱い
 
@@ -167,7 +173,7 @@ Heart永続化はLOCK 51に従い、**NVSを主保存、microSDをバックア�
 
 NVS主保存のストレージ境界、通常起動時の既存snapshot読込、microSDバックアップ境界、LOCK 20状態別復元Planまで実装済み。
 
-LOCK 20の具体的な減衰率・再計算式はStep 9側で必要な時間・生活履歴・動的平常値と接続してから決める。
+LOCK 20の具体的な減衰率・再計算式は、必要な時間・生活履歴・動的平常値と接続してから決める。
 
 ## 7. Memory Engineの扱い
 
@@ -194,21 +200,36 @@ Reflex結果はHeart / Memoryへ戻る本番境界を実装済み。
 
 2026-09-17、`Memory → Ghost → ReflexSensitivityProvider → ReflexLayer` の入口境界を実装し、CoreS3向けビルド／書き込み／再起動まで確認済み。具体的な感度変化は未実装。
 
-## 9. Face / 表情の現在地
+## 9. Face / 表情・単体DeskRoboの現在地
 
-`FaceRenderer` は現時点では身体出力の接続確認用として正常動作している。
+`FaceRenderer` は身体出力の本番境界として接続済み。
 
-ただし実機観察で、現行の丸い2眼Neutral表示は **「かわいくない」** というUI課題が確認された。
+実機観察で、現行の丸い2眼Neutral表示は **「かわいくない」** というUI課題が確認されている。この課題は単体DeskRobo成立工程で扱い、固定表情画像切替を完成形にはしない。
 
-表情の完成はStep 8で扱う。固定画像切替を中心にせず、目の形・開き・傾き・視線・左右差・瞬き等の連続パラメータとHeart / 外界 / 直近履歴を結び付ける。Step 4を中断して表情調整へ逸れないが、この課題は消さない。
+LOCK 52の第一実装として、`BehaviorEngine` に `MicroBehaviorFrame` を追加し、Heart ContextとTimeから連続的に、
 
-## 10. 最初の感覚縦貫通
+- 開眼度
+- 瞬き
+- 視線X/Y
+- 左右の微小差
 
-最初の外部感覚対象は **Unit ToF4M / U172**。
+を生成する経路を実装した。
 
-実機未検出問題が残っているため、センサー固有問題をGhost / Runtimeへ持ち込まない。
+`GhostCore::tick()` から毎tick Heart ContextをBehaviorへ渡し、`cores3_base.ino` でその出力をFaceRendererへ接続する。
 
-Step 5では、
+MicroBehaviorは単純ランダムではなく、`curiosity / attention / sleepiness` と時間位相の影響を受ける。周期・振幅等は調整可能な実装初期値であり、人格LOCKではない。
+
+この追加分はCoreS3実機コンパイル／書き込み／観察待ち。
+
+## 10. 最初の外部感覚縦貫通
+
+最初の外部感覚対象は **Unit ToF4M / U172** のまま維持する。
+
+ただしLOCK 52により、外部感覚縦貫通の開始は **CoreS3単体DeskRobo成立後** とする。
+
+実機未検出問題はDevice Driver層の問題として保持し、Ghost / Runtimeへ持ち込まない。
+
+その後、
 
 **Device → Device Driver → Adapter → Nerve Input → Semantic Neuron → Synapse → Reflex / Ghost → Behavior → Body Output**
 
@@ -218,16 +239,23 @@ ToF単独で人物を断定しない。
 
 ## 11. 次の実装
 
-**Step 4は完了。次はStep 5へ移る。**
+**現在はLOCK 52に基づくCoreS3単体DeskRobo成立工程。**
 
-最初の対象は **Unit ToF4M / U172**。
+第一段として、Heart / Time → Behavior / MicroBehavior → Face の生命ループを実装した。
 
-まずDevice Driver層で、既知の実機未検出問題をGhostや神経Runtimeから分離したまま扱う。
+次にCoreS3実機で、
 
-同じ未検出問題または同系統問題が再発した場合は、LOCK 8の1回ループルールに従い、局所修正を続けず、I2C経路・電源・配線・アドレス・M5Unified側前提・Unit固有条件を根本から再確認する。
+- `BehaviorEngine.cpp` がビルド／リンクされること
+- 起動ログに `[DESKROBO] Standalone Heart/Time -> Behavior -> Face life loop started` が出ること
+- 待機中に瞬き・微小な視線移動が継続すること
+- 既存のNVS / Ghost / Runtime動作を壊していないこと
+
+を確認する。
+
+その後、CoreS3内蔵感覚（Touch / IMU等）をこのDeskRobo反応へ接続し、単体DeskRoboの最低成立条件を満たしてからToF4M / U172へ進む。
 
 ## 12. 完成判定
 
 Desktop Companion全体としては未完成。
 
-ただし、**神経Runtime / Ghost本番骨格、Heart / Memory / ReflexのStep 4最小本番骨格はCoreS3実機で成立。現在はStep 5として最初の外部感覚ToF4M / U172の縦貫通へ進む段階**にある。
+ただし、**神経Runtime / Ghost本番骨格、Heart / Memory / ReflexのStep 4最小本番骨格はCoreS3実機で成立済み。現在はLOCK 52に従い、外付け感覚追加より先にCoreS3単体DeskRoboを成立させる段階**にある。
