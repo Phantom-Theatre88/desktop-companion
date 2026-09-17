@@ -22,6 +22,14 @@ void GhostCore::onNeuron(const nerve::SemanticNeuron& neuron) {
   behavior_.onNeuron(neuron, event_context);
 }
 
+void GhostCore::onReflexResult(const reflex::ReflexResult& result) {
+  // LOCK 47-49: the completed reflex result returns to Ghost and is offered to
+  // Heart and Memory using one fixed Heart Context snapshot for this result.
+  const HeartContext result_context = heart_.snapshot(result.completed_ms);
+  heart_.onReflexResult(result, result_context);
+  memory_.onReflexResult(result, result_context);
+}
+
 void GhostCore::tick(uint32_t now_ms) {
   time_.tick(now_ms);
   heart_.tick(now_ms);
