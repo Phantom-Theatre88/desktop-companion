@@ -58,6 +58,7 @@ Ghost本体は独自実装のまま維持し、以下を正式な参照実装と
 - `DesktopCompanionRuntime`
 - `FaceRenderer`
 - `HeartPersistence`
+- `HeartMicroSdBackup`
 
 LOCK 47〜49に従い、`ReflexResult` はRuntimeからGhostへ戻り、Heart / Memoryへ渡る。
 
@@ -100,6 +101,20 @@ NVS主保存の第一段として `HeartPersistence` を実装し、2026-09-17�
 
 現段階ではMemory側の具体的な危険分類・閾値・増減率・時間定数が未LOCKのため、返す値は `BASELINE` のみ。入口経路だけを本番構造として成立させている。
 
+2026-09-17、このReflex感度修飾入口追加後も、`m5stack_cores3` 向けに `ReflexLayer.cpp / MemoryEngine.cpp / DesktopCompanionRuntime.cpp` がビルド・リンク対象へ入り、CoreS3への書き込み、Hash検証、再起動まで正常に通過した。
+
+さらにLOCK 51のmicroSD側について、**保存形式やマウント方法を先行固定せず、Heart状態をmicroSD保存実装へ渡せる本番境界**として `HeartMicroSdBackup` を追加した。
+
+- `HeartBackupSaveHandler`
+- `HeartBackupLoadHandler`
+- `HeartMicroSdBackup::save/load`
+- `HeartPersistence` からmicroSDバックアップ境界へ接続
+- `HeartEngine` から現在Heart状態を保存／バックアップ候補を読込できる公開境界
+
+microSDのファイル形式、パス、世代数、マウント方式、復旧優先順位は未LOCKのため固定していない。これらを決めずに、後からCoreS3側の具体的microSD実装を差し込める形にしている。
+
+このmicroSDバックアップ境界追加分は、次回CoreS3ビルド確認待ち。
+
 ## 5. 現在の神経構造
 
 **Hardware → Device Driver → Adapter → Nerve Input → Semantic Neuron → Synapse → Reflex / Ghost / Memory / Pi5 → Behavior → Body**
@@ -135,6 +150,8 @@ Heart永続化はLOCK 51に従い、**NVSを主保存、microSDをバックア�
 
 現在、NVS主保存のストレージ境界と再起動時の既存snapshot読込確認まで完了している。
 
+microSD側は保存／読込handlerを差し込める本番境界まで実装済み。具体的なファイル形式やマウント処理は未固定。
+
 LOCK 20の状態別復元のうち、`mood / curiosity` の減衰量、`boredom / sleepiness` の再計算方法など具体式は未固定のため、推測で実装しない。
 
 ## 7. Memory Engineの扱い
@@ -160,7 +177,7 @@ Reflex結果はHeart / Memoryへ戻る本番境界を実装済み。
 
 繰り返し危険だった刺激による将来のReflex感度修飾については、具体的閾値・増減率を固定せず、Step 4では修飾入口の本番境界までを対象とする。
 
-2026-09-17、`Memory → Ghost → ReflexSensitivityProvider → ReflexLayer` の入口境界を実装した。具体的な感度変化は未実装。
+2026-09-17、`Memory → Ghost → ReflexSensitivityProvider → ReflexLayer` の入口境界を実装し、CoreS3向けビルド／書き込み／再起動まで確認済み。具体的な感度変化は未実装。
 
 ## 9. Face / 表情の現在地
 
@@ -186,14 +203,11 @@ Step 5で、
 
 現在はStep 4を完了させる。
 
-次は、今回追加した **Reflex感度修飾入口境界** がCoreS3でコンパイル・書き込み・起動できることを確認する。
+次は、今回追加した **HeartMicroSdBackup / microSDバックアップ境界** がCoreS3でコンパイル・リンク・書き込み・起動できることを確認する。
 
-確認後、Step 4で残る主要項目は次の2点。
+確認後、Step 4で残る主要論点は **LOCK 20状態別復元** のみ。ただし、具体式を決めないと本番コードが書けない箇所だけ追加設計へ戻る。
 
-1. HeartのmicroSDバックアップ境界
-2. LOCK 20状態別復元で、実コード上どうしても必要になった未決事項だけ追加設計
-
-係数・閾値・保存件数・減衰率等は先行固定しない。
+係数・閾値・保存件数・減衰率・microSDファイル形式等は先行固定しない。
 
 Step 4完了後、Step 5としてToF4M / U172のDevice Driver層へ戻る。
 
@@ -201,4 +215,4 @@ Step 4完了後、Step 5としてToF4M / U172のDevice Driver層へ戻る。
 
 Desktop Companion全体としては未完成。
 
-ただし、**神経Runtime / Ghost本番骨格、Reflex結果の内面フィードバック、Heart NVS主保存の再起動復元境界、Memory本番境界までCoreS3実機で成立。現在はReflex感度修飾入口を実装し、実機確認へ進む段階**にある。
+ただし、**神経Runtime / Ghost本番骨格、Reflex結果の内面フィードバック、Heart NVS主保存の再起動復元境界、Memory本番境界、Reflex感度修飾入口までCoreS3実機で成立。現在はHeartのmicroSDバックアップ境界を実装し、実機確認へ進む段階**にある。
