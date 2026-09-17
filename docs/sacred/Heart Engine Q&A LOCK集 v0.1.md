@@ -164,6 +164,50 @@ Heart Contextは、同じSemantic Neuron入力に対しても、Synapseでの通
 
 Heart Contextの参照方式、キャッシュ方式、更新通知方式、係数、具体的な閾値は現段階では固定しない。まずは**Heartが行動命令を直接出さず、共通Contextとして神経回路・Behaviorの反応を修飾する**という骨格のみをLOCKする。
 
+## LOCK 34｜Heart Contextは読み取り専用スナップショットとして公開する
+Heartの内部状態は、Synapse、Behavior Selector、Reflex、Memory、Pi5高次認知など外側の処理がHeart本体へ直接アクセスして個別に読み書きする構造にはしない。
+
+Heart Engineだけが `mood / affection / curiosity / boredom / sleepiness / attention` 等のHeart内部状態を更新する責任を持つ。
+
+Heart Engineは、その時点の内面状態をまとめた**読み取り専用のHeart Contextスナップショット**を外部へ公開する。
+
+SynapseやBehavior Selector等はHeart本体へ直接入り込まず、このHeart Contextだけを参照して現在の反応性や行動選択を修飾する。
+
+基本責任は以下とする。
+
+- **Heart Engine**：Heart内部状態の唯一の更新主体。イベント・時間経過・Relationship・長期履歴等を受けてHeart状態を更新する
+- **Heart Context**：ある時点のHeart状態を外側へ安全に見せる読み取り専用スナップショット
+- **Synapse**：Heart Contextを参照して、同じSemantic Neuronでも信号の通し方・反応の強さ・接続先条件を変化させてよい
+- **Behavior Selector**：Heart Contextを参照し、外界状況、対人Session、安全優先度、身体資源競合等と合わせて最終行動を選ぶ
+- **各神経・各デバイス層**：Heart本体を独自に直接書き換えない
+
+たとえば、ある瞬間のHeart Contextが、
+
+- `mood = 0.42`
+- `affection = 0.78`
+- `curiosity = 0.67`
+- `boredom = 0.20`
+- `sleepiness = 0.30`
+- `attention = 0.72`
+
+であれば、SynapseやBehavior Selectorは「今この子はこういう内面状態にある」という情報として参照できるが、その値を直接変更する権限は持たない。
+
+Heart状態を変えたい場合は、外部処理が数値を直接代入するのではなく、Semantic Neuron等の正規の入力経路を通じてHeart Engineへ出来事を渡し、Heart Engine自身がLOCK 29〜32等に従って状態変化を計算する。
+
+これにより、
+
+- Heart状態の書き換え責任が一箇所に集約される
+- 「誰がHeart値を変更したのか」が不明になることを防ぐ
+- Synapse・Behavior・Body等とHeartの責任境界が崩れない
+- Heartの内部実装を後で変更しても、外側はHeart Contextという共通境界を参照し続けられる
+- 同じHeart状態を複数の処理が一貫した形で共有できる
+
+構造とする。
+
+Heart Contextを毎loop生成するか、変更時だけ更新するか、コピー方式・参照方式・排他制御・更新通知方式等の実装細部は現段階ではLOCKしない。
+
+今回LOCKするのは、**Heartの書き込み主体はHeart Engineに限定し、Heart外部の処理は読み取り専用Heart Contextスナップショットを共通境界として参照する**という実装骨格である。
+
 ---
 
-この文書はLOCK18〜33の集約版であり、`PROJECT_LOCKS.md` および個別LOCK文書と矛盾する場合は、より新しい正式LOCKを優先する。
+この文書はLOCK18〜34の集約版であり、`PROJECT_LOCKS.md` および個別LOCK文書と矛盾する場合は、より新しい正式LOCKを優先する。
