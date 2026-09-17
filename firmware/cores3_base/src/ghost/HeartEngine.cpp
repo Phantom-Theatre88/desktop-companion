@@ -29,6 +29,16 @@ void HeartEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   clampState();
 }
 
+void HeartEngine::onReflexResult(const reflex::ReflexResult& result,
+                                 const HeartContext& result_context) {
+  // LOCK 47-48: the result of a reflex, including success/failure and whether
+  // danger continues, returns to Heart. Exact Heart deltas are intentionally
+  // not invented here; this establishes the production feedback boundary.
+  (void)result;
+  (void)result_context;
+  clampState();
+}
+
 HeartContext HeartEngine::snapshot(uint32_t now_ms) const {
   HeartContext context;
   context.state = state_;
