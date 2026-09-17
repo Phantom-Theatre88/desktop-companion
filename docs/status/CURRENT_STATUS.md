@@ -64,7 +64,9 @@ Ghost本体は独自実装のまま維持し、以下を正式な参照実装と
 
 2026-09-17、CoreS3実機で現行 `heart-engine` の基盤・Ghost・FaceRendererまでコンパイル／書き込み／起動を確認した。
 
-その後、LOCK 47〜49に従い、`ReflexResult` をRuntimeからGhostへ戻し、Heart / Memoryへ渡す本番フィードバック境界を追加した。具体的なHeart変化量、Memory保持条件、Reflex感度変化量は未LOCKのため実装していない。この追加分は次回実機ビルド確認待ち。
+LOCK 47〜49に従い、`ReflexResult` をRuntimeからGhostへ戻し、Heart / Memoryへ渡す本番フィードバック境界を追加した。2026-09-17、追加後のコードについてもCoreS3実機でコンパイル／書き込み／起動まで確認済み。具体的なHeart変化量、Memory保持条件、Reflex感度変化量は未LOCKのため実装していない。
+
+さらにLOCK 51として、Heart永続化の保存方式を **NVS主保存＋microSDバックアップ** に固定した。NVSは起動時の主復元元、microSDは独立したバックアップ／復旧経路とし、microSD未挿入・マウント失敗でも基本生命活動を止めない。
 
 ## 5. 現在の神経構造
 
@@ -98,6 +100,8 @@ Heartの器は本番骨格として実装済みだが、詳細な数値変化ル
 Heart Contextはread-only snapshotとして扱い、1イベント開始時のsnapshotを同一イベント内で固定する。
 
 Semantic NeuronおよびReflex結果がGhostへ到達する本番配線を先に成立させる。
+
+Heart永続化はLOCK 51に従い、**CoreS3内部NVS（Arduino `Preferences`）を主保存、microSDをバックアップ**とする。保存周期・バックアップ世代数・ファイル形式・破損判定方式等は、実装上必要になるまで先行固定しない。
 
 ## 7. 最初の感覚縦貫通
 
@@ -141,14 +145,16 @@ Pi5停止時でもM5Stack側の基本生命活動を継続する。
 
 現在はStep 4を完了させる。
 
-まず、今回追加した **Reflex結果 → Runtime → Ghost → Heart / Memory** の本番境界がCoreS3上でビルド・起動できることを確認する。
+次はLOCK 19・20・51に従い、Heartの永続化を実装する。
 
-その後も、係数・閾値・保存件数を推測で固定せず、Step 4で既にLOCKされている責務境界だけを実装する。
+まずNVS側に主保存／復元の本番境界を置き、初回起動と通常起動を区別できる構造にする。その後、同じHeart状態をmicroSDへバックアップできる本番境界を追加する。
 
-Step 4の本番骨格確認後、Step 5として最初の外部感覚 **ToF4M / U172** を Device Driver層から再開する。ToF4M未検出問題はセンサー固有層で切り分け、Ghost / Runtimeを巻き込まない。
+この段階でも、保存周期・バックアップ世代数・ファイル形式・Heart係数・閾値等を推測で固定しない。コードを書くために具体的決定が必要になった項目だけ追加設計へ戻る。
+
+Heart永続化の本番骨格確認後、Step 4に残るMemory本番境界とReflex感度修飾入口を確認する。Step 4完了後、Step 5として最初の外部感覚 **ToF4M / U172** を Device Driver層から再開する。ToF4M未検出問題はセンサー固有層で切り分け、Ghost / Runtimeを巻き込まない。
 
 ## 11. 完成判定
 
 Desktop Companion全体としては未完成。
 
-ただし、**ゼロベース基盤から生命情報を流す神経RuntimeとGhost本番骨格が実機起動し、Reflex結果を内面へ戻すフィードバック経路の実装へ進んだ段階**にある。
+ただし、**ゼロベース基盤から生命情報を流す神経RuntimeとGhost本番骨格が実機起動し、Reflex結果の内面フィードバック経路まで実機確認済み。現在はHeart永続化の本番実装へ進む段階**にある。
