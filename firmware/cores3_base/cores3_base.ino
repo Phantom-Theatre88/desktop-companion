@@ -2,8 +2,10 @@
 #include <M5GFX.h>
 
 #include "src/core/DesktopCompanionRuntime.h"
+#include "src/face/FaceRenderer.h"
 
 deskbot::core::DesktopCompanionRuntime runtime;
+deskbot::face::FaceRenderer face_renderer;
 
 void setup() {
   auto cfg = M5.config();
@@ -33,6 +35,10 @@ void setup() {
                 heart.mood, heart.affection, heart.curiosity);
   Serial.printf("[HEART] boredom=%.2f sleepiness=%.2f attention=%.2f\n",
                 heart.boredom, heart.sleepiness, heart.attention);
+
+  face_renderer.begin(M5.Display);
+  face_renderer.render(deskbot::face::FaceRenderer::neutral());
+  Serial.println("[FACE] Neutral expression rendered");
 }
 
 void loop() {
