@@ -34,6 +34,7 @@ class BehaviorEngine {
 
   uint32_t started_ms_ = 0;
   uint32_t last_event_ms_ = 0;
+  nerve::NeuronType last_event_type_ = nerve::NeuronType::NONE;
   MicroBehaviorFrame micro_behavior_{};
 };
 
