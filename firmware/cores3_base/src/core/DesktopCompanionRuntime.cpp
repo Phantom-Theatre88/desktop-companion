@@ -53,6 +53,10 @@ void DesktopCompanionRuntime::emit(const nerve::SemanticNeuron& neuron) {
   synapse_.emit(neuron);
 }
 
+void DesktopCompanionRuntime::reportReflexResult(const reflex::ReflexResult& result) {
+  ghost_.onReflexResult(result);
+}
+
 bool DesktopCompanionRuntime::connectGhost(nerve::NeuronType type) {
   return synapse_.connect(
       type,
