@@ -1,11 +1,15 @@
 #include <M5Unified.h>
 #include <M5GFX.h>
 
+#include "src/adapter/TouchAdapter.h"
 #include "src/core/DesktopCompanionRuntime.h"
+#include "src/device/CoreS3TouchDriver.h"
 #include "src/face/FaceRenderer.h"
 
 deskbot::core::DesktopCompanionRuntime runtime;
 deskbot::face::FaceRenderer face_renderer;
+deskbot::device::CoreS3TouchDriver touch_driver;
+deskbot::adapter::TouchAdapter touch_adapter;
 
 namespace {
 
@@ -27,6 +31,17 @@ void renderLivingFace(uint32_t now_ms) {
   expression.offset_y = micro.gaze_y;
 
   face_renderer.render(expression);
+}
+
+void pollTouch(uint32_t now_ms) {
+  const auto sample = touch_driver.sample(now_ms);
+  deskbot::nerve::SemanticNeuron neuron;
+  if (touch_adapter.toNeuron(sample, neuron)) {
+    runtime.emit(neuron);
+    Serial.printf("[SENSE][TOUCH] TOUCH x=%ld y=%ld\n",
+                  static_cast<long>(neuron.payload.x),
+                  static_cast<long>(neuron.payload.y));
+  }
 }
 
 }  // namespace
@@ -72,6 +87,10 @@ void setup() {
     Serial.println("[HEART][NVS] Primary snapshot state unknown");
   }
 
+  touch_driver.begin();
+  Serial.printf("[SENSE][TOUCH] Device driver: %s\n",
+                M5.Touch.isEnabled() ? "READY" : "UNAVAILABLE");
+
   face_renderer.begin(M5.Display);
   runtime.tick(millis());
   renderLivingFace(millis());
@@ -82,6 +101,7 @@ void loop() {
   M5.update();
 
   const uint32_t now_ms = millis();
+  pollTouch(now_ms);
   runtime.tick(now_ms);
   renderLivingFace(now_ms);
 
