@@ -42,7 +42,7 @@ Ghost本体は独自実装のまま維持し、以下を正式な参照実装と
 
 **基盤／OS相当：準備完了**
 
-**神経・シナプス層：本番骨格実装済み、Step 4最小本番実装を完了直前まで進行中**
+**Step 4｜Heart / Memory / Reflexの最小本番実装：本番骨格まで完了**
 
 `heart-engine` ブランチの `firmware/cores3_base/` には現在、以下の本番骨格がある。
 
@@ -126,6 +126,12 @@ microSDのファイル形式、パス、世代数、マウント方式、復旧�
 
 通常起動時は、具体ルールなしで確定できる `affection` のみ保存値を現在Heartへ戻す。その他5項目は、必要な経過時間・動的平常値・生活リズム等が未実装のため、機械的コピーせず `restorePending()` で未完了を明示する。
 
+2026-09-17、CoreS3実機で通常起動時に `[HEART][RESTORE] LOCK20 field plan: PENDING_STEP9_INPUTS` が出力されることを確認した。
+
+これは、LOCK 20の項目別復元Planが本番コードに存在し、Step 9で必要となる生活履歴・動的平常値・時間情報が未投入であることを明示するもの。係数や減衰率を推測実装していない。
+
+以上により、**Step 4の本番骨格は完了**とする。
+
 ## 5. 現在の神経構造
 
 **Hardware → Device Driver → Adapter → Nerve Input → Semantic Neuron → Synapse → Reflex / Ghost / Memory / Pi5 → Behavior → Body**
@@ -159,11 +165,9 @@ Heart Contextはread-only snapshotとし、1イベント処理中は開始時sna
 
 Heart永続化はLOCK 51に従い、**NVSを主保存、microSDをバックアップ**とする。
 
-現在、NVS主保存のストレージ境界と再起動時の既存snapshot読込確認まで完了している。
+NVS主保存のストレージ境界、通常起動時の既存snapshot読込、microSDバックアップ境界、LOCK 20状態別復元Planまで実装済み。
 
-microSD側も保存／読込handlerを差し込める本番境界まで実装し、CoreS3向けビルド／書き込み確認済み。
-
-LOCK 20の状態別復元では、復元方式の責務境界まで実装済み。`affection` は保存値を引き継ぐ。`mood / curiosity / boredom / sleepiness / attention` は、未LOCKの係数や未実装の生活履歴を推測で補わず、必要入力が揃うまでpendingとする。
+LOCK 20の具体的な減衰率・再計算式はStep 9側で必要な時間・生活履歴・動的平常値と接続してから決める。
 
 ## 7. Memory Engineの扱い
 
@@ -202,32 +206,28 @@ Reflex結果はHeart / Memoryへ戻る本番境界を実装済み。
 
 最初の外部感覚対象は **Unit ToF4M / U172**。
 
-ただし実機未検出問題が残っているため、センサー固有問題をGhost / Runtimeへ持ち込まない。
+実機未検出問題が残っているため、センサー固有問題をGhost / Runtimeへ持ち込まない。
 
-Step 5で、
+Step 5では、
 
-**Device Driver → Adapter → PROXIMITY_* Semantic Neuron**
+**Device → Device Driver → Adapter → Nerve Input → Semantic Neuron → Synapse → Reflex / Ghost → Behavior → Body Output**
 
-として再開する。
+を一本通す。
+
+ToF単独で人物を断定しない。
 
 ## 11. 次の実装
 
-現在はStep 4の最後の実機確認を行う。
+**Step 4は完了。次はStep 5へ移る。**
 
-次は、今回追加した **LOCK 20状態別復元Plan** がCoreS3でコンパイル・リンク・書き込み・起動できることを確認する。
+最初の対象は **Unit ToF4M / U172**。
 
-通常起動時のSerialでは、既存NVS snapshot読込に続いて、
+まずDevice Driver層で、既知の実機未検出問題をGhostや神経Runtimeから分離したまま扱う。
 
-`[HEART][RESTORE] LOCK20 field plan: PENDING_STEP9_INPUTS`
-
-が出ることを確認する。
-
-これは失敗ではなく、Step 4では未LOCKの係数・動的平常値・生活リズムを捏造せず、復元方式だけを本番骨格として固定したことを意味する。
-
-この確認が通ればStep 4の本番骨格を完了とし、**長居せずStep 5のToF4M / U172 Device Driver層へ戻る**。
+同じ未検出問題または同系統問題が再発した場合は、LOCK 8の1回ループルールに従い、局所修正を続けず、I2C経路・電源・配線・アドレス・M5Unified側前提・Unit固有条件を根本から再確認する。
 
 ## 12. 完成判定
 
 Desktop Companion全体としては未完成。
 
-ただし、**神経Runtime / Ghost本番骨格、Reflex結果の内面フィードバック、Heart NVS主保存、Memory本番境界、Reflex感度修飾入口、microSDバックアップ境界、LOCK 20状態別復元Planまで本番骨格を実装。現在はStep 4最終実機確認の段階**にある。
+ただし、**神経Runtime / Ghost本番骨格、Heart / Memory / ReflexのStep 4最小本番骨格はCoreS3実機で成立。現在はStep 5として最初の外部感覚ToF4M / U172の縦貫通へ進む段階**にある。
