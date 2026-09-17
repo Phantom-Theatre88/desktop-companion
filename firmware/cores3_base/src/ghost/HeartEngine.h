@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include "../nerve/NerveTypes.h"
+#include "../reflex/ReflexLayer.h"
 
 namespace deskbot {
 namespace ghost {
@@ -25,6 +26,8 @@ class HeartEngine {
   void begin(uint32_t now_ms);
   void tick(uint32_t now_ms);
   void onNeuron(const nerve::SemanticNeuron& neuron, const HeartContext& event_context);
+  void onReflexResult(const reflex::ReflexResult& result,
+                      const HeartContext& result_context);
 
   HeartContext snapshot(uint32_t now_ms) const;
   const HeartState& state() const { return state_; }
