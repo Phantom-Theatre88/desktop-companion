@@ -8,7 +8,21 @@ void ReflexLayer::setIntentHandler(ReflexIntentHandler handler, void* context) {
   handler_context_ = context;
 }
 
+void ReflexLayer::setSensitivityProvider(ReflexSensitivityProvider provider,
+                                         void* context) {
+  sensitivity_provider_ = provider;
+  sensitivity_context_ = context;
+}
+
 void ReflexLayer::onNeuron(const nerve::SemanticNeuron& neuron) {
+  // LOCK 46 / 50: Memory/Ghost may provide an experience-derived sensitivity
+  // hint before Reflex chooses a response. The hint is intentionally not mapped
+  // to concrete thresholds/strength/timing yet because those values are not LOCKed.
+  last_sensitivity_hint_ = ReflexSensitivityHint{};
+  if (sensitivity_provider_ != nullptr) {
+    last_sensitivity_hint_ = sensitivity_provider_(neuron, sensitivity_context_);
+  }
+
   switch (neuron.type) {
     case nerve::NeuronType::PROXIMITY_NEAR:
     case nerve::NeuronType::PROXIMITY_APPROACHING:
