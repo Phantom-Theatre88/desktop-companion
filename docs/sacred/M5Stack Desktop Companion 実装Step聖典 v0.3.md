@@ -1,6 +1,6 @@
-# M5Stack Desktop Companion 実装Step聖典 v0.3（2026-09-17改訂）
+# M5Stack Desktop Companion 実装Step聖典 v0.3（2026-09-18改訂）
 
-更新日: 2026-09-17
+更新日: 2026-09-18
 
 ## 0. この文書の位置づけ
 
@@ -23,6 +23,10 @@
 最短化するのはGhostそのものではなく、Ghostへ到達するまでの寄り道である。
 
 後で捨てる簡易Ghostや「Ghostっぽい仮動作」は作らず、最初から完成版と同じ責務境界・骨格を使い、感覚器官・記憶量・行動能力・高次認知だけを段階的に追加する。
+
+LOCK 52により、外付け感覚より先にCoreS3単体DeskRoboを成立させる。
+
+LOCK 53により、CoreS3単体DeskRobo成立後は、**最初の外部感覚ToF4Mへ進む前にCoreS3内蔵カメラをM5Stack側の「反射の目」として先に仕上げる。**
 
 ## Step 0｜ゼロベース基準固定
 
@@ -152,9 +156,37 @@ Reflex後は、反射した事実だけでなく、回避できたか・危険�
 
 ただし、具体的な閾値・係数・減衰率・保存件数等は、この段階で一律固定しない。
 
-## Step 5｜最初の外部感覚縦貫通
+## Step 5｜CoreS3内蔵カメラ低次視覚 → 最初の外部感覚ToF4M
 
-最初の対象は Unit ToF4M / U172 とする。
+LOCK 52・53に従い、Step 4完了後は次の順で進める。
+
+### Step 5-A｜CoreS3内蔵カメラを「反射の目」として成立
+
+外付けUnitより先に、CoreS3本体だけで利用できる内蔵カメラをDeskRoboへ接続する。
+
+基本経路：
+
+**Camera Hardware → Device Driver → Vision / Recognition → Nerve Input → Semantic Neuron → Synapse → Reflex / Ghost → Behavior → Body Output**
+
+とする。
+
+Raw frameをGhostへ直接渡さない。
+
+M5Stack側では低次視覚・反射に必要な意味までを扱い、人物・物体・状況の高次理解はPi5側へ分離する。
+
+ToF4Mへ進む前に少なくとも、
+
+- 安定撮像
+- Cameraと内部I2Cの資源競合処理
+- Touch / IMUを壊さない周期撮像
+- Device Driver → Visionの本番境界
+- 低次視覚情報を意味化できるVision層
+
+を成立させる。
+
+### Step 5-B｜最初の外部感覚縦貫通：ToF4M / U172
+
+内蔵カメラ低次視覚が成立した後、最初の外部感覚として Unit ToF4M / U172 を追加する。
 
 基本経路：
 
@@ -168,11 +200,13 @@ ToF単独で人物を断定しない。
 
 ## Step 6｜感覚器官を順次追加
 
-基本順は、
+LOCK 53適用後の基本順は、
 
-**ToF4M → TMOS PIR → ENV-Pro → 視覚 → タッチ → IMU → 聴覚 → その他感覚**
+**CoreS3内蔵カメラ低次視覚 → ToF4M → TMOS PIR → ENV-Pro → 聴覚 → その他感覚**
 
 とする。
+
+Touch / IMUはLOCK 52のCoreS3単体DeskRobo工程で既に先行接続済みとして扱う。
 
 各感覚は生データ取得だけで完了にせず、意味化・反射・Heart・Memory・必要時Pi5・行動まで接続する。
 
@@ -297,9 +331,15 @@ Step 3〜4から存在するMemory本番境界へ、Pi5側を含む長期能力�
 
 `CURRENT_STATUS.md` を現在地の正本とする。
 
-2026-09-17時点では、ゼロベース基盤／OS相当の準備が完了し、`heart-engine` ブランチで神経・シナプスRuntimeおよびGhost本番骨格の実装へ移行している。
+2026-09-18時点では、Step 4本番骨格とLOCK 52のCoreS3単体DeskRobo最低成立条件を実機通過済み。
 
-ToF4Mの実機未検出問題は残っているが、神経Runtime・Ghost・Heart / Memory / Reflexの実装をセンサー固有問題へ従属させない。
+LOCK 53に従い、ToF4Mより先にCoreS3内蔵カメラの低次視覚経路を実装中である。
+
+内蔵カメラは、CoreS3実機で一回撮像、内部I2C復元、Touch / IMU継続、周期撮像、Device Driver → Vision境界、Vision側average luma取得まで確認済み。
+
+次はVision層から製品非依存の低次視覚意味へ上げ、Semantic Neuronへ接続する。
+
+ToF4M / U172は、その後の最初の外部感覚縦貫通対象として維持する。
 
 ## デバッグLOCK
 
