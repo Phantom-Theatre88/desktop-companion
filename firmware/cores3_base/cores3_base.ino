@@ -8,6 +8,7 @@
 #include "src/device/CoreS3ImuDriver.h"
 #include "src/device/CoreS3TouchDriver.h"
 #include "src/face/FaceRenderer.h"
+#include "src/vision/CameraVisionInput.h"
 
 deskbot::core::DesktopCompanionRuntime runtime;
 deskbot::face::FaceRenderer face_renderer;
@@ -16,11 +17,14 @@ deskbot::adapter::TouchAdapter touch_adapter;
 deskbot::device::CoreS3ImuDriver imu_driver;
 deskbot::adapter::ImuAdapter imu_adapter;
 deskbot::device::CoreS3CameraDriver camera_driver;
+deskbot::vision::CameraVisionInput camera_vision;
 
 namespace {
 
 uint32_t last_face_render_ms = 0;
+uint32_t last_camera_capture_ms = 0;
 constexpr uint32_t kFaceRenderIntervalMs = 40;
+constexpr uint32_t kCameraCaptureIntervalMs = 2000;
 
 void renderLivingFace(uint32_t now_ms) {
   if ((now_ms - last_face_render_ms) < kFaceRenderIntervalMs) {
@@ -66,23 +70,35 @@ void pollImu(uint32_t now_ms) {
   }
 }
 
-void runCameraProbe() {
-  const auto probe = camera_driver.probeOnce();
+void captureCameraFrame(uint32_t now_ms, bool startup_probe) {
+  const auto capture = camera_driver.captureOnce(now_ms, &camera_vision);
+  const auto& vision = camera_vision.lastSummary();
 
-  if (probe.initialized && probe.captured) {
-    Serial.printf("[SENSE][CAMERA] Probe: READY frame=%ux%u bytes=%u luma=%u\n",
-                  static_cast<unsigned>(probe.width),
-                  static_cast<unsigned>(probe.height),
-                  static_cast<unsigned>(probe.bytes),
-                  static_cast<unsigned>(probe.average_luma));
-  } else if (probe.initialized) {
-    Serial.println("[SENSE][CAMERA] Probe: INIT_OK CAPTURE_FAILED");
+  if (capture.initialized && capture.captured && vision.valid) {
+    Serial.printf("[SENSE][CAMERA] %s frame=%ux%u bytes=%u luma=%u\n",
+                  startup_probe ? "Probe: READY" : "Frame: READY",
+                  static_cast<unsigned>(vision.width),
+                  static_cast<unsigned>(vision.height),
+                  static_cast<unsigned>(vision.bytes),
+                  static_cast<unsigned>(vision.average_luma));
+  } else if (capture.initialized) {
+    Serial.printf("[SENSE][CAMERA] %s CAPTURE_FAILED\n",
+                  startup_probe ? "Probe: INIT_OK" : "Frame: INIT_OK");
   } else {
-    Serial.println("[SENSE][CAMERA] Probe: INIT_FAILED");
+    Serial.printf("[SENSE][CAMERA] %s INIT_FAILED\n",
+                  startup_probe ? "Probe:" : "Frame:");
   }
 
   Serial.printf("[SENSE][CAMERA] Internal I2C restored: %s\n",
-                probe.internal_i2c_restored ? "YES" : "NO");
+                capture.internal_i2c_restored ? "YES" : "NO");
+}
+
+void pollCamera(uint32_t now_ms) {
+  if ((now_ms - last_camera_capture_ms) < kCameraCaptureIntervalMs) {
+    return;
+  }
+  last_camera_capture_ms = now_ms;
+  captureCameraFrame(now_ms, false);
 }
 
 }  // namespace
@@ -128,11 +144,11 @@ void setup() {
     Serial.println("[HEART][NVS] Primary snapshot state unknown");
   }
 
-  // First camera milestone: one real frame from the built-in GC0308 without
-  // yet promoting pixels into Vision/SemanticNeuron. The probe releases the
-  // shared internal I2C only during camera init/capture and restores it before
-  // Touch/IMU become standing DeskRobo senses again.
-  runCameraProbe();
+  // Camera now has a reusable Device Driver -> Vision frame boundary. We keep
+  // each capture transaction self-contained until repeated real-device tests
+  // prove that camera use can coexist with the standing Touch/IMU senses.
+  captureCameraFrame(millis(), true);
+  last_camera_capture_ms = millis();
 
   touch_driver.begin();
   Serial.printf("[SENSE][TOUCH] Device driver: %s\n",
@@ -155,6 +171,7 @@ void loop() {
   const uint32_t now_ms = millis();
   pollTouch(now_ms);
   pollImu(now_ms);
+  pollCamera(now_ms);
   runtime.tick(now_ms);
   renderLivingFace(now_ms);
 
