@@ -161,6 +161,9 @@ verify and upload. Serial Monitor: 115200 baud.
 2. First frame and a stationary scene should not continuously emit events.
 3. Move a high-contrast object across the view, taking at least 2 seconds:
    `[NERVE][VISION] MOTION_DETECTED ... -> Ghost/Heart/Memory/Behavior`.
+   The same event must also print
+   `[TRACE][VISION] Ghost=YES Heart=YES Memory=YES Behavior=YES`.
+   Any `NO` means the end-to-end hardware check has not passed.
 4. Change lighting or cover/uncover the camera: BRIGHTER/DARKER. Wait at least
    4 seconds between trials because captures and cooldown are discrete.
 5. Keep Touch, IMU, blink and face rendering running; after moving the body,
