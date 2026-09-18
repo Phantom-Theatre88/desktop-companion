@@ -28,6 +28,18 @@ LOCK 52により、外付け感覚より先にCoreS3単体DeskRoboを成立さ�
 
 LOCK 53により、CoreS3単体DeskRobo成立後は、**最初の外部感覚ToF4Mへ進む前にCoreS3内蔵カメラをM5Stack側の「反射の目」として先に仕上げる。**
 
+### LOCK 54｜今後の大工程
+
+現在の実装状態からDesktop Companion v1.0へ向かう上位ロードマップを、
+
+**直近実機確認 → A「感じる」→ B「気分が変わる」→ C「自分から行動する」→ D「昨日と今日をつなぐ」→ E「賢くする」**
+
+の順で固定する。
+
+直近実機確認は、実装済みの **Camera → Vision → Semantic Neuron → Ghost / Memory / Behavior** をCoreS3実機で通すこと。
+
+この大工程は既存Step番号を置き換えず、Step群を最上位ゴールから見て束ねる上位ロードマップとして扱う。詳細は `LOCK54_DesktopCompanion今後の大工程.md` を正とする。
+
 ## Step 0｜ゼロベース基準固定
 
 ### 基盤
