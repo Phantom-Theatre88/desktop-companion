@@ -28,6 +28,26 @@ bool body_motion_seen = false;
 constexpr uint32_t kFaceRenderIntervalMs = 40;
 constexpr uint32_t kCameraCaptureIntervalMs = 2000;
 
+void traceVisionDelivery(const deskbot::nerve::SemanticNeuron& neuron) {
+  const auto& ghost = runtime.ghost();
+  const auto& memory = ghost.memoryEngine().lastCandidate();
+  const bool ghost_ok = ghost.lastNeuronType() == neuron.type &&
+                        ghost.lastNeuronMs() == neuron.timestamp_ms;
+  const bool heart_ok = ghost.heartEngine().lastEventType() == neuron.type &&
+                        ghost.heartEngine().lastEventMs() == neuron.timestamp_ms;
+  const bool memory_ok = memory.kind == deskbot::ghost::MemoryRecordKind::SEMANTIC_EVENT &&
+                         memory.neuron.type == neuron.type &&
+                         memory.neuron.timestamp_ms == neuron.timestamp_ms;
+  const bool behavior_ok = ghost.behaviorEngine().lastReceivedType() == neuron.type &&
+                           ghost.behaviorEngine().lastReceivedMs() == neuron.timestamp_ms;
+
+  Serial.printf("[TRACE][VISION] Ghost=%s Heart=%s Memory=%s Behavior=%s\n",
+                ghost_ok ? "YES" : "NO",
+                heart_ok ? "YES" : "NO",
+                memory_ok ? "YES" : "NO",
+                behavior_ok ? "YES" : "NO");
+}
+
 void renderLivingFace(uint32_t now_ms) {
   if ((now_ms - last_face_render_ms) < kFaceRenderIntervalMs) {
     return;
@@ -112,6 +132,7 @@ void captureCameraFrame(uint32_t now_ms, bool startup_probe) {
     deskbot::nerve::SemanticNeuron neuron;
     if (camera_vision.takeNeuron(neuron)) {
       runtime.emit(neuron);
+      traceVisionDelivery(neuron);
       const char* name = neuron.type == deskbot::nerve::NeuronType::MOTION_DETECTED
           ? "MOTION_DETECTED" : (neuron.type == deskbot::nerve::NeuronType::BRIGHTER ? "BRIGHTER" : "DARKER");
       Serial.printf("[NERVE][VISION] %s strength=%.3f -> Ghost/Heart/Memory/Behavior\n",
