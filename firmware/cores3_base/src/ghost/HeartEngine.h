@@ -49,6 +49,8 @@ class HeartEngine {
 
   HeartContext snapshot(uint32_t now_ms) const;
   const HeartState& state() const { return state_; }
+  nerve::NeuronType lastEventType() const { return last_event_type_; }
+  uint32_t lastEventMs() const { return last_event_ms_; }
 
   bool primarySnapshotLoaded() const { return primary_snapshot_loaded_; }
   bool firstBootInitialized() const { return first_boot_initialized_; }
