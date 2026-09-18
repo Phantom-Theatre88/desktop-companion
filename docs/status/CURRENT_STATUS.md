@@ -14,6 +14,10 @@ M5Stackを、単なる音声AI端末ではなく、
 
 評価基準は機能数ではなく、**「そこにいる感じ」があるか**。
 
+## 実機の前提
+
+実機は **M5Stack Stack-chan完成機（CoreS3主制御＋内蔵2軸首サーボ）**。CoreS3単体成立はソフトウェアの検証段階であり、首のない別の機体を意味しない。既存Stack-chanソフトを親Repoにしない方針と、Stack-chanの身体を使用することは区別する。
+
 ## 2. 現在の正式実装方針
 
 実装基盤はゼロベースを維持する。
@@ -257,7 +261,17 @@ LOCK 53により、ToF4Mより先にCoreS3内蔵カメラをM5Stack側の「反�
 
 現在は、**「目が開き、見続ける」Device Driver → Vision経路まで実機成立**した段階。
 
-次はVision層で明暗変化・動き等の低次視覚意味を生成し、製品非依存のSemantic Neuronへ接続する。
+2026-09-18、`heart-engine` の `5753d75` にVision → Semantic Neuron → Runtime/Synapse → Ghost/Heart入口・Memory・Behaviorの接続を実装した（実機未確認）。
+
+- `MOTION_DETECTED / BRIGHTER / DARKER` を追加。画像はVision内に留める。
+- 16×12の輝度差分、全体明暗変化の分離、初回・異常・長時間空白後の基準作り直し、送出間隔制限。
+- PICKED_UP/SHAKE時は比較履歴を破棄し、自身の動きに伴う誤検知を抑制。ただし完全な自己運動補償ではない。
+- 撮像終了・内部I2C復元後に意味イベントを送出。ブロッキング撮像後の身体更新に新しい時刻を使用。
+- Behaviorは既存開眼度へ一時反映。Touch/IMU反応を優先し、新しい表情アニメは追加しない。
+- RGB565のバイト順をesp32-cameraの仕様に合わせて修正。旧luma値との単純比較はしない。
+- Heartの数値感情更新は引き続き未実装。神経配送と感情変化の完成を混同しない。
+
+ホストテストで静止・明暗・局所変化・送出間隔・異常復帰・時計周回・Runtime配送・Memory記録・Behavior反映／優先を確認。CoreS3向けArduinoビルド成功（Flash 19%、静的RAM 11%）。次は実機で意味イベントの精度とTouch/IMU/Faceとの共存を確認する。
 
 人物・物体・個人識別等の高次認識はPi5側の責務とし、CoreS3側へ持ち込まない。
 
@@ -273,17 +287,18 @@ ToF単独で人物を断定しない。
 
 ## 12. 次の実装
 
-**現在の小ゴールはCoreS3内蔵カメラのVision → Semantic Neuron接続。**
+**現在の小ゴールは、実装したVision → Semantic Neuron接続の実機確認。**
 
 次に、
 
-- Vision側で低次視覚変化を意味化する
-- Raw frameを神経へ流さない
-- 最初の意味入力として明暗変化／動き等を候補とする
-- 意味化された入力だけをSemantic Neuronへ渡す
-- Ghost / Reflex / Behaviorへ接続した時もDeskRobo生命ループを壊さない
+- Runtime READYと23 bindingsを確認
+- 静止時の誤発火、動く対象でMOTION_DETECTED、照明変化でBRIGHTER/DARKERを確認
+- Camera READY / I2C restored YES / Touch・IMU / 生命ループの継続を確認
+- 約2秒の撮像間隔、露出変化、影、自己運動による誤検知と短い動きの見落としを評価
 
-ことを確認する。
+する。人物・顔の検出、Kimの個人識別、方向追従はまだない。M5側の低次ターゲットとPi5側の人物同定は別工程とする。
+
+内蔵首サーボは接続対象。現行独自実装には首Driverがまだなく、Behavior → Neck → Driverを接続する前に、Stack-chanのフィードバック・原点・角度／速度制限・自己運動時のVision抑制を確認する。方向情報のない画像変化を人追従や首振りへ直結しない。外付けサーボを新規に購入・接続する前提ではない。
 
 この低次視覚経路を成立させた後、ToF4M / U172のDevice Driver層へ進む。
 
