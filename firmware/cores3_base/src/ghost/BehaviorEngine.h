@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include "HeartEngine.h"
+#include "../face/FaceShape.h"
 #include "../nerve/NerveTypes.h"
 
 namespace deskbot {
@@ -13,6 +14,9 @@ struct MicroBehaviorFrame {
   float gaze_y = 0.0f;
   float left_eye_bias = 0.0f;
   float right_eye_bias = 0.0f;
+  face::EyeShape left_shape{}, right_shape{};
+  float eye_spacing_scale = 1.0f;
+  float jitter_x = 0.0f, jitter_y = 0.0f;
   bool blink_active = false;
   uint32_t generated_ms = 0;
 };

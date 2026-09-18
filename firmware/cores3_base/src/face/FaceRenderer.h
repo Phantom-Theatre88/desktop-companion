@@ -1,15 +1,13 @@
 #pragma once
 
 #include <M5GFX.h>
+#include "FaceShape.h"
 
 namespace deskbot {
 namespace face {
 
-struct EyeParams {
+struct EyeParams : EyeShape {
   float openness = 1.0f;      // 0.0 closed .. 1.0 fully open
-  float width_scale = 1.0f;   // base eye width multiplier
-  float height_scale = 1.0f;  // base eye height multiplier
-  float tilt = 0.0f;          // -1.0 droop .. +1.0 angry/upward inner edge
 };
 
 struct ExpressionParams {
@@ -17,6 +15,9 @@ struct ExpressionParams {
   EyeParams right{};
   float offset_x = 0.0f;      // -1.0 .. +1.0, whole-face horizontal shift
   float offset_y = 0.0f;      // -1.0 .. +1.0, whole-face vertical shift
+  float spacing_scale = 1.0f; // center separation relative to the neutral face
+  float jitter_x = 0.0f;      // -1..1, immediate displacement supplied by Behavior
+  float jitter_y = 0.0f;
   uint32_t eye_color = TFT_CYAN;
 };
 
@@ -24,6 +25,7 @@ class FaceRenderer {
  public:
   void begin(M5GFX& display);
   void render(const ExpressionParams& expression);
+  void render(const ExpressionParams& expression, uint32_t now_ms);
 
   static ExpressionParams neutral();
   static ExpressionParams sleepy();
@@ -37,6 +39,7 @@ class FaceRenderer {
   static float clamp01(float value);
   static float clampSigned(float value);
 
+  ShapeTransition transition_{};
   M5GFX* display_ = nullptr;
   M5Canvas* canvas_ = nullptr;
 };

@@ -36,6 +36,11 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
 
 void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   const HeartState& heart = heart_context.state;
+  // Rebuild transient geometry each tick; expired events cannot latch a face.
+  micro_behavior_.left_shape = face::EyeShape{};
+  micro_behavior_.right_shape = face::EyeShape{};
+  micro_behavior_.eye_spacing_scale = 1.0f;
+  micro_behavior_.jitter_x = micro_behavior_.jitter_y = 0.0f;
 
   // A small Heart-influenced resting openness. Sleepiness closes the eyes a
   // little, while attention keeps them more awake. This is continuous output,
@@ -66,10 +71,19 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
       event_age_ms < kShakeResponseMs;
 
   if (touch_response) {
+    const float amount = 1.0f - static_cast<float>(event_age_ms) / kTouchResponseMs;
+    micro_behavior_.left_shape.lower_lid = 0.22f * amount;
+    micro_behavior_.left_shape.radius_scale = 1.0f + 0.20f * amount;
+    micro_behavior_.right_shape = micro_behavior_.left_shape;
     resting_openness = clamp01(resting_openness + 0.10f);
     micro_behavior_.gaze_x *= 0.35f;
     micro_behavior_.gaze_y = clampSigned(micro_behavior_.gaze_y - 0.08f);
   } else if (picked_up_response) {
+    const float amount = 1.0f - static_cast<float>(event_age_ms) / kPickedUpResponseMs;
+    micro_behavior_.left_shape.height_scale = 1.0f + 0.18f * amount;
+    micro_behavior_.left_shape.width_scale = 1.0f + 0.04f * amount;
+    micro_behavior_.right_shape = micro_behavior_.left_shape;
+    micro_behavior_.eye_spacing_scale = 1.0f + 0.025f * amount;
     // Being lifted is treated as immediate attention/arousal rather than a
     // fixed emotion preset.
     resting_openness = clamp01(resting_openness + 0.18f);
@@ -80,8 +94,11 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     // temporary; exact expression design remains a later Face task.
     resting_openness = clamp01(resting_openness + 0.12f);
     const float shake_phase = static_cast<float>(event_age_ms) * 0.035f;
-    micro_behavior_.gaze_x = clampSigned(sinf(shake_phase) * 0.22f);
-    micro_behavior_.gaze_y = clampSigned(cosf(shake_phase * 0.7f) * 0.10f);
+    const float amount = 1.0f - static_cast<float>(event_age_ms) / kShakeResponseMs;
+    micro_behavior_.jitter_x = sinf(shake_phase) * 0.65f * amount;
+    micro_behavior_.jitter_y = sinf(shake_phase * 0.7f) * 0.30f * amount;
+    micro_behavior_.left_shape.upper_lid = 0.18f * amount;
+    micro_behavior_.right_shape.height_scale = 1.0f + 0.12f * amount;
   }
 
   // Blink envelope. This gives the standalone body a life rhythm without

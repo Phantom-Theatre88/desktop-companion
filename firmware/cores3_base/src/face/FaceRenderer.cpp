@@ -5,6 +5,7 @@ namespace face {
 
 void FaceRenderer::begin(M5GFX& display) {
   display_ = &display;
+  transition_.reset();
 
   if (canvas_ == nullptr) {
     canvas_ = new M5Canvas(&display);
@@ -14,6 +15,14 @@ void FaceRenderer::begin(M5GFX& display) {
 }
 
 void FaceRenderer::render(const ExpressionParams& expression) {
+  render(expression, millis());
+}
+
+void FaceRenderer::render(const ExpressionParams& target, uint32_t now_ms) {
+  transition_.update(target.left, target.right, target.spacing_scale, now_ms);
+  ExpressionParams expression = target;
+  static_cast<EyeShape&>(expression.left) = transition_.left();
+  static_cast<EyeShape&>(expression.right) = transition_.right();
   if (display_ == nullptr || canvas_ == nullptr) {
     return;
   }
@@ -28,9 +37,19 @@ void FaceRenderer::render(const ExpressionParams& expression) {
   // Reference-face DNA: the eyes are the dominant feature. Keep them large and
   // relatively far apart instead of rendering two small circular dots.
   const int16_t base_y = static_cast<int16_t>(h * 0.47f);
-  const int16_t eye_gap = static_cast<int16_t>(w * 0.215f);
-  const int16_t shift_x = static_cast<int16_t>(clampSigned(expression.offset_x) * (w * 0.075f));
-  const int16_t shift_y = static_cast<int16_t>(clampSigned(expression.offset_y) * (h * 0.070f));
+  const int16_t eye_gap = static_cast<int16_t>(static_cast<int16_t>(w * 0.215f) * transition_.spacing());
+  int16_t shift_x = static_cast<int16_t>(clampSigned(expression.offset_x) * (w * 0.075f) + clampSigned(expression.jitter_x) * (w * 0.025f));
+  const int16_t shift_y = static_cast<int16_t>(clampSigned(expression.offset_y) * (h * 0.070f) + clampSigned(expression.jitter_y) * (h * 0.025f));
+
+  // Constrain the combined gaze + transient shift using both actual widths.
+  // Odd pixel widths need a ceil half-width on the right edge.
+  const int16_t base_width = static_cast<int16_t>(w * 0.275f);
+  const int16_t left_width = static_cast<int16_t>(base_width * expression.left.width_scale);
+  const int16_t right_width = static_cast<int16_t>(base_width * expression.right.width_scale);
+  const int16_t min_shift = left_width / 2 - (w / 2 - eye_gap);
+  const int16_t max_shift = w - (w / 2 + eye_gap) - (right_width - right_width / 2);
+  if (shift_x < min_shift) shift_x = min_shift;
+  if (shift_x > max_shift) shift_x = max_shift;
 
   drawEye(w / 2 - eye_gap + shift_x,
           base_y + shift_y,
@@ -91,6 +110,9 @@ void FaceRenderer::drawEye(int16_t cx,
     radius = 3;
   }
 
+  radius = static_cast<int16_t>(radius * eye.radius_scale);
+  const int16_t max_radius = (ew < eh ? ew : eh) / 2;
+  if (radius > max_radius) radius = max_radius;
   canvas_->fillRoundRect(x, y, ew, eh, radius, color);
 
   // Reference silhouette: shave the two upper corners into short diagonals.
@@ -158,6 +180,12 @@ void FaceRenderer::drawEye(int16_t cx,
       }
     }
   }
+  // Masks stay inside this eye's rectangle. Independent left/right controls
+  // compose with the existing mirrored upper-lid slope (tilt).
+  const int16_t upper = static_cast<int16_t>(eh * eye.upper_lid);
+  const int16_t lower = static_cast<int16_t>(eh * eye.lower_lid);
+  if (upper > 0) canvas_->fillRect(x, y, ew, upper, TFT_BLACK);
+  if (lower > 0) canvas_->fillRect(x, y + eh - lower, ew, lower, TFT_BLACK);
 }
 
 ExpressionParams FaceRenderer::neutral() {
@@ -217,6 +245,7 @@ ExpressionParams FaceRenderer::dead() {
 }
 
 float FaceRenderer::clamp01(float value) {
+  if (!isfinite(value)) return 0.0f;
   if (value < 0.0f) {
     return 0.0f;
   }
@@ -227,6 +256,7 @@ float FaceRenderer::clamp01(float value) {
 }
 
 float FaceRenderer::clampSigned(float value) {
+  if (!isfinite(value)) return 0.0f;
   if (value < -1.0f) {
     return -1.0f;
   }

@@ -35,12 +35,17 @@ void renderLivingFace(uint32_t now_ms) {
   const auto& micro = runtime.ghost().behaviorEngine().microBehavior();
   auto expression = deskbot::face::FaceRenderer::neutral();
 
+  static_cast<deskbot::face::EyeShape&>(expression.left) = micro.left_shape;
+  static_cast<deskbot::face::EyeShape&>(expression.right) = micro.right_shape;
+  expression.spacing_scale = micro.eye_spacing_scale;
+  expression.jitter_x = micro.jitter_x;
+  expression.jitter_y = micro.jitter_y;
   expression.left.openness = micro.eye_openness + micro.left_eye_bias;
   expression.right.openness = micro.eye_openness + micro.right_eye_bias;
   expression.offset_x = micro.gaze_x;
   expression.offset_y = micro.gaze_y;
 
-  face_renderer.render(expression);
+  face_renderer.render(expression, now_ms);
 }
 
 void pollTouch(uint32_t now_ms) {
