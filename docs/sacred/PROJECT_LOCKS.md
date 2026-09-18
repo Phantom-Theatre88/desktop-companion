@@ -515,3 +515,29 @@ GhostはStep後半で初めて追加する機能ではない。
 責務境界、データフロー、制御主体、優先順位、永続化方針、Heart / Memory / Reflex間の接続方向が本番骨格として決まっている場合、係数・閾値・保存件数等の派生質問を机上で増やさない。
 
 実装中に「これを決めないと本番コードを書けない」という具体的な未決事項が現れた時だけ、追加設計へ戻る。
+
+## LOCK 54｜Desktop Companion 今後の大工程
+
+現在の実装状態からDesktop Companion v1.0へ向かう上位ロードマップを、以下の順で固定する。
+
+**直近実機確認 → A「感じる」→ B「気分が変わる」→ C「自分から行動する」→ D「昨日と今日をつなぐ」→ E「賢くする」**
+
+直近実機確認は、すでに実装済みの、
+
+**Camera → Vision → Semantic Neuron → Ghost / Memory / Behavior**
+
+をCoreS3実機で通すこと。
+
+Aでは感覚器官をSemantic Neuronまで意味化してGhostへ接続する。
+
+BではHeart Engineへイベント・時間による実際の内面変化を接続する。
+
+CではHeart / Memory / Time / 感覚から理由のある自発行動を選択し、Face・視線・内蔵首等へ出力する。
+
+DではTime / Memory / Relationshipを実際に機能させ、過去経験と長期関係を現在へ接続する。
+
+EではPi5を高次認知・言語・高次記憶として接続する。Pi5やLLMをGhostそのものにはしない。
+
+このLOCKは既存の実装Step番号を置き換えず、最上位ゴールから見た大工程へ束ね直した上位ロードマップとする。
+
+詳細は `LOCK54_DesktopCompanion今後の大工程.md` を正とする。
