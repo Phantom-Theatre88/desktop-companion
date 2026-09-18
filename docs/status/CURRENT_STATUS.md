@@ -311,3 +311,23 @@ Desktop Companion全体としては未完成。
 ただし、**神経Runtime / Ghost本番骨格、Heart / Memory / ReflexのStep 4最小本番骨格、LOCK 52のCoreS3単体DeskRobo最低成立条件はCoreS3実機で成立済み。**
 
 現在地は、**LOCK 53に従い、CoreS3内蔵カメラを「反射の目」として低次視覚のSemantic Neuronまで通す工程**とする。
+
+## 14. LOCK 54｜今後の大工程
+
+2026-09-18、現在地からDesktop Companion v1.0へ向かう大工程を以下でLOCKした。
+
+**直近実機確認 → A「感じる」→ B「気分が変わる」→ C「自分から行動する」→ D「昨日と今日をつなぐ」→ E「賢くする」**
+
+直近は、実装済みの **Camera → Vision → Semantic Neuron → Ghost / Memory / Behavior** をCoreS3実機で通す。
+
+その後、
+
+- A：感覚器官をSemantic Neuronまで意味化し、「感じる」を完成
+- B：Heartへイベント・時間による実際の変化を接続し、「気分が変わる」を完成
+- C：Heart / Memory / Time / 感覚から理由のある自発行動を選び、「自分から行動する」を完成
+- D：Time / Memory / Relationshipで過去と現在をつなぎ、「昨日と今日をつなぐ」
+- E：Pi5を高次認知・言語・高次Memoryとして接続し、「賢くする」
+
+と進める。
+
+既存Step番号は維持し、この大工程を上位ロードマップとして扱う。
