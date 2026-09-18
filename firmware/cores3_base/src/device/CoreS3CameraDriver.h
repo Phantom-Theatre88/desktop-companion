@@ -6,6 +6,7 @@ namespace deskbot {
 namespace device {
 
 struct CameraFrameView {
+  // Packed RGB565, high byte first; valid only during onCameraFrame().
   const uint8_t* data = nullptr;
   size_t bytes = 0;
   uint16_t width = 0;

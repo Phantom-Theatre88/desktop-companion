@@ -70,6 +70,7 @@ CameraCaptureResult CoreS3CameraDriver::captureOnce(
 
   camera_fb_t* frame = esp_camera_fb_get();
   if (frame != nullptr) {
+    result.timestamp_ms = millis();
     result.captured = true;
     result.width = frame->width;
     result.height = frame->height;
@@ -81,7 +82,7 @@ CameraCaptureResult CoreS3CameraDriver::captureOnce(
       view.bytes = frame->len;
       view.width = frame->width;
       view.height = frame->height;
-      view.timestamp_ms = now_ms;
+      view.timestamp_ms = result.timestamp_ms;
       consumer->onCameraFrame(view);
     }
 

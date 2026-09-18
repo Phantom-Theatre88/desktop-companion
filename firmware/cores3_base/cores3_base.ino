@@ -23,6 +23,8 @@ namespace {
 
 uint32_t last_face_render_ms = 0;
 uint32_t last_camera_capture_ms = 0;
+uint32_t last_body_motion_ms = 0;
+bool body_motion_seen = false;
 constexpr uint32_t kFaceRenderIntervalMs = 40;
 constexpr uint32_t kCameraCaptureIntervalMs = 2000;
 
@@ -67,6 +69,12 @@ void pollImu(uint32_t now_ms) {
   }
 
   runtime.emit(neuron);
+  if (neuron.type == deskbot::nerve::NeuronType::PICKED_UP ||
+      neuron.type == deskbot::nerve::NeuronType::SHAKE) {
+    last_body_motion_ms = now_ms;
+    body_motion_seen = true;
+    camera_vision.reset();
+  }
 
   if (neuron.type == deskbot::nerve::NeuronType::PICKED_UP) {
     Serial.printf("[SENSE][IMU] PICKED_UP motion=%.3f\n", neuron.payload.scalar);
@@ -92,6 +100,23 @@ void captureCameraFrame(uint32_t now_ms, bool startup_probe) {
   } else {
     Serial.printf("[SENSE][CAMERA] %s INIT_FAILED\n",
                   startup_probe ? "Probe:" : "Frame:");
+  }
+
+  // Only dispatch after the camera has released I2C. Failed or known
+  // self-motion captures invalidate the baseline and cannot leak stale events.
+  const uint32_t delivered_ms = millis();
+  const bool suppress = body_motion_seen && delivered_ms - last_body_motion_ms < 3000;
+  if (!capture.captured || !capture.internal_i2c_restored || !vision.valid || suppress) {
+    camera_vision.reset();
+  } else {
+    deskbot::nerve::SemanticNeuron neuron;
+    if (camera_vision.takeNeuron(neuron)) {
+      runtime.emit(neuron);
+      const char* name = neuron.type == deskbot::nerve::NeuronType::MOTION_DETECTED
+          ? "MOTION_DETECTED" : (neuron.type == deskbot::nerve::NeuronType::BRIGHTER ? "BRIGHTER" : "DARKER");
+      Serial.printf("[NERVE][VISION] %s strength=%.3f -> Ghost/Heart/Memory/Behavior\n",
+                    name, neuron.payload.scalar);
+    }
   }
 
   Serial.printf("[SENSE][CAMERA] Internal I2C restored: %s\n",
@@ -177,8 +202,11 @@ void loop() {
   pollTouch(now_ms);
   pollImu(now_ms);
   pollCamera(now_ms);
-  runtime.tick(now_ms);
-  renderLivingFace(now_ms);
+  // Capture is blocking; use fresh time so a newly delivered event is not
+  // compared against a tick timestamp from before it occurred.
+  const uint32_t body_now_ms = millis();
+  runtime.tick(body_now_ms);
+  renderLivingFace(body_now_ms);
 
   delay(10);
 }

@@ -20,6 +20,8 @@ constexpr uint32_t kShakeResponseMs = 650;
 }  // namespace
 
 void BehaviorEngine::begin(uint32_t now_ms) {
+  visual_event_type_ = nerve::NeuronType::NONE;
+  visual_event_ms_ = now_ms;
   started_ms_ = now_ms;
   last_event_ms_ = now_ms;
   last_event_type_ = nerve::NeuronType::NONE;
@@ -30,6 +32,13 @@ void BehaviorEngine::begin(uint32_t now_ms) {
 void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
                               const HeartContext& event_context) {
   (void)event_context;
+  if (neuron.type == nerve::NeuronType::MOTION_DETECTED ||
+      neuron.type == nerve::NeuronType::BRIGHTER ||
+      neuron.type == nerve::NeuronType::DARKER) {
+    visual_event_type_ = neuron.type;
+    visual_event_ms_ = neuron.timestamp_ms;
+    return;  // Visual observations cannot cancel a touch or body response.
+  }
   last_event_ms_ = neuron.timestamp_ms;
   last_event_type_ = neuron.type;
 }
@@ -99,6 +108,20 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     micro_behavior_.jitter_y = sinf(shake_phase * 0.7f) * 0.30f * amount;
     micro_behavior_.left_shape.upper_lid = 0.18f * amount;
     micro_behavior_.right_shape.height_scale = 1.0f + 0.12f * amount;
+  }
+
+  // Minimal nerve-to-body connection using existing openness only. No new
+  // expression animation and no assumption about who/what caused the change.
+  const uint32_t visual_age = now_ms - visual_event_ms_;
+  if (!touch_response && !picked_up_response && !shake_response && visual_age < 600) {
+    const float amount = 1.0f - static_cast<float>(visual_age) / 600.0f;
+    if (visual_event_type_ == nerve::NeuronType::MOTION_DETECTED) {
+      resting_openness = clamp01(resting_openness + 0.10f * amount);
+    } else if (visual_event_type_ == nerve::NeuronType::BRIGHTER) {
+      resting_openness = clamp01(resting_openness - 0.10f * amount);
+    } else if (visual_event_type_ == nerve::NeuronType::DARKER) {
+      resting_openness = clamp01(resting_openness + 0.06f * amount);
+    }
   }
 
   // Blink envelope. This gives the standalone body a life rhythm without

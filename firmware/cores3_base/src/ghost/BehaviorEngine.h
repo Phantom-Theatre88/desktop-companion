@@ -36,6 +36,8 @@ class BehaviorEngine {
   static float clamp01(float value);
   static float clampSigned(float value);
 
+  nerve::NeuronType visual_event_type_ = nerve::NeuronType::NONE;
+  uint32_t visual_event_ms_ = 0;
   uint32_t started_ms_ = 0;
   uint32_t last_event_ms_ = 0;
   nerve::NeuronType last_event_type_ = nerve::NeuronType::NONE;

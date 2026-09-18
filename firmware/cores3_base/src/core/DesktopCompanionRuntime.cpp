@@ -36,6 +36,9 @@ bool DesktopCompanionRuntime::begin(uint32_t now_ms) {
       nerve::NeuronType::FACE_LOST,
       nerve::NeuronType::LOUD_SOUND,
       nerve::NeuronType::VOICE_ACTIVITY,
+      nerve::NeuronType::MOTION_DETECTED,
+      nerve::NeuronType::BRIGHTER,
+      nerve::NeuronType::DARKER,
   };
 
   for (const auto type : ghost_inputs) {

@@ -117,3 +117,71 @@ The graphics stub checks geometry and call boundaries, not actual M5GFX pixels.
 It covers neutral dimensions, lids, blink closure, geometry limits, frame-rate
 independence, timestamp wrap, and transient expiration. Actual display quality
 and sensor coexistence still require the CoreS3 checks above.
+
+## Vision → Semantic Neuron (2026-09-18)
+
+The physical body is **M5Stack Stack-chan**, with its CoreS3 controller and
+built-in two-axis neck. `cores3_base` names the current software foundation;
+it does not mean the robot has no neck. Existing Stack-chan firmware is a
+reference, not the runtime parent.
+
+CameraVisionInput now emits `MOTION_DETECTED`, `BRIGHTER`, or `DARKER` through
+Runtime/Synapse into Ghost (Heart entry, Memory record, Behavior). The neuron
+contains normalized change strength; image data stays in Vision and is never
+retained after the camera callback. Existing enum values are preserved.
+
+- 16×12 luminance grid, four samples per cell, RGB565 high-byte-first as specified
+  by esp32-camera's `fmt2rgb888` conversion. This corrects the old luma byte order;
+  old/new luma numbers should not be compared directly.
+- First frame, invalid frame, resolution change, or gap over 6.5 s: baseline only.
+- Absolute mean change ≥24/255: BRIGHTER/DARKER, preferred over motion.
+- Otherwise, at least 12% of cells changing ≥20/255 after global mean correction:
+  MOTION_DETECTED. At most one event per frame, at least 3 s between emissions.
+- PICKED_UP/SHAKE invalidates Vision history; observations within 3 s are discarded
+  and the next accepted frame re-arms the baseline. This is not full ego-motion
+  compensation: unreported body movement can still look like scene movement.
+- Dispatch happens after camera teardown/I2C restoration; failures clear pending
+  events. The body loop uses a fresh timestamp after blocking capture.
+- Behavior uses existing eye openness for a brief response. Touch/IMU take
+  precedence; visual events do not cancel them. No new expression animations.
+- Heart receives the event, but numeric mood/attention update rules remain
+  unimplemented. Do not interpret successful routing as completed emotions.
+
+These are scene-change heuristics, not person/face detection, identity recognition,
+object tracking, or a reliable motion direction. Two-second sampling can miss
+short movement. Camera reinitialization/auto-exposure, shadows and lighting can
+produce changes; thresholds require real-device observation.
+
+### Arduino IDE / hardware check
+
+Update `heart-engine`, open `cores3_base.ino`, select M5CoreS3 and its USB port,
+verify and upload. Serial Monitor: 115200 baud.
+
+1. Runtime READY, 23 Synapse bindings, Camera READY, I2C restored YES.
+2. First frame and a stationary scene should not continuously emit events.
+3. Move a high-contrast object across the view, taking at least 2 seconds:
+   `[NERVE][VISION] MOTION_DETECTED ... -> Ghost/Heart/Memory/Behavior`.
+4. Change lighting or cover/uncover the camera: BRIGHTER/DARKER. Wait at least
+   4 seconds between trials because captures and cooldown are discrete.
+5. Keep Touch, IMU, blink and face rendering running; after moving the body,
+   let the baseline settle before testing scene motion again.
+6. Report false positives with camera luma and the semantic event log. A
+   MOTION_DETECTED log does not mean a person was recognized.
+
+Host checks: `bash tests/run_host_tests.sh` (C++17 compiler; optional `CXX`).
+Tests use synthetic frames and real Runtime/Ghost/Memory/Behavior code with a
+host-only persistence stub; physical camera/sensor coexistence is unverified.
+
+### Built-in neck connection
+
+Stack-chan's two feedback servos are part of the intended body output. The
+independent runtime currently has no neck driver. The documented hardware uses
+UART TX GPIO6 / RX GPIO7; the reference firmware uses 1 Mbps and IDs 1/2.
+Next connect Behavior → neck command → independent Device Driver, verifying
+feedback, zero calibration, angle/speed limits and self-motion suppression first.
+Do not drive the neck from this directionless MOTION_DETECTED event or pretend
+it tracks a person. A validated spatial target is needed for visual following;
+expressive head shaking is a separate Behavior action.
+
+Hardware reference: https://docs.m5stack.com/en/StackChan
+Pixel format reference: https://github.com/espressif/esp32-camera/blob/master/conversions/to_bmp.c

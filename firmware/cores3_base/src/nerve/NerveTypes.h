@@ -30,6 +30,11 @@ enum class NeuronType : uint16_t {
   // Higher-level requests / states
   LOOK_AT,
   ATTENTION_REQUEST,
+
+  // Low-level visual change only; none of these identifies a person.
+  MOTION_DETECTED,
+  BRIGHTER,
+  DARKER,
 };
 
 enum class NeuronSource : uint8_t {
