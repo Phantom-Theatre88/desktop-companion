@@ -45,7 +45,16 @@ int main() {
   core::DesktopCompanionRuntime runtime; assert(runtime.begin(0));
   assert(runtime.synapse().bindingCount()==23);
   runtime.tick(17300); const float resting=runtime.ghost().behaviorEngine().microBehavior().eye_openness;
-  runtime.emit(n); runtime.tick(17300);
+  runtime.emit(n);
+  assert(runtime.ghost().lastNeuronType()==nerve::NeuronType::MOTION_DETECTED);
+  assert(runtime.ghost().lastNeuronMs()==17000);
+  assert(runtime.ghost().heartEngine().lastEventType()==nerve::NeuronType::MOTION_DETECTED);
+  assert(runtime.ghost().heartEngine().lastEventMs()==17000);
+  assert(runtime.ghost().memoryEngine().lastCandidate().kind==ghost::MemoryRecordKind::SEMANTIC_EVENT);
+  assert(runtime.ghost().memoryEngine().lastCandidate().neuron.type==nerve::NeuronType::MOTION_DETECTED);
+  assert(runtime.ghost().behaviorEngine().lastReceivedType()==nerve::NeuronType::MOTION_DETECTED);
+  assert(runtime.ghost().behaviorEngine().lastReceivedMs()==17000);
+  runtime.tick(17300);
   assert(runtime.ghost().memory().last_type==nerve::NeuronType::MOTION_DETECTED);
   assert(runtime.ghost().memory().event_count==1);
   assert(runtime.ghost().behaviorEngine().microBehavior().eye_openness>resting);
@@ -71,5 +80,5 @@ int main() {
   assert(v.lastSummary().average_luma==28);
   // Changed dimensions start a fresh baseline.
   f.width=160; f.height=120; f.timestamp_ms=5000; v.onCameraFrame(f); assert(!v.takeNeuron(n));
-  std::cout << "PASS: vision changes, cooldown, invalid/gap/resize/wrap, neuron delivery, Memory, Behavior priority\n";
+  std::cout << "PASS: vision changes, cooldown, invalid/gap/resize/wrap, Ghost/Heart/Memory/Behavior delivery, Behavior priority\n";
 }
