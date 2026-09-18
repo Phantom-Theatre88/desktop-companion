@@ -20,6 +20,8 @@ constexpr uint32_t kShakeResponseMs = 650;
 }  // namespace
 
 void BehaviorEngine::begin(uint32_t now_ms) {
+  last_received_type_ = nerve::NeuronType::NONE;
+  last_received_ms_ = 0;
   visual_event_type_ = nerve::NeuronType::NONE;
   visual_event_ms_ = now_ms;
   started_ms_ = now_ms;
@@ -32,6 +34,8 @@ void BehaviorEngine::begin(uint32_t now_ms) {
 void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
                               const HeartContext& event_context) {
   (void)event_context;
+  last_received_type_ = neuron.type;
+  last_received_ms_ = neuron.timestamp_ms;
   if (neuron.type == nerve::NeuronType::MOTION_DETECTED ||
       neuron.type == nerve::NeuronType::BRIGHTER ||
       neuron.type == nerve::NeuronType::DARKER) {
