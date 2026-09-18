@@ -22,6 +22,8 @@ class GhostCore {
   const HeartState& heart() const { return heart_.state(); }
   HeartContext heartContext(uint32_t now_ms) const { return heart_.snapshot(now_ms); }
   const ShortMemory& memory() const { return memory_.shortMemory(); }
+  nerve::NeuronType lastNeuronType() const { return last_neuron_type_; }
+  uint32_t lastNeuronMs() const { return last_neuron_ms_; }
 
   reflex::ReflexSensitivityHint reflexSensitivityHint(
       const nerve::SemanticNeuron& neuron) const {
@@ -42,6 +44,8 @@ class GhostCore {
   TimeEngine time_{};
   RelationshipEngine relationship_{};
   BehaviorEngine behavior_{};
+  nerve::NeuronType last_neuron_type_ = nerve::NeuronType::NONE;
+  uint32_t last_neuron_ms_ = 0;
 };
 
 }  // namespace ghost
