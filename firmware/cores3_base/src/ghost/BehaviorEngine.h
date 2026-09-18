@@ -31,6 +31,8 @@ class BehaviorEngine {
   void tick(uint32_t now_ms, const HeartContext& heart_context);
 
   const MicroBehaviorFrame& microBehavior() const { return micro_behavior_; }
+  nerve::NeuronType lastReceivedType() const { return last_received_type_; }
+  uint32_t lastReceivedMs() const { return last_received_ms_; }
 
  private:
   static float clamp01(float value);
