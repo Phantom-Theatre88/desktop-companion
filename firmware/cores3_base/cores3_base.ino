@@ -29,7 +29,7 @@ constexpr uint32_t kFaceRenderIntervalMs = 40;
 constexpr uint32_t kCameraCaptureIntervalMs = 2000;
 
 void traceVisionDelivery(const deskbot::nerve::SemanticNeuron& neuron) {
-  const auto& ghost = runtime.ghost();
+  auto& ghost = runtime.ghost();
   const auto& memory = ghost.memoryEngine().lastCandidate();
   const bool ghost_ok = ghost.lastNeuronType() == neuron.type &&
                         ghost.lastNeuronMs() == neuron.timestamp_ms;
