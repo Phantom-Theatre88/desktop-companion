@@ -4,6 +4,8 @@ namespace deskbot {
 namespace ghost {
 
 void GhostCore::begin(uint32_t now_ms) {
+  last_neuron_type_ = nerve::NeuronType::NONE;
+  last_neuron_ms_ = 0;
   heart_.begin(now_ms);
   memory_.begin(now_ms);
   time_.begin(now_ms);
@@ -12,6 +14,8 @@ void GhostCore::begin(uint32_t now_ms) {
 }
 
 void GhostCore::onNeuron(const nerve::SemanticNeuron& neuron) {
+  last_neuron_type_ = neuron.type;
+  last_neuron_ms_ = neuron.timestamp_ms;
   // LOCK 35: capture Heart Context once at the start of this event and use
   // the same read-only snapshot throughout the event processing unit.
   const HeartContext event_context = heart_.snapshot(neuron.timestamp_ms);
