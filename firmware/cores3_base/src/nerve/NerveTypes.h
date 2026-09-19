@@ -52,8 +52,10 @@ enum class NeuronSource : uint8_t {
 };
 
 struct NeuronPayload {
-  // Optional diagnostic/context payload. Semantic meaning must remain in type.
+  // Optional semantic context payload. Semantic meaning must remain in type.
   // Raw device values must not be required by downstream consumers.
+  // For directional events, x/y may carry normalized semantic direction
+  // scaled to -1000..+1000. These are never raw camera/touch pixel coordinates.
   float scalar = 0.0f;
   int32_t x = 0;
   int32_t y = 0;
