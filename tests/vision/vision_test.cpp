@@ -51,6 +51,17 @@ int main() {
   assert(heartAfterMotion.curiosity > heartBeforeMotion.curiosity);
   assert(heartAfterMotion.attention > heartBeforeMotion.attention);
   assert(heartAfterMotion.boredom < heartBeforeMotion.boredom);
+  const float firstMotionDelta =
+      heartAfterMotion.attention - heartBeforeMotion.attention;
+  n.timestamp_ms = 18000;
+  const auto heartBeforeRepeatedMotion = runtime.ghost().heart();
+  runtime.emit(n);
+  const auto heartAfterRepeatedMotion = runtime.ghost().heart();
+  const float repeatedMotionDelta =
+      heartAfterRepeatedMotion.attention - heartBeforeRepeatedMotion.attention;
+  assert(repeatedMotionDelta > 0.0f);
+  assert(repeatedMotionDelta < firstMotionDelta);
+  assert(runtime.ghost().heartEngine().lastImpactScale() < 1.0f);
   assert(runtime.ghost().lastNeuronType()==nerve::NeuronType::MOTION_DETECTED);
   assert(runtime.ghost().lastNeuronMs()==17000);
   assert(runtime.ghost().heartEngine().lastEventType()==nerve::NeuronType::MOTION_DETECTED);
@@ -90,5 +101,5 @@ int main() {
   assert(v.lastSummary().average_luma==28);
   // Changed dimensions start a fresh baseline.
   f.width=160; f.height=120; f.timestamp_ms=5000; v.onCameraFrame(f); assert(!v.takeNeuron(n));
-  std::cout << "PASS: vision changes, Heart deltas, cooldown, invalid/gap/resize/wrap, Ghost/Heart/Memory/Behavior delivery, Behavior priority\n";
+  std::cout << "PASS: vision changes, Heart deltas/habituation, cooldown, invalid/gap/resize/wrap, Ghost/Heart/Memory/Behavior delivery, Behavior priority\n";
 }
