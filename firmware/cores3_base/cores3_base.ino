@@ -29,6 +29,7 @@ uint32_t last_recovery_trace_ms = 0;
 deskbot::ghost::AutonomousAction last_autonomous_trace_action =
     deskbot::ghost::AutonomousAction::NONE;
 uint32_t last_autonomous_trace_decision_ms = 0;
+uint32_t last_autonomous_lifecycle_seq = 0;
 constexpr uint32_t kFaceRenderIntervalMs = 40;
 constexpr uint32_t kCameraCaptureIntervalMs = 2000;
 
@@ -44,10 +45,42 @@ const char* autonomousActionName(deskbot::ghost::AutonomousAction action) {
   }
 }
 
+const char* autonomousLifecycleName(
+    deskbot::ghost::AutonomousLifecycle lifecycle) {
+  switch (lifecycle) {
+    case deskbot::ghost::AutonomousLifecycle::START:
+      return "START";
+    case deskbot::ghost::AutonomousLifecycle::PAUSE:
+      return "PAUSE";
+    case deskbot::ghost::AutonomousLifecycle::RESUME:
+      return "RESUME";
+    case deskbot::ghost::AutonomousLifecycle::COMPLETE:
+      return "COMPLETE";
+    case deskbot::ghost::AutonomousLifecycle::CANCEL:
+      return "CANCEL";
+    case deskbot::ghost::AutonomousLifecycle::NONE:
+    default:
+      return "NONE";
+  }
+}
+
 void traceAutonomousBehavior() {
   const auto& behavior = runtime.ghost().behaviorEngine();
   const auto action = behavior.autonomousAction();
   const uint32_t decision_ms = behavior.lastAutonomousDecisionMs();
+  const uint32_t lifecycle_seq = behavior.autonomousLifecycleSeq();
+
+  if (lifecycle_seq != last_autonomous_lifecycle_seq) {
+    last_autonomous_lifecycle_seq = lifecycle_seq;
+    const auto& heart = runtime.ghost().heart();
+    Serial.printf("[BEHAVIOR][AUTO] %s %s curiosity=%.3f boredom=%.3f attention=%.3f\n",
+                  autonomousLifecycleName(behavior.lastAutonomousLifecycle()),
+                  autonomousActionName(action),
+                  heart.curiosity,
+                  heart.boredom,
+                  heart.attention);
+  }
+
   const bool action_changed = action != last_autonomous_trace_action;
   const bool decision_changed =
       decision_ms != 0 && decision_ms != last_autonomous_trace_decision_ms;
@@ -56,12 +89,15 @@ void traceAutonomousBehavior() {
   }
   last_autonomous_trace_action = action;
   last_autonomous_trace_decision_ms = decision_ms;
-  const auto& heart = runtime.ghost().heart();
-  Serial.printf("[BEHAVIOR][AUTO] %s curiosity=%.3f boredom=%.3f attention=%.3f\n",
-                autonomousActionName(action),
-                heart.curiosity,
-                heart.boredom,
-                heart.attention);
+
+  // NONE decisions have no lifecycle transition but are still real decisions.
+  if (action == deskbot::ghost::AutonomousAction::NONE && decision_changed) {
+    const auto& heart = runtime.ghost().heart();
+    Serial.printf("[BEHAVIOR][AUTO] DECIDE NONE curiosity=%.3f boredom=%.3f attention=%.3f\n",
+                  heart.curiosity,
+                  heart.boredom,
+                  heart.attention);
+  }
 }
 
 void traceHeartRecovery() {
