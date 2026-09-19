@@ -34,6 +34,19 @@ bool have_previous_grid = false;
 uint8_t previous_mean = 0;
 uint32_t last_mask_sample_ms = 0;
 
+struct MotionBlob {
+  size_t cells = 0;
+  size_t min_col = 0;
+  size_t max_col = 0;
+  size_t min_row = 0;
+  size_t max_row = 0;
+  float center_x = 0.0f;  // normalized -1 .. +1
+  float center_y = 0.0f;  // normalized -1 .. +1
+};
+
+MotionBlob latest_blobs[kMaskCells]{};
+size_t latest_blob_count = 0;
+
 httpd_handle_t server = nullptr;
 
 
@@ -68,6 +81,123 @@ void sampleGrid(const camera_fb_t* frame, uint8_t* grid, uint8_t& mean) {
     }
   }
   mean = static_cast<uint8_t>(sum / kMaskCells);
+}
+
+void analyzeMotionBlobs() {
+  latest_blob_count = 0;
+
+  bool visited[kMaskCells]{};
+  size_t queue[kMaskCells]{};
+
+  for (size_t start = 0; start < kMaskCells; ++start) {
+    if (!latest_mask[start] || visited[start]) {
+      continue;
+    }
+
+    MotionBlob blob;
+    const size_t start_row = start / kMaskColumns;
+    const size_t start_col = start % kMaskColumns;
+    blob.min_col = blob.max_col = start_col;
+    blob.min_row = blob.max_row = start_row;
+
+    size_t head = 0;
+    size_t tail = 0;
+    queue[tail++] = start;
+    visited[start] = true;
+
+    float sum_col = 0.0f;
+    float sum_row = 0.0f;
+
+    while (head < tail) {
+      const size_t index = queue[head++];
+      const size_t row = index / kMaskColumns;
+      const size_t col = index % kMaskColumns;
+
+      ++blob.cells;
+      sum_col += static_cast<float>(col);
+      sum_row += static_cast<float>(row);
+
+      if (col < blob.min_col) blob.min_col = col;
+      if (col > blob.max_col) blob.max_col = col;
+      if (row < blob.min_row) blob.min_row = row;
+      if (row > blob.max_row) blob.max_row = row;
+
+      // 4-neighbour connected components: left, right, up, down only.
+      if (col > 0) {
+        const size_t n = index - 1;
+        if (latest_mask[n] && !visited[n]) {
+          visited[n] = true;
+          queue[tail++] = n;
+        }
+      }
+      if (col + 1 < kMaskColumns) {
+        const size_t n = index + 1;
+        if (latest_mask[n] && !visited[n]) {
+          visited[n] = true;
+          queue[tail++] = n;
+        }
+      }
+      if (row > 0) {
+        const size_t n = index - kMaskColumns;
+        if (latest_mask[n] && !visited[n]) {
+          visited[n] = true;
+          queue[tail++] = n;
+        }
+      }
+      if (row + 1 < kMaskRows) {
+        const size_t n = index + kMaskColumns;
+        if (latest_mask[n] && !visited[n]) {
+          visited[n] = true;
+          queue[tail++] = n;
+        }
+      }
+    }
+
+    if (blob.cells > 0 && latest_blob_count < kMaskCells) {
+      const float center_col = sum_col / static_cast<float>(blob.cells);
+      const float center_row = sum_row / static_cast<float>(blob.cells);
+      blob.center_x =
+          (center_col + 0.5f) / static_cast<float>(kMaskColumns) * 2.0f - 1.0f;
+      blob.center_y =
+          (center_row + 0.5f) / static_cast<float>(kMaskRows) * 2.0f - 1.0f;
+      latest_blobs[latest_blob_count++] = blob;
+    }
+  }
+
+  Serial.printf("[VIEWER][BLOB] count=%u\n",
+                static_cast<unsigned>(latest_blob_count));
+
+  // Print largest blobs first for readability without changing the stored IDs.
+  bool printed[kMaskCells]{};
+  const size_t max_lines = latest_blob_count < 24 ? latest_blob_count : 24;
+  for (size_t rank = 0; rank < max_lines; ++rank) {
+    size_t best = kMaskCells;
+    size_t best_cells = 0;
+    for (size_t i = 0; i < latest_blob_count; ++i) {
+      if (!printed[i] && latest_blobs[i].cells > best_cells) {
+        best = i;
+        best_cells = latest_blobs[i].cells;
+      }
+    }
+    if (best == kMaskCells) break;
+    printed[best] = true;
+    const MotionBlob& blob = latest_blobs[best];
+    Serial.printf(
+        "[VIEWER][BLOB %u] cells=%u center=(%.2f,%.2f) bbox=(%u,%u)-(%u,%u)\n",
+        static_cast<unsigned>(best + 1),
+        static_cast<unsigned>(blob.cells),
+        blob.center_x,
+        blob.center_y,
+        static_cast<unsigned>(blob.min_col),
+        static_cast<unsigned>(blob.min_row),
+        static_cast<unsigned>(blob.max_col),
+        static_cast<unsigned>(blob.max_row));
+  }
+
+  if (latest_blob_count > max_lines) {
+    Serial.printf("[VIEWER][BLOB] %u smaller blobs omitted from Serial\n",
+                  static_cast<unsigned>(latest_blob_count - max_lines));
+  }
 }
 
 void updateMotionMask(camera_fb_t* frame, uint32_t now_ms) {
@@ -107,7 +237,9 @@ void updateMotionMask(camera_fb_t* frame, uint32_t now_ms) {
                   static_cast<float>(changed) /
                       static_cast<float>(kMaskCells),
                   luma_shift);
+    analyzeMotionBlobs();
   } else {
+    latest_blob_count = 0;
     Serial.println("[VIEWER][MASK] baseline captured");
   }
 
@@ -119,11 +251,15 @@ void updateMotionMask(camera_fb_t* frame, uint32_t now_ms) {
   last_mask_sample_ms = now_ms;
 }
 
-void setPixelRed(uint8_t* data, size_t pixel_index) {
+void setPixel565(uint8_t* data, size_t pixel_index, uint16_t color) {
   const size_t i = pixel_index * 2;
+  data[i] = static_cast<uint8_t>(color >> 8);
+  data[i + 1] = static_cast<uint8_t>(color & 0xff);
+}
+
+void setPixelRed(uint8_t* data, size_t pixel_index) {
   constexpr uint16_t kRed565 = 0xF800;
-  data[i] = static_cast<uint8_t>(kRed565 >> 8);
-  data[i + 1] = static_cast<uint8_t>(kRed565 & 0xff);
+  setPixel565(data, pixel_index, kRed565);
 }
 
 void drawMotionMask(camera_fb_t* frame) {
@@ -164,6 +300,62 @@ void drawMotionMask(camera_fb_t* frame) {
         if (x1 >= x0 + 2) {
           setPixelRed(frame->buf, y * frame->width + (x1 - 2));
         }
+      }
+    }
+  }
+}
+
+void drawBlobOverlay(camera_fb_t* frame) {
+  static constexpr uint16_t kBlobColors[] = {
+      0x07FF,  // cyan
+      0xFFE0,  // yellow
+      0x07E0,  // green
+      0xF81F,  // magenta
+      0xFD20,  // orange
+      0x001F,  // blue
+  };
+  constexpr size_t kColorCount =
+      sizeof(kBlobColors) / sizeof(kBlobColors[0]);
+
+  for (size_t i = 0; i < latest_blob_count; ++i) {
+    const MotionBlob& blob = latest_blobs[i];
+    const uint16_t color = kBlobColors[i % kColorCount];
+
+    const size_t x0 = (blob.min_col * frame->width) / kMaskColumns;
+    const size_t x1 = ((blob.max_col + 1) * frame->width) / kMaskColumns;
+    const size_t y0 = (blob.min_row * frame->height) / kMaskRows;
+    const size_t y1 = ((blob.max_row + 1) * frame->height) / kMaskRows;
+
+    if (x1 <= x0 || y1 <= y0) continue;
+
+    // One-pixel bounding rectangle per blob.
+    for (size_t x = x0; x < x1; ++x) {
+      setPixel565(frame->buf, y0 * frame->width + x, color);
+      setPixel565(frame->buf, (y1 - 1) * frame->width + x, color);
+    }
+    for (size_t y = y0; y < y1; ++y) {
+      setPixel565(frame->buf, y * frame->width + x0, color);
+      setPixel565(frame->buf, y * frame->width + (x1 - 1), color);
+    }
+
+    const size_t cx = static_cast<size_t>(
+        ((blob.center_x + 1.0f) * 0.5f) * static_cast<float>(frame->width));
+    const size_t cy = static_cast<size_t>(
+        ((blob.center_y + 1.0f) * 0.5f) * static_cast<float>(frame->height));
+
+    // Small center cross so the computed blob center is directly visible.
+    for (int d = -4; d <= 4; ++d) {
+      const int px = static_cast<int>(cx) + d;
+      const int py = static_cast<int>(cy) + d;
+      if (px >= 0 && px < static_cast<int>(frame->width) &&
+          cy < frame->height) {
+        setPixel565(frame->buf,
+                    cy * frame->width + static_cast<size_t>(px), color);
+      }
+      if (py >= 0 && py < static_cast<int>(frame->height) &&
+          cx < frame->width) {
+        setPixel565(frame->buf,
+                    static_cast<size_t>(py) * frame->width + cx, color);
       }
     }
   }
@@ -222,7 +414,7 @@ esp_err_t indexHandler(httpd_req_t* req) {
       "background-size:6.25% 8.333333%}"
       "</style></head><body><main>"
       "<h1>CoreS3 Camera — Live</h1>"
-      "<p>Grid = Vision 16×12. Red cells = motion mask sampled about every 2 seconds.</p>"
+      "<p>Red cells = motion mask. Colored boxes/crosses = 4-neighbour motion blobs.</p>"
       "<div class='frame'><img src='/stream' alt='CoreS3 live camera'><div class='grid'></div></div>"
       "</main></body></html>";
 
@@ -258,6 +450,7 @@ esp_err_t streamHandler(httpd_req_t* req) {
 
     updateMotionMask(frame, millis());
     drawMotionMask(frame);
+    drawBlobOverlay(frame);
 
     uint8_t* jpg = nullptr;
     size_t jpg_len = 0;
