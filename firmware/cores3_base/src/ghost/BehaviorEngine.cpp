@@ -16,6 +16,11 @@ constexpr uint32_t kBlinkOpenMs = 110;
 constexpr uint32_t kTouchResponseMs = 500;
 constexpr uint32_t kPickedUpResponseMs = 700;
 constexpr uint32_t kShakeResponseMs = 650;
+constexpr uint32_t kAutonomousDecisionIntervalMs = 15000;
+constexpr uint32_t kCuriousLookMs = 1800;
+constexpr uint32_t kBoredScanMs = 2600;
+constexpr float kCuriousThreshold = 0.64f;
+constexpr float kBoredThreshold = 0.35f;
 
 }  // namespace
 
@@ -27,6 +32,11 @@ void BehaviorEngine::begin(uint32_t now_ms) {
   started_ms_ = now_ms;
   last_event_ms_ = now_ms;
   last_event_type_ = nerve::NeuronType::NONE;
+  autonomous_action_ = AutonomousAction::NONE;
+  autonomous_action_started_ms_ = now_ms;
+  last_autonomous_decision_ms_ = now_ms;
+  autonomous_sequence_ = 0;
+  autonomous_direction_ = 1.0f;
   micro_behavior_ = MicroBehaviorFrame{};
   micro_behavior_.generated_ms = now_ms;
 }
@@ -36,6 +46,15 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   (void)event_context;
   last_received_type_ = neuron.type;
   last_received_ms_ = neuron.timestamp_ms;
+
+  // LOCK 15: external meaningful responses outrank autonomous behavior.
+  autonomous_action_ = AutonomousAction::NONE;
+  if (neuron.type == nerve::NeuronType::TOUCH ||
+      neuron.type == nerve::NeuronType::PICKED_UP ||
+      neuron.type == nerve::NeuronType::SHAKE) {
+    last_autonomous_decision_ms_ = neuron.timestamp_ms;
+  }
+
   if (neuron.type == nerve::NeuronType::MOTION_DETECTED ||
       neuron.type == nerve::NeuronType::BRIGHTER ||
       neuron.type == nerve::NeuronType::DARKER) {
@@ -83,6 +102,25 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
       last_event_type_ == nerve::NeuronType::SHAKE &&
       event_age_ms < kShakeResponseMs;
 
+  const uint32_t visual_age = now_ms - visual_event_ms_;
+  const bool visual_response = visual_age < 600;
+
+  if (!touch_response && !picked_up_response && !shake_response &&
+      !visual_response &&
+      autonomous_action_ == AutonomousAction::NONE &&
+      (now_ms - last_autonomous_decision_ms_) >=
+          kAutonomousDecisionIntervalMs) {
+    chooseAutonomousAction(now_ms, heart);
+  }
+
+  if (autonomous_action_ == AutonomousAction::CURIOUS_LOOK &&
+      (now_ms - autonomous_action_started_ms_) >= kCuriousLookMs) {
+    autonomous_action_ = AutonomousAction::NONE;
+  } else if (autonomous_action_ == AutonomousAction::BORED_SCAN &&
+             (now_ms - autonomous_action_started_ms_) >= kBoredScanMs) {
+    autonomous_action_ = AutonomousAction::NONE;
+  }
+
   if (touch_response) {
     const float amount = 1.0f - static_cast<float>(event_age_ms) / kTouchResponseMs;
     micro_behavior_.left_shape.lower_lid = 0.22f * amount;
@@ -116,7 +154,6 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
 
   // Minimal nerve-to-body connection using existing openness only. No new
   // expression animation and no assumption about who/what caused the change.
-  const uint32_t visual_age = now_ms - visual_event_ms_;
   if (!touch_response && !picked_up_response && !shake_response && visual_age < 600) {
     const float amount = 1.0f - static_cast<float>(visual_age) / 600.0f;
     if (visual_event_type_ == nerve::NeuronType::MOTION_DETECTED) {
@@ -125,6 +162,34 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
       resting_openness = clamp01(resting_openness - 0.10f * amount);
     } else if (visual_event_type_ == nerve::NeuronType::DARKER) {
       resting_openness = clamp01(resting_openness + 0.06f * amount);
+    }
+  }
+
+  // Autonomous action layer. It only runs below external event responses.
+  // The action is selected from Heart state, never by pure random choice.
+  if (!touch_response && !picked_up_response && !shake_response &&
+      !visual_response) {
+    const uint32_t autonomous_age = now_ms - autonomous_action_started_ms_;
+    if (autonomous_action_ == AutonomousAction::CURIOUS_LOOK) {
+      const float p = clamp01(
+          static_cast<float>(autonomous_age) / static_cast<float>(kCuriousLookMs));
+      const float envelope = sinf(p * 3.14159265f);
+      micro_behavior_.gaze_x = clampSigned(
+          micro_behavior_.gaze_x + autonomous_direction_ * 0.38f * envelope);
+      micro_behavior_.gaze_y = clampSigned(
+          micro_behavior_.gaze_y - 0.08f * envelope);
+      micro_behavior_.left_shape.width_scale = 1.0f + 0.06f * envelope;
+      micro_behavior_.right_shape.width_scale = 1.0f + 0.06f * envelope;
+      resting_openness = clamp01(resting_openness + 0.05f * envelope);
+    } else if (autonomous_action_ == AutonomousAction::BORED_SCAN) {
+      const float p = clamp01(
+          static_cast<float>(autonomous_age) / static_cast<float>(kBoredScanMs));
+      const float phase = p * 6.28318531f;
+      const float scan_amount = 0.32f + heart.boredom * 0.18f;
+      micro_behavior_.gaze_x = clampSigned(sinf(phase) * scan_amount);
+      micro_behavior_.gaze_y = clampSigned(cosf(phase) * 0.05f);
+      micro_behavior_.left_shape.upper_lid = 0.05f + heart.boredom * 0.05f;
+      micro_behavior_.right_shape.upper_lid = micro_behavior_.left_shape.upper_lid;
     }
   }
 
@@ -165,6 +230,29 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   }
 
   micro_behavior_.generated_ms = now_ms;
+}
+
+void BehaviorEngine::chooseAutonomousAction(uint32_t now_ms,
+                                            const HeartState& heart) {
+  last_autonomous_decision_ms_ = now_ms;
+  autonomous_action_started_ms_ = now_ms;
+
+  if (heart.boredom >= kBoredThreshold) {
+    autonomous_action_ = AutonomousAction::BORED_SCAN;
+    ++autonomous_sequence_;
+    return;
+  }
+
+  if (heart.curiosity >= kCuriousThreshold && heart.attention >= 0.35f) {
+    autonomous_action_ = AutonomousAction::CURIOUS_LOOK;
+    autonomous_direction_ = (autonomous_sequence_ % 2 == 0) ? 1.0f : -1.0f;
+    ++autonomous_sequence_;
+    return;
+  }
+
+  // "Do nothing" is a formal decision, not a missing branch.
+  autonomous_action_ = AutonomousAction::NONE;
+  ++autonomous_sequence_;
 }
 
 float BehaviorEngine::clamp01(float value) {
