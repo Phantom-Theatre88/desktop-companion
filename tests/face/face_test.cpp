@@ -66,5 +66,33 @@ int main() {
   }
   behavior.tick(4300,context);
   assert(behavior.microBehavior().eye_openness==0);
-  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry\n";
+
+  // Heart-driven autonomous behavior: baseline curiosity chooses a look.
+  ghost::BehaviorEngine autonomousBehavior;
+  ghost::HeartContext curiousContext;
+  autonomousBehavior.begin(0);
+  autonomousBehavior.tick(14999,curiousContext);
+  assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::NONE);
+  autonomousBehavior.tick(15000,curiousContext);
+  assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
+  autonomousBehavior.tick(15500,curiousContext);
+  assert(std::fabs(autonomousBehavior.microBehavior().gaze_x) > 0.10f);
+
+  // External interaction wins immediately over an autonomous action.
+  autonomousBehavior.onNeuron(
+      nerve::makeNeuron(nerve::NeuronType::TOUCH,nerve::NeuronSource::TOUCH,15510),
+      curiousContext);
+  assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::NONE);
+
+  // High boredom selects a scan instead of a curiosity glance.
+  ghost::BehaviorEngine boredBehavior;
+  ghost::HeartContext boredContext;
+  boredContext.state.boredom = 0.50f;
+  boredContext.state.curiosity = 0.20f;
+  boredBehavior.begin(0);
+  boredBehavior.tick(15000,boredContext);
+  assert(boredBehavior.autonomousAction()==ghost::AutonomousAction::BORED_SCAN);
+  boredBehavior.tick(16000,boredContext);
+  assert(std::fabs(boredBehavior.microBehavior().gaze_x) > 0.05f);
+  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry, autonomous Heart-driven behavior\n";
 }
