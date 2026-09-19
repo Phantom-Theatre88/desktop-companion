@@ -47,11 +47,14 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   last_received_type_ = neuron.type;
   last_received_ms_ = neuron.timestamp_ms;
 
-  // LOCK 15: external meaningful responses outrank autonomous behavior.
-  autonomous_action_ = AutonomousAction::NONE;
+  // LOCK 15 arbitration:
+  // - Direct body interaction cancels autonomous behavior.
+  // - Low-level Vision temporarily overlays the body output but preserves the
+  //   autonomous decision underneath, so it can resume if time remains.
   if (neuron.type == nerve::NeuronType::TOUCH ||
       neuron.type == nerve::NeuronType::PICKED_UP ||
       neuron.type == nerve::NeuronType::SHAKE) {
+    autonomous_action_ = AutonomousAction::NONE;
     last_autonomous_decision_ms_ = neuron.timestamp_ms;
   }
 
