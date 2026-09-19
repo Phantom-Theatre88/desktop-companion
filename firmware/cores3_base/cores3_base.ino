@@ -132,6 +132,49 @@ void traceHeartState(const char* cause) {
                 heart.attention);
 }
 
+const char* horizontalVisionTargetName(
+    const deskbot::vision::VisionFrameSummary& vision) {
+  if (vision.motion_left >= vision.motion_center &&
+      vision.motion_left >= vision.motion_right) {
+    return "LEFT";
+  }
+  if (vision.motion_right >= vision.motion_left &&
+      vision.motion_right >= vision.motion_center) {
+    return "RIGHT";
+  }
+  return "CENTER";
+}
+
+const char* verticalVisionTargetName(
+    const deskbot::vision::VisionFrameSummary& vision) {
+  if (vision.motion_top >= vision.motion_middle &&
+      vision.motion_top >= vision.motion_bottom) {
+    return "TOP";
+  }
+  if (vision.motion_bottom >= vision.motion_top &&
+      vision.motion_bottom >= vision.motion_middle) {
+    return "BOTTOM";
+  }
+  return "MID";
+}
+
+void traceVisionDiagnosis(const deskbot::vision::VisionFrameSummary& vision) {
+  Serial.printf("[VISION][REGION] L=%.2f C=%.2f R=%.2f | T=%.2f M=%.2f B=%.2f\n",
+                vision.motion_left,
+                vision.motion_center,
+                vision.motion_right,
+                vision.motion_top,
+                vision.motion_middle,
+                vision.motion_bottom);
+  Serial.printf("[VISION][TARGET] %s/%s dir=(%.2f,%.2f) motion=%.3f luma_shift=%d\n",
+                horizontalVisionTargetName(vision),
+                verticalVisionTargetName(vision),
+                vision.motion_x,
+                vision.motion_y,
+                vision.motion_score,
+                static_cast<int>(vision.luma_change));
+}
+
 void traceVisionDelivery(const deskbot::nerve::SemanticNeuron& neuron) {
   auto& ghost = runtime.ghost();
   const auto& memory = ghost.memoryEngine().lastCandidate();
@@ -248,6 +291,7 @@ void captureCameraFrame(uint32_t now_ms, bool startup_probe) {
           ? "MOTION_DETECTED" : (neuron.type == deskbot::nerve::NeuronType::BRIGHTER ? "BRIGHTER" : "DARKER");
       traceHeartState(name);
       if (neuron.type == deskbot::nerve::NeuronType::MOTION_DETECTED) {
+        traceVisionDiagnosis(vision);
         Serial.printf("[NERVE][VISION] %s strength=%.3f dir=(%.2f,%.2f) -> Ghost/Heart/Memory/Behavior\n",
                       name,
                       neuron.payload.scalar,
