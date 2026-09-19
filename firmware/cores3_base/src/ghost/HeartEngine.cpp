@@ -11,11 +11,18 @@ constexpr uint32_t kBoredomStepIntervalMs = 60000;
 constexpr float kBoredomStep = 0.01f;
 constexpr uint32_t kHabituationWindowMs = 12000;
 constexpr float kHabituationFloor = 0.20f;
+constexpr uint32_t kRecoveryDelayMs = 15000;
+constexpr uint32_t kRecoveryStepIntervalMs = 5000;
+constexpr float kMoodRecoveryFraction = 0.12f;
+constexpr float kCuriosityRecoveryFraction = 0.10f;
+constexpr float kAttentionRecoveryFraction = 0.18f;
+constexpr float kRecoveryEpsilon = 0.0005f;
 
 }  // namespace
 
 void HeartEngine::begin(uint32_t now_ms) {
   state_ = HeartState{};
+  baseline_ = HeartState{};
   primary_snapshot_ = HeartState{};
   restore_plan_ = HeartRestorePlan{};
   primary_snapshot_loaded_ = false;
@@ -42,6 +49,7 @@ void HeartEngine::begin(uint32_t now_ms) {
   last_tick_ms_ = now_ms;
   last_heart_change_ms_ = now_ms;
   last_boredom_step_ms_ = now_ms;
+  last_recovery_ms_ = now_ms;
   last_stimulus_ms_ = 0;
   last_stimulus_family_ = 0;
   repeated_stimulus_count_ = 0;
@@ -51,11 +59,22 @@ void HeartEngine::begin(uint32_t now_ms) {
 }
 
 void HeartEngine::tick(uint32_t now_ms) {
-  // LOCK 55: the first time-driven Heart effect is intentionally narrow.
-  // With no meaningful stimulus, boredom rises slowly. Recovery toward a
-  // dynamic baseline waits for Time/Relationship to provide the inputs locked
-  // by LOCK 20-26; do not fake that model here.
   const uint32_t since_event = now_ms - last_event_ms_;
+
+  // LOCK 20-26: temporary Heart values recover toward the current baseline.
+  // baseline_ starts from LOCK 28 and is deliberately a separate object so
+  // Relationship/long-term learning can move it later without replacing this
+  // recovery path.
+  if (since_event >= kRecoveryDelayMs &&
+      (now_ms - last_recovery_ms_) >= kRecoveryStepIntervalMs) {
+    if (applyRecoveryStep(now_ms)) {
+      last_heart_change_ms_ = now_ms;
+    }
+    last_recovery_ms_ = now_ms;
+  }
+
+  // With no meaningful stimulus, boredom rises slowly. Boredom is contextual,
+  // not recovered toward baseline here.
   const uint32_t since_boredom_step = now_ms - last_boredom_step_ms_;
   if (since_event >= kBoredomStepIntervalMs &&
       since_boredom_step >= kBoredomStepIntervalMs) {
@@ -197,6 +216,45 @@ float HeartEngine::habituationScaleFor(nerve::NeuronType type,
     last_impact_scale_ = kHabituationFloor;
   }
   return last_impact_scale_;
+}
+
+bool HeartEngine::applyRecoveryStep(uint32_t now_ms) {
+  (void)now_ms;
+  bool changed = false;
+
+  const float mood_delta =
+      (baseline_.mood - state_.mood) * kMoodRecoveryFraction;
+  if (mood_delta > kRecoveryEpsilon || mood_delta < -kRecoveryEpsilon) {
+    state_.mood += mood_delta;
+    changed = true;
+  } else {
+    state_.mood = baseline_.mood;
+  }
+
+  const float curiosity_delta =
+      (baseline_.curiosity - state_.curiosity) * kCuriosityRecoveryFraction;
+  if (curiosity_delta > kRecoveryEpsilon ||
+      curiosity_delta < -kRecoveryEpsilon) {
+    state_.curiosity += curiosity_delta;
+    changed = true;
+  } else {
+    state_.curiosity = baseline_.curiosity;
+  }
+
+  const float attention_delta =
+      (baseline_.attention - state_.attention) * kAttentionRecoveryFraction;
+  if (attention_delta > kRecoveryEpsilon ||
+      attention_delta < -kRecoveryEpsilon) {
+    state_.attention += attention_delta;
+    changed = true;
+  } else {
+    state_.attention = baseline_.attention;
+  }
+
+  // affection is long-term relationship state. sleepiness waits for TimeEngine
+  // life rhythm. boredom is recalculated from context/idle time separately.
+  clampState();
+  return changed;
 }
 
 float HeartEngine::clampStrength(float value) {
