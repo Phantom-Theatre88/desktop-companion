@@ -35,6 +35,7 @@ void BehaviorEngine::begin(uint32_t now_ms) {
   autonomous_action_ = AutonomousAction::NONE;
   autonomous_action_started_ms_ = now_ms;
   last_autonomous_decision_ms_ = now_ms;
+  autonomous_decision_seq_ = 0;
   autonomous_sequence_ = 0;
   autonomous_direction_ = 1.0f;
   autonomous_paused_ = false;
@@ -48,7 +49,7 @@ void BehaviorEngine::begin(uint32_t now_ms) {
 
 void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
                               const HeartContext& event_context) {
-  (void)event_context;
+  const uint32_t handled_ms = event_context.captured_ms;
   last_received_type_ = neuron.type;
   last_received_ms_ = neuron.timestamp_ms;
 
@@ -60,27 +61,27 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
       neuron.type == nerve::NeuronType::PICKED_UP ||
       neuron.type == nerve::NeuronType::SHAKE) {
     if (autonomous_action_ != AutonomousAction::NONE) {
-      markAutonomousLifecycle(AutonomousLifecycle::CANCEL, neuron.timestamp_ms);
+      markAutonomousLifecycle(AutonomousLifecycle::CANCEL, handled_ms);
     }
     autonomous_action_ = AutonomousAction::NONE;
     autonomous_paused_ = false;
     autonomous_pause_started_ms_ = 0;
-    last_autonomous_decision_ms_ = neuron.timestamp_ms;
+    last_autonomous_decision_ms_ = handled_ms;
   }
 
   if (neuron.type == nerve::NeuronType::MOTION_DETECTED ||
       neuron.type == nerve::NeuronType::BRIGHTER ||
       neuron.type == nerve::NeuronType::DARKER) {
     visual_event_type_ = neuron.type;
-    visual_event_ms_ = neuron.timestamp_ms;
+    visual_event_ms_ = handled_ms;
     if (autonomous_action_ != AutonomousAction::NONE && !autonomous_paused_) {
       autonomous_paused_ = true;
-      autonomous_pause_started_ms_ = neuron.timestamp_ms;
-      markAutonomousLifecycle(AutonomousLifecycle::PAUSE, neuron.timestamp_ms);
+      autonomous_pause_started_ms_ = handled_ms;
+      markAutonomousLifecycle(AutonomousLifecycle::PAUSE, handled_ms);
     }
     return;  // Vision overlays but does not discard autonomous intent.
   }
-  last_event_ms_ = neuron.timestamp_ms;
+  last_event_ms_ = handled_ms;
   last_event_type_ = neuron.type;
 }
 
@@ -123,6 +124,8 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   const uint32_t visual_age = now_ms - visual_event_ms_;
   const bool visual_response = visual_age < 600;
 
+  bool resumed_this_tick = false;
+
   // Vision pauses autonomous action time. Repeated Vision events keep the pause
   // alive because visual_event_ms_ moves forward, but pause_started_ms_ remains
   // the first interruption point. When Vision clears, shift the action start
@@ -133,6 +136,7 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     autonomous_paused_ = false;
     autonomous_pause_started_ms_ = 0;
     markAutonomousLifecycle(AutonomousLifecycle::RESUME, now_ms);
+    resumed_this_tick = true;
   }
 
   if (!touch_response && !picked_up_response && !shake_response &&
@@ -143,12 +147,12 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     chooseAutonomousAction(now_ms, heart);
   }
 
-  if (!autonomous_paused_ &&
+  if (!resumed_this_tick && !autonomous_paused_ &&
       autonomous_action_ == AutonomousAction::CURIOUS_LOOK &&
       (now_ms - autonomous_action_started_ms_) >= kCuriousLookMs) {
     markAutonomousLifecycle(AutonomousLifecycle::COMPLETE, now_ms);
     autonomous_action_ = AutonomousAction::NONE;
-  } else if (!autonomous_paused_ &&
+  } else if (!resumed_this_tick && !autonomous_paused_ &&
              autonomous_action_ == AutonomousAction::BORED_SCAN &&
              (now_ms - autonomous_action_started_ms_) >= kBoredScanMs) {
     markAutonomousLifecycle(AutonomousLifecycle::COMPLETE, now_ms);
@@ -269,6 +273,7 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
 void BehaviorEngine::chooseAutonomousAction(uint32_t now_ms,
                                             const HeartState& heart) {
   last_autonomous_decision_ms_ = now_ms;
+  ++autonomous_decision_seq_;
   autonomous_action_started_ms_ = now_ms;
 
   if (heart.boredom >= kBoredThreshold) {
