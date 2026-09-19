@@ -29,6 +29,8 @@ void BehaviorEngine::begin(uint32_t now_ms) {
   last_received_ms_ = 0;
   visual_event_type_ = nerve::NeuronType::NONE;
   visual_event_ms_ = now_ms;
+  visual_target_x_ = 0.0f;
+  visual_target_y_ = 0.0f;
   started_ms_ = now_ms;
   last_event_ms_ = now_ms;
   last_event_type_ = nerve::NeuronType::NONE;
@@ -74,6 +76,15 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
       neuron.type == nerve::NeuronType::DARKER) {
     visual_event_type_ = neuron.type;
     visual_event_ms_ = handled_ms;
+    if (neuron.type == nerve::NeuronType::MOTION_DETECTED) {
+      visual_target_x_ = clampSigned(
+          static_cast<float>(neuron.payload.x) / 1000.0f);
+      visual_target_y_ = clampSigned(
+          static_cast<float>(neuron.payload.y) / 1000.0f);
+    } else {
+      visual_target_x_ = 0.0f;
+      visual_target_y_ = 0.0f;
+    }
     if (autonomous_action_ != AutonomousAction::NONE && !autonomous_paused_) {
       autonomous_paused_ = true;
       autonomous_pause_started_ms_ = handled_ms;
@@ -196,6 +207,15 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     const float amount = 1.0f - static_cast<float>(visual_age) / 600.0f;
     if (visual_event_type_ == nerve::NeuronType::MOTION_DETECTED) {
       resting_openness = clamp01(resting_openness + 0.10f * amount);
+      // Look toward the normalized semantic motion direction. Blend rather than
+      // snap so the existing micro-gaze remains alive underneath the response.
+      const float gaze_weight = 0.72f * amount;
+      micro_behavior_.gaze_x = clampSigned(
+          micro_behavior_.gaze_x * (1.0f - gaze_weight) +
+          visual_target_x_ * gaze_weight);
+      micro_behavior_.gaze_y = clampSigned(
+          micro_behavior_.gaze_y * (1.0f - gaze_weight) +
+          visual_target_y_ * gaze_weight * 0.55f);
     } else if (visual_event_type_ == nerve::NeuronType::BRIGHTER) {
       resting_openness = clamp01(resting_openness - 0.10f * amount);
     } else if (visual_event_type_ == nerve::NeuronType::DARKER) {
