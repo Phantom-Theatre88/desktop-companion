@@ -18,7 +18,10 @@ void GhostCore::onNeuron(const nerve::SemanticNeuron& neuron) {
   last_neuron_ms_ = neuron.timestamp_ms;
   // LOCK 35: capture Heart Context once at the start of this event and use
   // the same read-only snapshot throughout the event processing unit.
-  const HeartContext event_context = heart_.snapshot(neuron.timestamp_ms);
+  // SemanticNeuron::timestamp_ms remains the occurrence time. captured_ms is
+  // the Ghost handling-time clock supplied by TimeEngine, which Behavior uses
+  // for arbitration/lifetimes so blocking device work cannot age an action.
+  const HeartContext event_context = heart_.snapshot(time_.lastTickMs());
 
   heart_.onNeuron(neuron, event_context);
   memory_.onNeuron(neuron, event_context);
