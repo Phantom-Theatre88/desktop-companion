@@ -9,6 +9,8 @@ namespace {
 // are implementation tuning, not permanent personality constants.
 constexpr uint32_t kBoredomStepIntervalMs = 60000;
 constexpr float kBoredomStep = 0.01f;
+constexpr uint32_t kHabituationWindowMs = 12000;
+constexpr float kHabituationFloor = 0.20f;
 
 }  // namespace
 
@@ -40,6 +42,10 @@ void HeartEngine::begin(uint32_t now_ms) {
   last_tick_ms_ = now_ms;
   last_heart_change_ms_ = now_ms;
   last_boredom_step_ms_ = now_ms;
+  last_stimulus_ms_ = 0;
+  last_stimulus_family_ = 0;
+  repeated_stimulus_count_ = 0;
+  last_impact_scale_ = 1.0f;
   last_event_type_ = nerve::NeuronType::NONE;
   last_event_ms_ = 0;
 }
@@ -68,35 +74,38 @@ void HeartEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   last_event_type_ = neuron.type;
   last_event_ms_ = neuron.timestamp_ms;
   last_boredom_step_ms_ = neuron.timestamp_ms;
+  const float impact = habituationScaleFor(neuron.type, neuron.timestamp_ms);
 
   switch (neuron.type) {
     case nerve::NeuronType::TOUCH:
-      applyDelta(+0.03f, +0.02f, 0.0f, -0.04f, 0.0f, +0.04f,
+      applyDelta(+0.03f * impact, +0.02f * impact, 0.0f,
+                 -0.04f * impact, 0.0f, +0.04f * impact,
                  neuron.timestamp_ms);
       break;
 
     case nerve::NeuronType::PICKED_UP:
-      applyDelta(0.0f, 0.0f, +0.03f, -0.03f, 0.0f, +0.08f,
-                 neuron.timestamp_ms);
+      applyDelta(0.0f, 0.0f, +0.03f * impact, -0.03f * impact,
+                 0.0f, +0.08f * impact, neuron.timestamp_ms);
       break;
 
     case nerve::NeuronType::SHAKE:
-      applyDelta(-0.06f, 0.0f, 0.0f, -0.02f, 0.0f, +0.10f,
-                 neuron.timestamp_ms);
+      applyDelta(-0.06f * impact, 0.0f, 0.0f, -0.02f * impact,
+                 0.0f, +0.10f * impact, neuron.timestamp_ms);
       break;
 
     case nerve::NeuronType::MOTION_DETECTED: {
       const float strength = clampStrength(neuron.payload.scalar);
-      applyDelta(0.0f, 0.0f, +0.02f * strength, -0.01f * strength,
-                 0.0f, +0.03f * strength, neuron.timestamp_ms);
+      applyDelta(0.0f, 0.0f, +0.02f * strength * impact,
+                 -0.01f * strength * impact, 0.0f,
+                 +0.03f * strength * impact, neuron.timestamp_ms);
       break;
     }
 
     case nerve::NeuronType::BRIGHTER:
     case nerve::NeuronType::DARKER: {
       const float strength = clampStrength(neuron.payload.scalar);
-      applyDelta(0.0f, 0.0f, +0.01f * strength, 0.0f,
-                 0.0f, +0.02f * strength, neuron.timestamp_ms);
+      applyDelta(0.0f, 0.0f, +0.01f * strength * impact, 0.0f,
+                 0.0f, +0.02f * strength * impact, neuron.timestamp_ms);
       break;
     }
 
@@ -141,6 +150,53 @@ bool HeartEngine::saveMicroSdBackup() const {
 
 bool HeartEngine::loadMicroSdBackup(HeartState& out_state) const {
   return persistence_.loadBackup(out_state);
+}
+
+uint8_t HeartEngine::stimulusFamily(nerve::NeuronType type) {
+  switch (type) {
+    case nerve::NeuronType::TOUCH:
+      return 1;  // touch
+    case nerve::NeuronType::PICKED_UP:
+    case nerve::NeuronType::SHAKE:
+      return 2;  // body motion
+    case nerve::NeuronType::MOTION_DETECTED:
+    case nerve::NeuronType::BRIGHTER:
+    case nerve::NeuronType::DARKER:
+      return 3;  // low-level vision
+    default:
+      return 0;
+  }
+}
+
+float HeartEngine::habituationScaleFor(nerve::NeuronType type,
+                                       uint32_t now_ms) {
+  const uint8_t family = stimulusFamily(type);
+  if (family == 0) {
+    last_impact_scale_ = 1.0f;
+    return last_impact_scale_;
+  }
+
+  const bool repeated = last_stimulus_family_ == family &&
+                        (now_ms - last_stimulus_ms_) <= kHabituationWindowMs;
+
+  if (repeated) {
+    if (repeated_stimulus_count_ < 255) {
+      ++repeated_stimulus_count_;
+    }
+  } else {
+    repeated_stimulus_count_ = 0;
+  }
+
+  last_stimulus_family_ = family;
+  last_stimulus_ms_ = now_ms;
+
+  const float denominator =
+      1.0f + 0.8f * static_cast<float>(repeated_stimulus_count_);
+  last_impact_scale_ = 1.0f / denominator;
+  if (last_impact_scale_ < kHabituationFloor) {
+    last_impact_scale_ = kHabituationFloor;
+  }
+  return last_impact_scale_;
 }
 
 float HeartEngine::clampStrength(float value) {
