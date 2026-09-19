@@ -65,6 +65,8 @@ class BehaviorEngine {
   uint32_t last_received_ms_ = 0;
   nerve::NeuronType visual_event_type_ = nerve::NeuronType::NONE;
   uint32_t visual_event_ms_ = 0;
+  float visual_target_x_ = 0.0f;
+  float visual_target_y_ = 0.0f;
   uint32_t started_ms_ = 0;
   uint32_t last_event_ms_ = 0;
   nerve::NeuronType last_event_type_ = nerve::NeuronType::NONE;
