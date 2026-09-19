@@ -50,6 +50,7 @@ void HeartEngine::begin(uint32_t now_ms) {
   last_heart_change_ms_ = now_ms;
   last_boredom_step_ms_ = now_ms;
   last_recovery_ms_ = now_ms;
+  last_recovery_change_ms_ = 0;
   last_stimulus_ms_ = 0;
   last_stimulus_family_ = 0;
   repeated_stimulus_count_ = 0;
@@ -69,6 +70,7 @@ void HeartEngine::tick(uint32_t now_ms) {
       (now_ms - last_recovery_ms_) >= kRecoveryStepIntervalMs) {
     if (applyRecoveryStep(now_ms)) {
       last_heart_change_ms_ = now_ms;
+      last_recovery_change_ms_ = now_ms;
     }
     last_recovery_ms_ = now_ms;
   }
