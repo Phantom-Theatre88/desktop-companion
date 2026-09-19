@@ -45,7 +45,12 @@ int main() {
   core::DesktopCompanionRuntime runtime; assert(runtime.begin(0));
   assert(runtime.synapse().bindingCount()==23);
   runtime.tick(17300); const float resting=runtime.ghost().behaviorEngine().microBehavior().eye_openness;
+  const auto heartBeforeMotion = runtime.ghost().heart();
   runtime.emit(n);
+  const auto heartAfterMotion = runtime.ghost().heart();
+  assert(heartAfterMotion.curiosity > heartBeforeMotion.curiosity);
+  assert(heartAfterMotion.attention > heartBeforeMotion.attention);
+  assert(heartAfterMotion.boredom < heartBeforeMotion.boredom);
   assert(runtime.ghost().lastNeuronType()==nerve::NeuronType::MOTION_DETECTED);
   assert(runtime.ghost().lastNeuronMs()==17000);
   assert(runtime.ghost().heartEngine().lastEventType()==nerve::NeuronType::MOTION_DETECTED);
@@ -58,7 +63,12 @@ int main() {
   assert(runtime.ghost().memory().last_type==nerve::NeuronType::MOTION_DETECTED);
   assert(runtime.ghost().memory().event_count==1);
   assert(runtime.ghost().behaviorEngine().microBehavior().eye_openness>resting);
+  const auto heartBeforeTouch = runtime.ghost().heart();
   runtime.emit(nerve::makeNeuron(nerve::NeuronType::TOUCH,nerve::NeuronSource::TOUCH,17400));
+  const auto heartAfterTouch = runtime.ghost().heart();
+  assert(heartAfterTouch.mood > heartBeforeTouch.mood);
+  assert(heartAfterTouch.affection > heartBeforeTouch.affection);
+  assert(heartAfterTouch.attention > heartBeforeTouch.attention);
   n.timestamp_ms=17410; runtime.emit(n); runtime.tick(17420);
   assert(runtime.ghost().behaviorEngine().microBehavior().left_shape.lower_lid>0);
   // Invalid/missing frames and long gaps cannot produce stale comparisons.
@@ -80,5 +90,5 @@ int main() {
   assert(v.lastSummary().average_luma==28);
   // Changed dimensions start a fresh baseline.
   f.width=160; f.height=120; f.timestamp_ms=5000; v.onCameraFrame(f); assert(!v.takeNeuron(n));
-  std::cout << "PASS: vision changes, cooldown, invalid/gap/resize/wrap, Ghost/Heart/Memory/Behavior delivery, Behavior priority\n";
+  std::cout << "PASS: vision changes, Heart deltas, cooldown, invalid/gap/resize/wrap, Ghost/Heart/Memory/Behavior delivery, Behavior priority\n";
 }
