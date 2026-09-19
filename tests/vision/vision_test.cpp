@@ -74,6 +74,26 @@ int main() {
   assert(n.payload.x > 250);
   assert(v.lastSummary().motion_right > v.lastSummary().motion_left);
   assert(v.lastSummary().motion_right > v.lastSummary().motion_center);
+  assert(v.lastSummary().target_blob_cells >= 5);
+  assert(v.lastSummary().candidate_blob_count >= 1);
+
+  // Isolated one-cell motion is spatial noise: it may appear in the raw mask,
+  // but cleanup must remove it before blob selection and no motion neuron fires.
+  v.reset();
+  std::fill(pixels.begin(),pixels.end(),0);
+  f.timestamp_ms=23000; v.onCameraFrame(f); assert(!v.takeNeuron(n));
+  for(size_t y=120;y<140;++y) {
+    for(size_t x=160;x<180;++x) {
+      const size_t i=(y*320+x)*2;
+      pixels[i]=pixels[i+1]=255;
+    }
+  }
+  f.timestamp_ms=25000; v.onCameraFrame(f);
+  assert(!v.takeNeuron(n));
+  assert(v.lastSummary().raw_changed_cells >= 1);
+  assert(v.lastSummary().cleaned_changed_cells == 0);
+  assert(v.lastSummary().candidate_blob_count == 0);
+  assert(v.lastSummary().target_blob_cells == 0);
 
   // Restore a neutral motion neuron for the existing full-route assertions.
   n = nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
@@ -152,5 +172,5 @@ int main() {
   assert(v.lastSummary().average_luma==28);
   // Changed dimensions start a fresh baseline.
   f.width=160; f.height=120; f.timestamp_ms=5000; v.onCameraFrame(f); assert(!v.takeNeuron(n));
-  std::cout << "PASS: vision changes/direction/regions, Heart deltas/habituation/recovery, cooldown, invalid/gap/resize/wrap, Ghost/Heart/Memory/Behavior delivery, Behavior priority\n";
+  std::cout << "PASS: vision cleaned blobs/direction/regions, isolated-noise rejection, Heart deltas/habituation/recovery, cooldown, invalid/gap/resize/wrap, Ghost/Heart/Memory/Behavior delivery, Behavior priority\n";
 }
