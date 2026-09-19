@@ -331,3 +331,30 @@ Desktop Companion全体としては未完成。
 と進める。
 
 既存Step番号は維持し、この大工程を上位ロードマップとして扱う。
+
+## 15. LOCK 55｜M5単独生命成立を優先
+
+2026-09-19、CoreS3実機で以下を確認した。
+
+- Vision由来の `MOTION_DETECTED`
+- `BRIGHTER`
+- `DARKER`
+- `Ghost=YES Heart=YES Memory=YES Behavior=YES`
+- Vision動作中のIMUイベント
+- Camera通常動作と内部I2C復元
+
+これにより、直近小ゴールだった **Camera → Vision → Semantic Neuron → Ghost / Heart / Memory / Behavior の実機縦貫通** は通過扱いとする。
+
+次工程はToF4M追加ではなく、M5Stackちゃん単独生命の成立を優先する。
+
+現在の小ゴールは、
+
+**既存の Camera / Touch / IMU を使い、Heartの実値変化を成立させること。**
+
+その後、
+
+**Heart / Time / Memory / 感覚 → Behavior → Face / Neck**
+
+へ進み、自発行動を成立させる。
+
+ToF4Mは最初の外部感覚であるLOCKを維持しつつ、M5単独生命成立後に接続する。
