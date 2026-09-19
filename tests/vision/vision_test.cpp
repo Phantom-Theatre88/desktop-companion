@@ -80,7 +80,20 @@ int main() {
   assert(heartAfterTouch.mood > heartBeforeTouch.mood);
   assert(heartAfterTouch.affection > heartBeforeTouch.affection);
   assert(heartAfterTouch.attention > heartBeforeTouch.attention);
-  n.timestamp_ms=18410; runtime.emit(n); runtime.tick(18420);
+
+  // After quiet time, temporary Heart state moves back toward the baseline.
+  const auto baseline = runtime.ghost().heartEngine().baseline();
+  const auto heartBeforeRecovery = runtime.ghost().heart();
+  runtime.tick(38400);
+  const auto heartAfterRecovery = runtime.ghost().heart();
+  assert(heartAfterRecovery.mood < heartBeforeRecovery.mood);
+  assert(heartAfterRecovery.mood > baseline.mood);
+  assert(heartAfterRecovery.curiosity < heartBeforeRecovery.curiosity);
+  assert(heartAfterRecovery.attention < heartBeforeRecovery.attention);
+  assert(heartAfterRecovery.affection == heartBeforeRecovery.affection);
+  assert(heartAfterRecovery.sleepiness == heartBeforeRecovery.sleepiness);
+
+  n.timestamp_ms=38410; runtime.emit(n); runtime.tick(38420);
   assert(runtime.ghost().behaviorEngine().microBehavior().left_shape.lower_lid>0);
   // Invalid/missing frames and long gaps cannot produce stale comparisons.
   f.bytes=1; f.timestamp_ms=19000; v.onCameraFrame(f); assert(!v.takeNeuron(n));
@@ -101,5 +114,5 @@ int main() {
   assert(v.lastSummary().average_luma==28);
   // Changed dimensions start a fresh baseline.
   f.width=160; f.height=120; f.timestamp_ms=5000; v.onCameraFrame(f); assert(!v.takeNeuron(n));
-  std::cout << "PASS: vision changes, Heart deltas/habituation, cooldown, invalid/gap/resize/wrap, Ghost/Heart/Memory/Behavior delivery, Behavior priority\n";
+  std::cout << "PASS: vision changes, Heart deltas/habituation/recovery, cooldown, invalid/gap/resize/wrap, Ghost/Heart/Memory/Behavior delivery, Behavior priority\n";
 }
