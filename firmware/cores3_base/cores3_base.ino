@@ -29,6 +29,7 @@ uint32_t last_recovery_trace_ms = 0;
 deskbot::ghost::AutonomousAction last_autonomous_trace_action =
     deskbot::ghost::AutonomousAction::NONE;
 uint32_t last_autonomous_trace_decision_ms = 0;
+uint32_t last_autonomous_trace_decision_seq = 0;
 uint32_t last_autonomous_lifecycle_seq = 0;
 constexpr uint32_t kFaceRenderIntervalMs = 40;
 constexpr uint32_t kCameraCaptureIntervalMs = 2000;
@@ -68,6 +69,7 @@ void traceAutonomousBehavior() {
   const auto& behavior = runtime.ghost().behaviorEngine();
   const auto action = behavior.autonomousAction();
   const uint32_t decision_ms = behavior.lastAutonomousDecisionMs();
+  const uint32_t decision_seq = behavior.autonomousDecisionSeq();
   const uint32_t lifecycle_seq = behavior.autonomousLifecycleSeq();
 
   if (lifecycle_seq != last_autonomous_lifecycle_seq) {
@@ -83,12 +85,13 @@ void traceAutonomousBehavior() {
 
   const bool action_changed = action != last_autonomous_trace_action;
   const bool decision_changed =
-      decision_ms != 0 && decision_ms != last_autonomous_trace_decision_ms;
+      decision_seq != last_autonomous_trace_decision_seq;
   if (!action_changed && !decision_changed) {
     return;
   }
   last_autonomous_trace_action = action;
   last_autonomous_trace_decision_ms = decision_ms;
+  last_autonomous_trace_decision_seq = decision_seq;
 
   // NONE decisions have no lifecycle transition but are still real decisions.
   if (action == deskbot::ghost::AutonomousAction::NONE && decision_changed) {
@@ -238,6 +241,7 @@ void captureCameraFrame(uint32_t now_ms, bool startup_probe) {
   } else {
     deskbot::nerve::SemanticNeuron neuron;
     if (camera_vision.takeNeuron(neuron)) {
+      runtime.tick(delivered_ms);
       runtime.emit(neuron);
       traceVisionDelivery(neuron);
       const char* name = neuron.type == deskbot::nerve::NeuronType::MOTION_DETECTED
@@ -329,6 +333,7 @@ void loop() {
   M5.update();
 
   const uint32_t now_ms = millis();
+  runtime.tick(now_ms);
   pollTouch(now_ms);
   pollImu(now_ms);
   pollCamera(now_ms);
