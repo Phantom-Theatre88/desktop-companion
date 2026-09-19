@@ -28,6 +28,18 @@ bool body_motion_seen = false;
 constexpr uint32_t kFaceRenderIntervalMs = 40;
 constexpr uint32_t kCameraCaptureIntervalMs = 2000;
 
+void traceHeartState(const char* cause) {
+  const auto& heart = runtime.ghost().heart();
+  Serial.printf("[HEART][CHANGE] %s mood=%.3f affection=%.3f curiosity=%.3f boredom=%.3f sleepiness=%.3f attention=%.3f\n",
+                cause,
+                heart.mood,
+                heart.affection,
+                heart.curiosity,
+                heart.boredom,
+                heart.sleepiness,
+                heart.attention);
+}
+
 void traceVisionDelivery(const deskbot::nerve::SemanticNeuron& neuron) {
   auto& ghost = runtime.ghost();
   const auto& memory = ghost.memoryEngine().lastCandidate();
@@ -75,6 +87,7 @@ void pollTouch(uint32_t now_ms) {
   deskbot::nerve::SemanticNeuron neuron;
   if (touch_adapter.toNeuron(sample, neuron)) {
     runtime.emit(neuron);
+    traceHeartState("TOUCH");
     Serial.printf("[SENSE][TOUCH] TOUCH x=%ld y=%ld\n",
                   static_cast<long>(neuron.payload.x),
                   static_cast<long>(neuron.payload.y));
@@ -97,8 +110,10 @@ void pollImu(uint32_t now_ms) {
   }
 
   if (neuron.type == deskbot::nerve::NeuronType::PICKED_UP) {
+    traceHeartState("PICKED_UP");
     Serial.printf("[SENSE][IMU] PICKED_UP motion=%.3f\n", neuron.payload.scalar);
   } else if (neuron.type == deskbot::nerve::NeuronType::SHAKE) {
+    traceHeartState("SHAKE");
     Serial.printf("[SENSE][IMU] SHAKE motion=%.3f\n", neuron.payload.scalar);
   }
 }
@@ -138,6 +153,7 @@ void captureCameraFrame(uint32_t now_ms, bool startup_probe) {
       traceVisionDelivery(neuron);
       const char* name = neuron.type == deskbot::nerve::NeuronType::MOTION_DETECTED
           ? "MOTION_DETECTED" : (neuron.type == deskbot::nerve::NeuronType::BRIGHTER ? "BRIGHTER" : "DARKER");
+      traceHeartState(name);
       Serial.printf("[NERVE][VISION] %s strength=%.3f -> Ghost/Heart/Memory/Behavior\n",
                     name, neuron.payload.scalar);
     }
