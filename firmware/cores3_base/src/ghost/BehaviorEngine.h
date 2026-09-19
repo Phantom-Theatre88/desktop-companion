@@ -8,6 +8,12 @@
 namespace deskbot {
 namespace ghost {
 
+enum class AutonomousAction : uint8_t {
+  NONE = 0,
+  CURIOUS_LOOK,
+  BORED_SCAN,
+};
+
 struct MicroBehaviorFrame {
   float eye_openness = 0.90f;
   float gaze_x = 0.0f;
@@ -33,10 +39,13 @@ class BehaviorEngine {
   const MicroBehaviorFrame& microBehavior() const { return micro_behavior_; }
   nerve::NeuronType lastReceivedType() const { return last_received_type_; }
   uint32_t lastReceivedMs() const { return last_received_ms_; }
+  AutonomousAction autonomousAction() const { return autonomous_action_; }
+  uint32_t lastAutonomousDecisionMs() const { return last_autonomous_decision_ms_; }
 
  private:
   static float clamp01(float value);
   static float clampSigned(float value);
+  void chooseAutonomousAction(uint32_t now_ms, const HeartState& heart);
 
   nerve::NeuronType last_received_type_ = nerve::NeuronType::NONE;
   uint32_t last_received_ms_ = 0;
