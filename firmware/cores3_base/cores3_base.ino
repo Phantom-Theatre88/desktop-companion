@@ -30,8 +30,9 @@ constexpr uint32_t kCameraCaptureIntervalMs = 2000;
 
 void traceHeartState(const char* cause) {
   const auto& heart = runtime.ghost().heart();
-  Serial.printf("[HEART][CHANGE] %s mood=%.3f affection=%.3f curiosity=%.3f boredom=%.3f sleepiness=%.3f attention=%.3f\n",
+  Serial.printf("[HEART][CHANGE] %s impact=%.2f mood=%.3f affection=%.3f curiosity=%.3f boredom=%.3f sleepiness=%.3f attention=%.3f\n",
                 cause,
+                runtime.ghost().heartEngine().lastImpactScale(),
                 heart.mood,
                 heart.affection,
                 heart.curiosity,
