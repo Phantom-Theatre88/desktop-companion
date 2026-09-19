@@ -189,9 +189,9 @@ camera_config_t makeCameraConfig() {
   config.pixel_format = PIXFORMAT_RGB565;
   config.frame_size = FRAMESIZE_QVGA;
   config.jpeg_quality = 0;
-  config.fb_count = 2;
+  config.fb_count = 1;
   config.fb_location = CAMERA_FB_IN_PSRAM;
-  config.grab_mode = CAMERA_GRAB_LATEST;
+  config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
   config.sccb_i2c_port = -1;
   return config;
 }
@@ -287,8 +287,10 @@ esp_err_t streamHandler(httpd_req_t* req) {
       break;
     }
 
-    // Keep diagnostic streaming responsive without starving Wi-Fi.
-    delay(10);
+    // Diagnostic stability has priority over frame rate. With one framebuffer,
+    // do not request the next frame until mask analysis, JPEG conversion and
+    // browser delivery for this frame are complete.
+    delay(20);
   }
 
   return result;
