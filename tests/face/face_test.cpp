@@ -78,7 +78,10 @@ int main() {
   autonomousBehavior.tick(15500,curiousContext);
   assert(std::fabs(autonomousBehavior.microBehavior().gaze_x) > 0.10f);
 
+  // Vision arbitration uses Ghost handling-time clock, not source timestamp.
+  // Simulate a camera event whose occurrence timestamp is older than delivery.
   // Vision temporarily overlays but does not cancel the autonomous decision.
+  curiousContext.captured_ms = 15620;
   autonomousBehavior.onNeuron(
       nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
                         nerve::NeuronSource::CAMERA_M5,15510),
@@ -89,6 +92,7 @@ int main() {
 
   // Repeated Vision extends the same pause without consuming action lifetime.
   autonomousBehavior.tick(15700,curiousContext);
+  curiousContext.captured_ms = 16020;
   autonomousBehavior.onNeuron(
       nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
                         nerve::NeuronSource::CAMERA_M5,15900),
@@ -98,22 +102,23 @@ int main() {
   assert(autonomousBehavior.autonomousPaused());
 
   // 600 ms after the latest Vision event, action resumes with its remaining time.
-  autonomousBehavior.tick(16510,curiousContext);
+  autonomousBehavior.tick(16620,curiousContext);
   assert(!autonomousBehavior.autonomousPaused());
   assert(autonomousBehavior.lastAutonomousLifecycle()==ghost::AutonomousLifecycle::RESUME);
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
-  autonomousBehavior.tick(16900,curiousContext);
+  autonomousBehavior.tick(17000,curiousContext);
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
   assert(std::fabs(autonomousBehavior.microBehavior().gaze_x) > 0.10f);
 
   // It completes only after the remaining autonomous lifetime is actually used.
-  autonomousBehavior.tick(17810,curiousContext);
+  autonomousBehavior.tick(18020,curiousContext);
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::NONE);
   assert(autonomousBehavior.lastAutonomousLifecycle()==ghost::AutonomousLifecycle::COMPLETE);
 
   // Start another action, then direct body interaction cancels it immediately.
   autonomousBehavior.tick(33000,curiousContext);
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
+  curiousContext.captured_ms = 33120;
   autonomousBehavior.onNeuron(
       nerve::makeNeuron(nerve::NeuronType::TOUCH,nerve::NeuronSource::TOUCH,33100),
       curiousContext);
