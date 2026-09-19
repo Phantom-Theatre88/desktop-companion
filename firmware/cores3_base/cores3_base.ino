@@ -28,6 +28,7 @@ bool body_motion_seen = false;
 uint32_t last_recovery_trace_ms = 0;
 deskbot::ghost::AutonomousAction last_autonomous_trace_action =
     deskbot::ghost::AutonomousAction::NONE;
+uint32_t last_autonomous_trace_decision_ms = 0;
 constexpr uint32_t kFaceRenderIntervalMs = 40;
 constexpr uint32_t kCameraCaptureIntervalMs = 2000;
 
@@ -44,11 +45,17 @@ const char* autonomousActionName(deskbot::ghost::AutonomousAction action) {
 }
 
 void traceAutonomousBehavior() {
-  const auto action = runtime.ghost().behaviorEngine().autonomousAction();
-  if (action == last_autonomous_trace_action) {
+  const auto& behavior = runtime.ghost().behaviorEngine();
+  const auto action = behavior.autonomousAction();
+  const uint32_t decision_ms = behavior.lastAutonomousDecisionMs();
+  const bool action_changed = action != last_autonomous_trace_action;
+  const bool decision_changed =
+      decision_ms != 0 && decision_ms != last_autonomous_trace_decision_ms;
+  if (!action_changed && !decision_changed) {
     return;
   }
   last_autonomous_trace_action = action;
+  last_autonomous_trace_decision_ms = decision_ms;
   const auto& heart = runtime.ghost().heart();
   Serial.printf("[BEHAVIOR][AUTO] %s curiosity=%.3f boredom=%.3f attention=%.3f\n",
                 autonomousActionName(action),
