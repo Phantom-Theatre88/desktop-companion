@@ -78,7 +78,19 @@ int main() {
   autonomousBehavior.tick(15500,curiousContext);
   assert(std::fabs(autonomousBehavior.microBehavior().gaze_x) > 0.10f);
 
-  // External interaction wins immediately over an autonomous action.
+  // Vision temporarily overlays but does not cancel the autonomous decision.
+  autonomousBehavior.onNeuron(
+      nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
+                        nerve::NeuronSource::CAMERA_M5,15510),
+      curiousContext);
+  assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
+  autonomousBehavior.tick(15700,curiousContext);
+  assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
+  autonomousBehavior.tick(16120,curiousContext);
+  assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
+  assert(std::fabs(autonomousBehavior.microBehavior().gaze_x) > 0.10f);
+
+  // Direct body interaction wins immediately and cancels autonomous behavior.
   autonomousBehavior.onNeuron(
       nerve::makeNeuron(nerve::NeuronType::TOUCH,nerve::NeuronSource::TOUCH,15510),
       curiousContext);
@@ -94,5 +106,5 @@ int main() {
   assert(boredBehavior.autonomousAction()==ghost::AutonomousAction::BORED_SCAN);
   boredBehavior.tick(16000,boredContext);
   assert(std::fabs(boredBehavior.microBehavior().gaze_x) > 0.05f);
-  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry, autonomous Heart-driven behavior\n";
+  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry, autonomous Heart-driven behavior, Vision overlay arbitration\n";
 }
