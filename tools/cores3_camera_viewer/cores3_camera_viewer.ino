@@ -4,13 +4,21 @@
 #include <esp_http_server.h>
 #include <img_converters.h>
 
+#if __has_include("wifi_secrets.h")
+#include "wifi_secrets.h"
+#define DESKROBO_HAS_WIFI_SECRETS 1
+#else
+#define DESKROBO_HAS_WIFI_SECRETS 0
+#endif
+
 // Diagnostic-only CoreS3 camera viewer.
 // This sketch is intentionally separate from the production DeskRobo runtime.
 
 namespace {
 
 constexpr char kApSsid[] = "DeskRobo-Camera";
-constexpr char kApPassword[] = "deskrobo";  // 8+ chars required by ESP32 SoftAP.
+constexpr char kApPassword[] = "deskrobo";  // Fallback only.
+constexpr uint32_t kStaConnectTimeoutMs = 15000;
 constexpr uint16_t kWidth = 320;
 constexpr uint16_t kHeight = 240;
 
@@ -227,11 +235,44 @@ void setup() {
     return;
   }
 
-  WiFi.mode(WIFI_AP);
-  if (!WiFi.softAP(kApSsid, kApPassword)) {
-    Serial.println("[VIEWER][ERROR] SoftAP start failed");
-    showStatus("WIFI ERROR", "see Serial");
-    return;
+  bool using_fallback_ap = false;
+  IPAddress viewer_ip;
+
+#if DESKROBO_HAS_WIFI_SECRETS
+  Serial.printf("[VIEWER] Connecting to Wi-Fi SSID: %s\n", WIFI_SSID);
+  showStatus("CAMERA VIEWER", "joining Wi-Fi...");
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  const uint32_t connect_started_ms = millis();
+  while (WiFi.status() != WL_CONNECTED &&
+         millis() - connect_started_ms < kStaConnectTimeoutMs) {
+    delay(250);
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    viewer_ip = WiFi.localIP();
+    Serial.println("[VIEWER] LAN Wi-Fi connected");
+  } else {
+    Serial.println("[VIEWER][WARN] LAN Wi-Fi failed; falling back to DeskRobo-Camera");
+    WiFi.disconnect(true);
+    delay(100);
+    using_fallback_ap = true;
+  }
+#else
+  Serial.println("[VIEWER][WARN] wifi_secrets.h not found; using fallback SoftAP");
+  using_fallback_ap = true;
+#endif
+
+  if (using_fallback_ap) {
+    WiFi.mode(WIFI_AP);
+    if (!WiFi.softAP(kApSsid, kApPassword)) {
+      Serial.println("[VIEWER][ERROR] SoftAP start failed");
+      showStatus("WIFI ERROR", "see Serial");
+      return;
+    }
+    viewer_ip = WiFi.softAPIP();
   }
 
   if (!startServer()) {
@@ -240,13 +281,17 @@ void setup() {
     return;
   }
 
-  const IPAddress ip = WiFi.softAPIP();
   Serial.println("[VIEWER] READY");
-  Serial.printf("[VIEWER] Wi-Fi SSID: %s\n", kApSsid);
-  Serial.printf("[VIEWER] Wi-Fi password: %s\n", kApPassword);
-  Serial.printf("[VIEWER] Open: http://%s/\n", ip.toString().c_str());
+  if (using_fallback_ap) {
+    Serial.printf("[VIEWER] Fallback Wi-Fi SSID: %s\n", kApSsid);
+    Serial.printf("[VIEWER] Fallback Wi-Fi password: %s\n", kApPassword);
+  } else {
+    Serial.println("[VIEWER] Mode: LOCAL LAN ONLY");
+  }
+  Serial.printf("[VIEWER] Open: http://%s/\n", viewer_ip.toString().c_str());
 
-  showStatus("CAMERA VIEWER", "192.168.4.1");
+  const String ip_text = viewer_ip.toString();
+  showStatus("CAMERA VIEWER", ip_text.c_str());
 }
 
 void loop() {
