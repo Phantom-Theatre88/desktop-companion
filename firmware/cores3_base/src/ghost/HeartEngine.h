@@ -51,6 +51,7 @@ class HeartEngine {
   const HeartState& state() const { return state_; }
   nerve::NeuronType lastEventType() const { return last_event_type_; }
   uint32_t lastEventMs() const { return last_event_ms_; }
+  uint32_t lastHeartChangeMs() const { return last_heart_change_ms_; }
 
   bool primarySnapshotLoaded() const { return primary_snapshot_loaded_; }
   bool firstBootInitialized() const { return first_boot_initialized_; }
@@ -72,6 +73,14 @@ class HeartEngine {
 
  private:
   static float clamp01(float value);
+  static float clampStrength(float value);
+  void applyDelta(float mood,
+                  float affection,
+                  float curiosity,
+                  float boredom,
+                  float sleepiness,
+                  float attention,
+                  uint32_t now_ms);
   void clampState();
 
   HeartState state_{};
