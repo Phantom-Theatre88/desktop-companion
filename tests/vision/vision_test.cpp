@@ -41,6 +41,40 @@ int main() {
   f.timestamp_ms=17000; v.onCameraFrame(f);
   assert(v.takeNeuron(n) && n.type==nerve::NeuronType::MOTION_DETECTED);
   assert(n.source==nerve::NeuronSource::CAMERA_M5 && n.timestamp_ms==17000);
+
+  // Directional motion payload is normalized semantic direction, not pixels.
+  // Use a small current-frame salient block so global luma shift stays below
+  // brightness classification and motion remains spatial.
+  v.reset();
+  std::fill(pixels.begin(),pixels.end(),0);
+  f.timestamp_ms=17100; v.onCameraFrame(f); assert(!v.takeNeuron(n));
+  for(size_t y=60;y<180;++y) {
+    for(size_t x=8;x<48;++x) {
+      const size_t i=(y*320+x)*2;
+      pixels[i]=pixels[i+1]=255;
+    }
+  }
+  f.timestamp_ms=19100; v.onCameraFrame(f);
+  assert(v.takeNeuron(n) && n.type==nerve::NeuronType::MOTION_DETECTED);
+  assert(n.payload.x < -250);
+
+  v.reset();
+  std::fill(pixels.begin(),pixels.end(),0);
+  f.timestamp_ms=20000; v.onCameraFrame(f); assert(!v.takeNeuron(n));
+  for(size_t y=60;y<180;++y) {
+    for(size_t x=272;x<312;++x) {
+      const size_t i=(y*320+x)*2;
+      pixels[i]=pixels[i+1]=255;
+    }
+  }
+  f.timestamp_ms=22000; v.onCameraFrame(f);
+  assert(v.takeNeuron(n) && n.type==nerve::NeuronType::MOTION_DETECTED);
+  assert(n.payload.x > 250);
+
+  // Restore a neutral motion neuron for the existing full-route assertions.
+  n = nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
+                        nerve::NeuronSource::CAMERA_M5,17000);
+  n.payload.scalar = 0.25f;
   // Full route: Vision -> Runtime/Synapse -> Ghost/Memory/Behavior -> existing eye output.
   core::DesktopCompanionRuntime runtime; assert(runtime.begin(0));
   assert(runtime.synapse().bindingCount()==23);
@@ -114,5 +148,5 @@ int main() {
   assert(v.lastSummary().average_luma==28);
   // Changed dimensions start a fresh baseline.
   f.width=160; f.height=120; f.timestamp_ms=5000; v.onCameraFrame(f); assert(!v.takeNeuron(n));
-  std::cout << "PASS: vision changes, Heart deltas/habituation/recovery, cooldown, invalid/gap/resize/wrap, Ghost/Heart/Memory/Behavior delivery, Behavior priority\n";
+  std::cout << "PASS: vision changes/direction, Heart deltas/habituation/recovery, cooldown, invalid/gap/resize/wrap, Ghost/Heart/Memory/Behavior delivery, Behavior priority\n";
 }
