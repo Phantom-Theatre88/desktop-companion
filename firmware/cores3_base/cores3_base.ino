@@ -107,19 +107,22 @@ void captureCameraFrame(uint32_t now_ms, bool startup_probe) {
   const auto capture = camera_driver.captureOnce(now_ms, &camera_vision);
   const auto& vision = camera_vision.lastSummary();
 
+  // Event-driven Serial policy:
+  // - One startup READY line is useful.
+  // - Normal periodic captures stay silent.
+  // - Failures are always reported.
   if (capture.initialized && capture.captured && vision.valid) {
-    Serial.printf("[SENSE][CAMERA] %s frame=%ux%u bytes=%u luma=%u\n",
-                  startup_probe ? "Probe: READY" : "Frame: READY",
-                  static_cast<unsigned>(vision.width),
-                  static_cast<unsigned>(vision.height),
-                  static_cast<unsigned>(vision.bytes),
-                  static_cast<unsigned>(vision.average_luma));
+    if (startup_probe) {
+      Serial.printf("[SENSE][CAMERA] Probe: READY frame=%ux%u bytes=%u luma=%u\n",
+                    static_cast<unsigned>(vision.width),
+                    static_cast<unsigned>(vision.height),
+                    static_cast<unsigned>(vision.bytes),
+                    static_cast<unsigned>(vision.average_luma));
+    }
   } else if (capture.initialized) {
-    Serial.printf("[SENSE][CAMERA] %s CAPTURE_FAILED\n",
-                  startup_probe ? "Probe: INIT_OK" : "Frame: INIT_OK");
+    Serial.println("[ERROR][CAMERA] CAPTURE_FAILED");
   } else {
-    Serial.printf("[SENSE][CAMERA] %s INIT_FAILED\n",
-                  startup_probe ? "Probe:" : "Frame:");
+    Serial.println("[ERROR][CAMERA] INIT_FAILED");
   }
 
   // Only dispatch after the camera has released I2C. Failed or known
@@ -140,8 +143,9 @@ void captureCameraFrame(uint32_t now_ms, bool startup_probe) {
     }
   }
 
-  Serial.printf("[SENSE][CAMERA] Internal I2C restored: %s\n",
-                capture.internal_i2c_restored ? "YES" : "NO");
+  if (!capture.internal_i2c_restored) {
+    Serial.println("[ERROR][CAMERA] Internal I2C restore failed");
+  }
 }
 
 void pollCamera(uint32_t now_ms) {
