@@ -87,8 +87,8 @@ int main() {
   const auto leftDirected = directedMotionBehavior.microBehavior();
   assert(leftDirected.left_shape.width_scale == 1.0f);
   assert(leftDirected.right_shape.width_scale == 1.0f);
-  assert(leftDirected.left_shape.height_scale > 1.05f);
-  assert(leftDirected.right_shape.height_scale < 0.96f);
+  assert(leftDirected.left_shape.height_scale > 1.15f);
+  assert(leftDirected.right_shape.height_scale < 0.86f);
 
   ghost::BehaviorEngine rightDirectedBehavior;
   rightDirectedBehavior.begin(0);
@@ -105,8 +105,26 @@ int main() {
       rightContext);
   rightDirectedBehavior.tick(1040,rightContext);
   const auto rightDirected = rightDirectedBehavior.microBehavior();
-  assert(rightDirected.right_shape.height_scale > 1.05f);
-  assert(rightDirected.left_shape.height_scale < 0.96f);
+  assert(rightDirected.right_shape.height_scale > 1.15f);
+  assert(rightDirected.left_shape.height_scale < 0.86f);
+
+  // Near-center motion keeps both eyes symmetric to avoid noisy twitching.
+  ghost::BehaviorEngine centerMotionBehavior;
+  centerMotionBehavior.begin(0);
+  ghost::HeartContext centerContext;
+  centerContext.captured_ms = 1000;
+  nerve::NeuronPayload centerMotionPayload;
+  centerMotionPayload.scalar = 0.4f;
+  centerMotionPayload.x = 120;
+  centerMotionBehavior.onNeuron(
+      nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
+                        nerve::NeuronSource::CAMERA_M5,
+                        900, 1.0f, centerMotionPayload),
+      centerContext);
+  centerMotionBehavior.tick(1040,centerContext);
+  const auto centerDirected = centerMotionBehavior.microBehavior();
+  assert(centerDirected.left_shape.height_scale == 1.0f);
+  assert(centerDirected.right_shape.height_scale == 1.0f);
 
   // Heart-driven autonomous behavior: baseline curiosity chooses a look.
   ghost::BehaviorEngine autonomousBehavior;
@@ -142,17 +160,17 @@ int main() {
   autonomousBehavior.tick(16300,curiousContext);
   assert(autonomousBehavior.autonomousPaused());
 
-  // 600 ms after the latest Vision event, action resumes with its remaining time.
-  autonomousBehavior.tick(16620,curiousContext);
+  // 1500 ms after the latest Vision event, action resumes with its remaining time.
+  autonomousBehavior.tick(17520,curiousContext);
   assert(!autonomousBehavior.autonomousPaused());
   assert(autonomousBehavior.lastAutonomousLifecycle()==ghost::AutonomousLifecycle::RESUME);
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
-  autonomousBehavior.tick(17000,curiousContext);
+  autonomousBehavior.tick(17900,curiousContext);
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
   assert(std::fabs(autonomousBehavior.microBehavior().gaze_x) > 0.10f);
 
   // It completes only after the remaining autonomous lifetime is actually used.
-  autonomousBehavior.tick(18020,curiousContext);
+  autonomousBehavior.tick(18920,curiousContext);
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::NONE);
   assert(autonomousBehavior.lastAutonomousLifecycle()==ghost::AutonomousLifecycle::COMPLETE);
 
@@ -176,5 +194,5 @@ int main() {
   assert(boredBehavior.autonomousAction()==ghost::AutonomousAction::BORED_SCAN);
   boredBehavior.tick(16000,boredContext);
   assert(std::fabs(boredBehavior.microBehavior().gaze_x) > 0.05f);
-  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry, directed motion gaze/asymmetry, autonomous Heart-driven behavior, Vision pause/resume arbitration\n";
+  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry, strong directed motion gaze/asymmetry/deadzone, autonomous Heart-driven behavior, Vision pause/resume arbitration\n";
 }
