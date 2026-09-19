@@ -25,8 +25,25 @@ uint32_t last_face_render_ms = 0;
 uint32_t last_camera_capture_ms = 0;
 uint32_t last_body_motion_ms = 0;
 bool body_motion_seen = false;
+uint32_t last_recovery_trace_ms = 0;
 constexpr uint32_t kFaceRenderIntervalMs = 40;
 constexpr uint32_t kCameraCaptureIntervalMs = 2000;
+
+void traceHeartRecovery() {
+  auto& heart_engine = runtime.ghost().heartEngine();
+  const uint32_t recovery_ms = heart_engine.lastRecoveryMs();
+  if (recovery_ms == 0 || recovery_ms == last_recovery_trace_ms) {
+    return;
+  }
+  last_recovery_trace_ms = recovery_ms;
+  const auto& heart = runtime.ghost().heart();
+  const auto& baseline = heart_engine.baseline();
+  Serial.printf("[HEART][RECOVER] mood=%.3f->%.3f curiosity=%.3f->%.3f attention=%.3f->%.3f boredom=%.3f\n",
+                heart.mood, baseline.mood,
+                heart.curiosity, baseline.curiosity,
+                heart.attention, baseline.attention,
+                heart.boredom);
+}
 
 void traceHeartState(const char* cause) {
   const auto& heart = runtime.ghost().heart();
@@ -248,6 +265,7 @@ void loop() {
   // compared against a tick timestamp from before it occurred.
   const uint32_t body_now_ms = millis();
   runtime.tick(body_now_ms);
+  traceHeartRecovery();
   renderLivingFace(body_now_ms);
 
   delay(10);
