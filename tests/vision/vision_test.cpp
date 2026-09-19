@@ -57,6 +57,8 @@ int main() {
   f.timestamp_ms=19100; v.onCameraFrame(f);
   assert(v.takeNeuron(n) && n.type==nerve::NeuronType::MOTION_DETECTED);
   assert(n.payload.x < -250);
+  assert(v.lastSummary().motion_left > v.lastSummary().motion_center);
+  assert(v.lastSummary().motion_left > v.lastSummary().motion_right);
 
   v.reset();
   std::fill(pixels.begin(),pixels.end(),0);
@@ -70,6 +72,8 @@ int main() {
   f.timestamp_ms=22000; v.onCameraFrame(f);
   assert(v.takeNeuron(n) && n.type==nerve::NeuronType::MOTION_DETECTED);
   assert(n.payload.x > 250);
+  assert(v.lastSummary().motion_right > v.lastSummary().motion_left);
+  assert(v.lastSummary().motion_right > v.lastSummary().motion_center);
 
   // Restore a neutral motion neuron for the existing full-route assertions.
   n = nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
@@ -148,5 +152,5 @@ int main() {
   assert(v.lastSummary().average_luma==28);
   // Changed dimensions start a fresh baseline.
   f.width=160; f.height=120; f.timestamp_ms=5000; v.onCameraFrame(f); assert(!v.takeNeuron(n));
-  std::cout << "PASS: vision changes/direction, Heart deltas/habituation/recovery, cooldown, invalid/gap/resize/wrap, Ghost/Heart/Memory/Behavior delivery, Behavior priority\n";
+  std::cout << "PASS: vision changes/direction/regions, Heart deltas/habituation/recovery, cooldown, invalid/gap/resize/wrap, Ghost/Heart/Memory/Behavior delivery, Behavior priority\n";
 }
