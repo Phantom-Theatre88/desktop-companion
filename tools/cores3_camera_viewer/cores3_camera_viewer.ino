@@ -119,28 +119,16 @@ void updateMotionMask(camera_fb_t* frame, uint32_t now_ms) {
   last_mask_sample_ms = now_ms;
 }
 
-void tintPixelRed(uint8_t* data, size_t pixel_index) {
+void setPixelRed(uint8_t* data, size_t pixel_index) {
   const size_t i = pixel_index * 2;
-  const uint16_t pixel =
-      (static_cast<uint16_t>(data[i]) << 8) |
-      static_cast<uint16_t>(data[i + 1]);
-
-  const uint16_t r = (pixel >> 11) & 31u;
-  const uint16_t g = (pixel >> 5) & 63u;
-  const uint16_t b = pixel & 31u;
-
-  // Roughly 2/3 red overlay while preserving enough of the live image.
-  const uint16_t out_r = static_cast<uint16_t>((r + 31u * 2u) / 3u);
-  const uint16_t out_g = static_cast<uint16_t>(g / 3u);
-  const uint16_t out_b = static_cast<uint16_t>(b / 3u);
-  const uint16_t out =
-      static_cast<uint16_t>((out_r << 11) | (out_g << 5) | out_b);
-
-  data[i] = static_cast<uint8_t>(out >> 8);
-  data[i + 1] = static_cast<uint8_t>(out & 0xff);
+  constexpr uint16_t kRed565 = 0xF800;
+  data[i] = static_cast<uint8_t>(kRed565 >> 8);
+  data[i + 1] = static_cast<uint8_t>(kRed565 & 0xff);
 }
 
 void drawMotionMask(camera_fb_t* frame) {
+  // Keep the diagnostic overlay deliberately cheap. Draw only a two-pixel red
+  // border around changed 16x12 cells instead of tinting their full area.
   for (size_t row = 0; row < kMaskRows; ++row) {
     for (size_t col = 0; col < kMaskColumns; ++col) {
       if (!latest_mask[row * kMaskColumns + col]) {
@@ -152,10 +140,29 @@ void drawMotionMask(camera_fb_t* frame) {
       const size_t y0 = (row * frame->height) / kMaskRows;
       const size_t y1 = ((row + 1) * frame->height) / kMaskRows;
 
-      // Checkerboard tint keeps the underlying camera image readable.
-      for (size_t y = y0; y < y1; y += 2) {
-        for (size_t x = x0; x < x1; x += 2) {
-          tintPixelRed(frame->buf, y * frame->width + x);
+      if (x1 <= x0 || y1 <= y0) {
+        continue;
+      }
+
+      for (size_t x = x0; x < x1; ++x) {
+        setPixelRed(frame->buf, y0 * frame->width + x);
+        if (y0 + 1 < y1) {
+          setPixelRed(frame->buf, (y0 + 1) * frame->width + x);
+        }
+        setPixelRed(frame->buf, (y1 - 1) * frame->width + x);
+        if (y1 >= y0 + 2) {
+          setPixelRed(frame->buf, (y1 - 2) * frame->width + x);
+        }
+      }
+
+      for (size_t y = y0; y < y1; ++y) {
+        setPixelRed(frame->buf, y * frame->width + x0);
+        if (x0 + 1 < x1) {
+          setPixelRed(frame->buf, y * frame->width + (x0 + 1));
+        }
+        setPixelRed(frame->buf, y * frame->width + (x1 - 1));
+        if (x1 >= x0 + 2) {
+          setPixelRed(frame->buf, y * frame->width + (x1 - 2));
         }
       }
     }
@@ -189,7 +196,7 @@ camera_config_t makeCameraConfig() {
   config.pixel_format = PIXFORMAT_RGB565;
   config.frame_size = FRAMESIZE_QVGA;
   config.jpeg_quality = 0;
-  config.fb_count = 1;
+  config.fb_count = 2;
   config.fb_location = CAMERA_FB_IN_PSRAM;
   config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
   config.sccb_i2c_port = -1;
@@ -287,9 +294,8 @@ esp_err_t streamHandler(httpd_req_t* req) {
       break;
     }
 
-    // Diagnostic stability has priority over frame rate. With one framebuffer,
-    // do not request the next frame until mask analysis, JPEG conversion and
-    // browser delivery for this frame are complete.
+    // Keep enough breathing room for Wi-Fi and JPEG conversion while using
+    // the official CoreS3 two-buffer / WHEN_EMPTY camera pattern.
     delay(20);
   }
 
