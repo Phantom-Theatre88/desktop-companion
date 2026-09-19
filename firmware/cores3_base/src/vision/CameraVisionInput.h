@@ -17,6 +17,12 @@ struct VisionFrameSummary {
   float motion_score = 0.0f;  // fraction of changed grid cells, not person confidence
   float motion_x = 0.0f;      // semantic direction: left -1 .. right +1
   float motion_y = 0.0f;      // semantic direction: up -1 .. down +1
+  float motion_left = 0.0f;
+  float motion_center = 0.0f;
+  float motion_right = 0.0f;
+  float motion_top = 0.0f;
+  float motion_middle = 0.0f;
+  float motion_bottom = 0.0f;
   int16_t luma_change = 0;
 };
 
