@@ -247,8 +247,16 @@ void captureCameraFrame(uint32_t now_ms, bool startup_probe) {
       const char* name = neuron.type == deskbot::nerve::NeuronType::MOTION_DETECTED
           ? "MOTION_DETECTED" : (neuron.type == deskbot::nerve::NeuronType::BRIGHTER ? "BRIGHTER" : "DARKER");
       traceHeartState(name);
-      Serial.printf("[NERVE][VISION] %s strength=%.3f -> Ghost/Heart/Memory/Behavior\n",
-                    name, neuron.payload.scalar);
+      if (neuron.type == deskbot::nerve::NeuronType::MOTION_DETECTED) {
+        Serial.printf("[NERVE][VISION] %s strength=%.3f dir=(%.2f,%.2f) -> Ghost/Heart/Memory/Behavior\n",
+                      name,
+                      neuron.payload.scalar,
+                      static_cast<float>(neuron.payload.x) / 1000.0f,
+                      static_cast<float>(neuron.payload.y) / 1000.0f);
+      } else {
+        Serial.printf("[NERVE][VISION] %s strength=%.3f -> Ghost/Heart/Memory/Behavior\n",
+                      name, neuron.payload.scalar);
+      }
     }
   }
 
