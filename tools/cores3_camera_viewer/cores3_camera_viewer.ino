@@ -25,8 +25,11 @@ constexpr uint16_t kHeight = 240;
 constexpr size_t kMaskColumns = 16;
 constexpr size_t kMaskRows = 12;
 constexpr size_t kMaskCells = kMaskColumns * kMaskRows;
-constexpr uint32_t kMaskIntervalMs = 2000;
+constexpr uint32_t kDefaultMaskIntervalMs = 500;
 constexpr int kCellChangeThreshold = 20;
+constexpr size_t kCandidateBlobMinCells = 5;
+
+volatile uint32_t mask_interval_ms = kDefaultMaskIntervalMs;
 
 uint8_t previous_grid[kMaskCells]{};
 bool latest_mask[kMaskCells]{};
@@ -183,8 +186,9 @@ void analyzeMotionBlobs() {
     printed[best] = true;
     const MotionBlob& blob = latest_blobs[best];
     Serial.printf(
-        "[VIEWER][BLOB %u] cells=%u center=(%.2f,%.2f) bbox=(%u,%u)-(%u,%u)\n",
+        "[VIEWER][BLOB %u] %s cells=%u center=(%.2f,%.2f) bbox=(%u,%u)-(%u,%u)\n",
         static_cast<unsigned>(best + 1),
+        blob.cells >= kCandidateBlobMinCells ? "CANDIDATE" : "noise",
         static_cast<unsigned>(blob.cells),
         blob.center_x,
         blob.center_y,
@@ -202,7 +206,7 @@ void analyzeMotionBlobs() {
 
 void updateMotionMask(camera_fb_t* frame, uint32_t now_ms) {
   if (have_previous_grid &&
-      now_ms - last_mask_sample_ms < kMaskIntervalMs) {
+      now_ms - last_mask_sample_ms < mask_interval_ms) {
     return;
   }
 
@@ -319,7 +323,10 @@ void drawBlobOverlay(camera_fb_t* frame) {
 
   for (size_t i = 0; i < latest_blob_count; ++i) {
     const MotionBlob& blob = latest_blobs[i];
-    const uint16_t color = kBlobColors[i % kColorCount];
+    const bool candidate = blob.cells >= kCandidateBlobMinCells;
+    const uint16_t color = candidate
+        ? kBlobColors[i % kColorCount]
+        : static_cast<uint16_t>(0x8410);  // gray
 
     const size_t x0 = (blob.min_col * frame->width) / kMaskColumns;
     const size_t x1 = ((blob.max_col + 1) * frame->width) / kMaskColumns;
@@ -328,14 +335,19 @@ void drawBlobOverlay(camera_fb_t* frame) {
 
     if (x1 <= x0 || y1 <= y0) continue;
 
-    // One-pixel bounding rectangle per blob.
-    for (size_t x = x0; x < x1; ++x) {
-      setPixel565(frame->buf, y0 * frame->width + x, color);
-      setPixel565(frame->buf, (y1 - 1) * frame->width + x, color);
-    }
-    for (size_t y = y0; y < y1; ++y) {
-      setPixel565(frame->buf, y * frame->width + x0, color);
-      setPixel565(frame->buf, y * frame->width + (x1 - 1), color);
+    // Candidate blobs get a two-pixel box; small/noise blobs stay one-pixel gray.
+    const size_t thickness = candidate ? 2 : 1;
+    for (size_t t = 0; t < thickness; ++t) {
+      if (x0 + t >= x1 || y0 + t >= y1 ||
+          x1 <= t || y1 <= t) break;
+      for (size_t x = x0 + t; x < x1 - t; ++x) {
+        setPixel565(frame->buf, (y0 + t) * frame->width + x, color);
+        setPixel565(frame->buf, (y1 - 1 - t) * frame->width + x, color);
+      }
+      for (size_t y = y0 + t; y < y1 - t; ++y) {
+        setPixel565(frame->buf, y * frame->width + (x0 + t), color);
+        setPixel565(frame->buf, y * frame->width + (x1 - 1 - t), color);
+      }
     }
 
     const size_t cx = static_cast<size_t>(
@@ -343,7 +355,10 @@ void drawBlobOverlay(camera_fb_t* frame) {
     const size_t cy = static_cast<size_t>(
         ((blob.center_y + 1.0f) * 0.5f) * static_cast<float>(frame->height));
 
-    // Small center cross so the computed blob center is directly visible.
+    // Center cross only for candidate blobs.
+    if (!candidate) {
+      continue;
+    }
     for (int d = -4; d <= 4; ++d) {
       const int px = static_cast<int>(cx) + d;
       const int py = static_cast<int>(cy) + d;
@@ -405,7 +420,11 @@ esp_err_t indexHandler(httpd_req_t* req) {
       "display:flex;min-height:100vh;align-items:center;justify-content:center}"
       "main{width:min(94vw,960px);text-align:center}"
       "h1{font-size:20px;font-weight:600;margin:0 0 12px}"
-      "p{color:#aaa;font-size:13px;margin:8px 0 14px}"
+      "p{color:#aaa;font-size:13px;margin:8px 0 10px}"
+      ".controls{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin:0 0 12px}"
+      "button{background:#2b2b2b;color:#eee;border:1px solid #555;border-radius:7px;padding:7px 11px;font-size:13px}"
+      "button:active{background:#444}"
+      "#status{color:#aaa;font-size:12px;margin-left:4px}"
       ".frame{position:relative;display:inline-block;max-width:100%;background:#000}"
       "img{display:block;width:min(92vw,800px);height:auto;image-rendering:auto}"
       ".grid{pointer-events:none;position:absolute;inset:0;"
@@ -414,8 +433,26 @@ esp_err_t indexHandler(httpd_req_t* req) {
       "background-size:6.25% 8.333333%}"
       "</style></head><body><main>"
       "<h1>CoreS3 Camera — Live</h1>"
-      "<p>Red cells = motion mask. Colored boxes/crosses = 4-neighbour motion blobs.</p>"
+      "<p>Red cells = motion mask. Gray = small/noise candidate. Color = 5+ cell motion candidate.</p>"
+      "<div class='controls'>"
+      "<button data-ms='250'>250 ms</button>"
+      "<button data-ms='500'>500 ms</button>"
+      "<button data-ms='1000'>1000 ms</button>"
+      "<button data-ms='2000'>2000 ms</button>"
+      "<span id='status'>interval: --</span>"
+      "</div>"
       "<div class='frame'><img src='/stream' alt='CoreS3 live camera'><div class='grid'></div></div>"
+      "<script>"
+      "const status=document.getElementById('status');"
+      "async function setIntervalMs(ms){"
+      "try{const r=await fetch('/config?interval='+ms,{cache:'no-store'});"
+      "const j=await r.json();status.textContent='interval: '+j.interval+' ms';}"
+      "catch(e){status.textContent='interval update failed';}}"
+      "document.querySelectorAll('button[data-ms]').forEach(b=>"
+      "b.addEventListener('click',()=>setIntervalMs(b.dataset.ms)));"
+      "fetch('/status',{cache:'no-store'}).then(r=>r.json()).then(j=>"
+      "status.textContent='interval: '+j.interval+' ms').catch(()=>{});"
+      "</script>"
       "</main></body></html>";
 
   httpd_resp_set_type(req, "text/html");
@@ -517,10 +554,48 @@ bool startCamera() {
   return true;
 }
 
+esp_err_t configHandler(httpd_req_t* req) {
+  char query[64] = {};
+  if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK) {
+    char value[16] = {};
+    if (httpd_query_key_value(query, "interval", value, sizeof(value)) == ESP_OK) {
+      const long requested = strtol(value, nullptr, 10);
+      if (requested == 250 || requested == 500 ||
+          requested == 1000 || requested == 2000) {
+        mask_interval_ms = static_cast<uint32_t>(requested);
+        have_previous_grid = false;
+        latest_blob_count = 0;
+        Serial.printf("[VIEWER][CONFIG] interval=%lu ms\n",
+                      static_cast<unsigned long>(mask_interval_ms));
+      }
+    }
+  }
+
+  char body[96];
+  snprintf(body, sizeof(body),
+           "{\"interval\":%lu,\"candidate_min_cells\":%u}",
+           static_cast<unsigned long>(mask_interval_ms),
+           static_cast<unsigned>(kCandidateBlobMinCells));
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+  return httpd_resp_send(req, body, HTTPD_RESP_USE_STRLEN);
+}
+
+esp_err_t statusHandler(httpd_req_t* req) {
+  char body[96];
+  snprintf(body, sizeof(body),
+           "{\"interval\":%lu,\"candidate_min_cells\":%u}",
+           static_cast<unsigned long>(mask_interval_ms),
+           static_cast<unsigned>(kCandidateBlobMinCells));
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+  return httpd_resp_send(req, body, HTTPD_RESP_USE_STRLEN);
+}
+
 bool startServer() {
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
   config.server_port = 80;
-  config.max_uri_handlers = 4;
+  config.max_uri_handlers = 6;
   config.stack_size = 8192;
 
   if (httpd_start(&server, &config) != ESP_OK) {
@@ -537,10 +612,26 @@ bool startServer() {
   stream_uri.method = HTTP_GET;
   stream_uri.handler = streamHandler;
 
+  httpd_uri_t config_uri{};
+  config_uri.uri = "/config";
+  config_uri.method = HTTP_GET;
+  config_uri.handler = configHandler;
+
+  httpd_uri_t status_uri{};
+  status_uri.uri = "/status";
+  status_uri.method = HTTP_GET;
+  status_uri.handler = statusHandler;
+
   if (httpd_register_uri_handler(server, &index_uri) != ESP_OK) {
     return false;
   }
   if (httpd_register_uri_handler(server, &stream_uri) != ESP_OK) {
+    return false;
+  }
+  if (httpd_register_uri_handler(server, &config_uri) != ESP_OK) {
+    return false;
+  }
+  if (httpd_register_uri_handler(server, &status_uri) != ESP_OK) {
     return false;
   }
 
