@@ -166,7 +166,13 @@ void traceVisionDiagnosis(const deskbot::vision::VisionFrameSummary& vision) {
                 vision.motion_top,
                 vision.motion_middle,
                 vision.motion_bottom);
-  Serial.printf("[VISION][TARGET] %s/%s dir=(%.2f,%.2f) motion=%.3f luma_shift=%d\n",
+  Serial.printf("[VISION][BLOB] raw=%u clean=%u blobs=%u candidates=%u targetCells=%u\n",
+                static_cast<unsigned>(vision.raw_changed_cells),
+                static_cast<unsigned>(vision.cleaned_changed_cells),
+                static_cast<unsigned>(vision.blob_count),
+                static_cast<unsigned>(vision.candidate_blob_count),
+                static_cast<unsigned>(vision.target_blob_cells));
+  Serial.printf("[VISION][TARGET] region=%s/%s dir=(%.2f,%.2f) motion=%.3f luma_shift=%d\n",
                 horizontalVisionTargetName(vision),
                 verticalVisionTargetName(vision),
                 vision.motion_x,
