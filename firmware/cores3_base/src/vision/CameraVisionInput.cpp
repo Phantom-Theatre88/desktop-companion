@@ -69,10 +69,19 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
     float direction_weight = 0.0f;
     float fallback_x = 0.0f;
     float fallback_y = 0.0f;
+    uint16_t horizontal_changed[3] = {0, 0, 0};
+    uint16_t horizontal_cells[3] = {0, 0, 0};
+    uint16_t vertical_changed[3] = {0, 0, 0};
+    uint16_t vertical_cells[3] = {0, 0, 0};
 
     for (size_t row = 0; row < kRows; ++row) {
       for (size_t col = 0; col < kColumns; ++col) {
         const size_t i = row * kColumns + col;
+        const size_t horizontal_region = (col * 3) / kColumns;
+        const size_t vertical_region = (row * 3) / kRows;
+        ++horizontal_cells[horizontal_region];
+        ++vertical_cells[vertical_region];
+
         // Remove a global illumination shift before classifying spatial change.
         const int residual =
             static_cast<int>(grid[i]) - previous_[i] - summary.luma_change;
@@ -81,6 +90,8 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
         }
 
         ++changed;
+        ++horizontal_changed[horizontal_region];
+        ++vertical_changed[vertical_region];
         const float nx =
             (static_cast<float>(col) + 0.5f) /
                 static_cast<float>(kColumns) * 2.0f - 1.0f;
@@ -104,6 +115,19 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
     }
 
     summary.motion_score = static_cast<float>(changed) / kCells;
+    summary.motion_left = horizontal_cells[0]
+        ? static_cast<float>(horizontal_changed[0]) / horizontal_cells[0] : 0.0f;
+    summary.motion_center = horizontal_cells[1]
+        ? static_cast<float>(horizontal_changed[1]) / horizontal_cells[1] : 0.0f;
+    summary.motion_right = horizontal_cells[2]
+        ? static_cast<float>(horizontal_changed[2]) / horizontal_cells[2] : 0.0f;
+    summary.motion_top = vertical_cells[0]
+        ? static_cast<float>(vertical_changed[0]) / vertical_cells[0] : 0.0f;
+    summary.motion_middle = vertical_cells[1]
+        ? static_cast<float>(vertical_changed[1]) / vertical_cells[1] : 0.0f;
+    summary.motion_bottom = vertical_cells[2]
+        ? static_cast<float>(vertical_changed[2]) / vertical_cells[2] : 0.0f;
+
     if (changed > 0) {
       if (direction_weight > static_cast<float>(changed) * 2.0f) {
         summary.motion_x = weighted_x / direction_weight;
