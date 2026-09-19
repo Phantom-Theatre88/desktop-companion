@@ -14,6 +14,15 @@ enum class AutonomousAction : uint8_t {
   BORED_SCAN,
 };
 
+enum class AutonomousLifecycle : uint8_t {
+  NONE = 0,
+  START,
+  PAUSE,
+  RESUME,
+  COMPLETE,
+  CANCEL,
+};
+
 struct MicroBehaviorFrame {
   float eye_openness = 0.90f;
   float gaze_x = 0.0f;
@@ -41,11 +50,15 @@ class BehaviorEngine {
   uint32_t lastReceivedMs() const { return last_received_ms_; }
   AutonomousAction autonomousAction() const { return autonomous_action_; }
   uint32_t lastAutonomousDecisionMs() const { return last_autonomous_decision_ms_; }
+  bool autonomousPaused() const { return autonomous_paused_; }
+  AutonomousLifecycle lastAutonomousLifecycle() const { return last_autonomous_lifecycle_; }
+  uint32_t autonomousLifecycleSeq() const { return autonomous_lifecycle_seq_; }
 
  private:
   static float clamp01(float value);
   static float clampSigned(float value);
   void chooseAutonomousAction(uint32_t now_ms, const HeartState& heart);
+  void markAutonomousLifecycle(AutonomousLifecycle lifecycle, uint32_t now_ms);
 
   nerve::NeuronType last_received_type_ = nerve::NeuronType::NONE;
   uint32_t last_received_ms_ = 0;
@@ -59,6 +72,11 @@ class BehaviorEngine {
   uint32_t last_autonomous_decision_ms_ = 0;
   uint8_t autonomous_sequence_ = 0;
   float autonomous_direction_ = 1.0f;
+  bool autonomous_paused_ = false;
+  uint32_t autonomous_pause_started_ms_ = 0;
+  AutonomousLifecycle last_autonomous_lifecycle_ = AutonomousLifecycle::NONE;
+  uint32_t autonomous_lifecycle_seq_ = 0;
+  uint32_t autonomous_lifecycle_ms_ = 0;
   MicroBehaviorFrame micro_behavior_{};
 };
 
