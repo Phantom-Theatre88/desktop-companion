@@ -84,17 +84,41 @@ int main() {
                         nerve::NeuronSource::CAMERA_M5,15510),
       curiousContext);
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
+  assert(autonomousBehavior.autonomousPaused());
+  assert(autonomousBehavior.lastAutonomousLifecycle()==ghost::AutonomousLifecycle::PAUSE);
+
+  // Repeated Vision extends the same pause without consuming action lifetime.
   autonomousBehavior.tick(15700,curiousContext);
+  autonomousBehavior.onNeuron(
+      nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
+                        nerve::NeuronSource::CAMERA_M5,15900),
+      curiousContext);
+  assert(autonomousBehavior.autonomousPaused());
+  autonomousBehavior.tick(16300,curiousContext);
+  assert(autonomousBehavior.autonomousPaused());
+
+  // 600 ms after the latest Vision event, action resumes with its remaining time.
+  autonomousBehavior.tick(16510,curiousContext);
+  assert(!autonomousBehavior.autonomousPaused());
+  assert(autonomousBehavior.lastAutonomousLifecycle()==ghost::AutonomousLifecycle::RESUME);
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
-  autonomousBehavior.tick(16120,curiousContext);
+  autonomousBehavior.tick(16900,curiousContext);
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
   assert(std::fabs(autonomousBehavior.microBehavior().gaze_x) > 0.10f);
 
-  // Direct body interaction wins immediately and cancels autonomous behavior.
+  // It completes only after the remaining autonomous lifetime is actually used.
+  autonomousBehavior.tick(17810,curiousContext);
+  assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::NONE);
+  assert(autonomousBehavior.lastAutonomousLifecycle()==ghost::AutonomousLifecycle::COMPLETE);
+
+  // Start another action, then direct body interaction cancels it immediately.
+  autonomousBehavior.tick(33000,curiousContext);
+  assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
   autonomousBehavior.onNeuron(
-      nerve::makeNeuron(nerve::NeuronType::TOUCH,nerve::NeuronSource::TOUCH,15510),
+      nerve::makeNeuron(nerve::NeuronType::TOUCH,nerve::NeuronSource::TOUCH,33100),
       curiousContext);
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::NONE);
+  assert(autonomousBehavior.lastAutonomousLifecycle()==ghost::AutonomousLifecycle::CANCEL);
 
   // High boredom selects a scan instead of a curiosity glance.
   ghost::BehaviorEngine boredBehavior;
@@ -106,5 +130,5 @@ int main() {
   assert(boredBehavior.autonomousAction()==ghost::AutonomousAction::BORED_SCAN);
   boredBehavior.tick(16000,boredContext);
   assert(std::fabs(boredBehavior.microBehavior().gaze_x) > 0.05f);
-  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry, autonomous Heart-driven behavior, Vision overlay arbitration\n";
+  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry, autonomous Heart-driven behavior, Vision pause/resume arbitration\n";
 }
