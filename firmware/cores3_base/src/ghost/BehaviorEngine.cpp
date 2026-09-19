@@ -16,6 +16,8 @@ constexpr uint32_t kBlinkOpenMs = 110;
 constexpr uint32_t kTouchResponseMs = 500;
 constexpr uint32_t kPickedUpResponseMs = 700;
 constexpr uint32_t kShakeResponseMs = 650;
+constexpr uint32_t kVisualResponseMs = 1500;
+constexpr float kMotionDirectionDeadzone = 0.20f;
 constexpr uint32_t kAutonomousDecisionIntervalMs = 15000;
 constexpr uint32_t kCuriousLookMs = 1800;
 constexpr uint32_t kBoredScanMs = 2600;
@@ -133,7 +135,7 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
       event_age_ms < kShakeResponseMs;
 
   const uint32_t visual_age = now_ms - visual_event_ms_;
-  const bool visual_response = visual_age < 600;
+  const bool visual_response = visual_age < kVisualResponseMs;
 
   bool resumed_this_tick = false;
 
@@ -203,8 +205,10 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
 
   // Minimal nerve-to-body connection using existing openness only. No new
   // expression animation and no assumption about who/what caused the change.
-  if (!touch_response && !picked_up_response && !shake_response && visual_age < 600) {
-    const float amount = 1.0f - static_cast<float>(visual_age) / 600.0f;
+  if (!touch_response && !picked_up_response && !shake_response &&
+      visual_age < kVisualResponseMs) {
+    const float amount = 1.0f -
+        static_cast<float>(visual_age) / static_cast<float>(kVisualResponseMs);
     if (visual_event_type_ == nerve::NeuronType::MOTION_DETECTED) {
       resting_openness = clamp01(resting_openness + 0.10f * amount);
       // Look toward the normalized semantic motion direction. Blend rather than
@@ -217,21 +221,28 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
           micro_behavior_.gaze_y * (1.0f - gaze_weight) +
           visual_target_y_ * gaze_weight * 0.55f);
 
-      // Make directional attention readable on an eye-only face. Keep width
-      // unchanged and alter vertical aspect only: the eye on the attended side
-      // grows taller while the opposite eye gets slightly shorter.
-      const float horizontal_attention = visual_target_x_ * amount;
-      if (horizontal_attention > 0.0f) {
-        micro_behavior_.right_shape.height_scale =
-            1.0f + 0.14f * horizontal_attention;
-        micro_behavior_.left_shape.height_scale =
-            1.0f - 0.10f * horizontal_attention;
-      } else if (horizontal_attention < 0.0f) {
-        const float left_amount = -horizontal_attention;
-        micro_behavior_.left_shape.height_scale =
-            1.0f + 0.14f * left_amount;
-        micro_behavior_.right_shape.height_scale =
-            1.0f - 0.10f * left_amount;
+      // Make directional attention deliberately readable on the physical
+      // eye-only face. Keep width unchanged. Ignore small center noise, then
+      // remap the remaining horizontal direction to a strong vertical contrast:
+      // attended side grows up to 1.25, opposite side shrinks to 0.78.
+      const float abs_x = visual_target_x_ < 0.0f
+          ? -visual_target_x_ : visual_target_x_;
+      if (abs_x >= kMotionDirectionDeadzone) {
+        const float normalized =
+            (abs_x - kMotionDirectionDeadzone) /
+            (1.0f - kMotionDirectionDeadzone);
+        const float emphasis = clamp01(normalized) * amount;
+        if (visual_target_x_ > 0.0f) {
+          micro_behavior_.right_shape.height_scale =
+              1.0f + 0.25f * emphasis;
+          micro_behavior_.left_shape.height_scale =
+              1.0f - 0.22f * emphasis;
+        } else {
+          micro_behavior_.left_shape.height_scale =
+              1.0f + 0.25f * emphasis;
+          micro_behavior_.right_shape.height_scale =
+              1.0f - 0.22f * emphasis;
+        }
       }
     } else if (visual_event_type_ == nerve::NeuronType::BRIGHTER) {
       resting_openness = clamp01(resting_openness - 0.10f * amount);
