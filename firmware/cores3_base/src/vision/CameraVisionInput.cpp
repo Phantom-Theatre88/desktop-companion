@@ -149,8 +149,9 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
     // into explicit candidate blobs instead of averaging every changed cell.
     bool visited[kCells]{};
     size_t queue[kCells]{};
-    MotionBlob blobs[kCells]{};
     size_t blob_count = 0;
+    MotionBlob target_blob;
+    bool have_target_blob = false;
 
     for (size_t start_cell = 0; start_cell < kCells; ++start_cell) {
       if (!cleaned_mask[start_cell] || visited[start_cell]) {
@@ -179,10 +180,6 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
         ++summary.cleaned_changed_cells;
         sum_col += static_cast<float>(col);
         sum_row += static_cast<float>(row);
-        if (col < blob.min_col) blob.min_col = col;
-        if (col > blob.max_col) blob.max_col = col;
-        if (row < blob.min_row) blob.min_row = row;
-        if (row > blob.max_row) blob.max_row = row;
 
         const size_t hregion = (col * 3) / kColumns;
         const size_t vregion = (row * 3) / kRows;
@@ -219,14 +216,24 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
         }
       }
 
-      if (blob.cells > 0 && blob_count < kCells) {
-        const float center_col = sum_col / static_cast<float>(blob.cells);
-        const float center_row = sum_row / static_cast<float>(blob.cells);
-        blob.center_x =
-            (center_col + 0.5f) / static_cast<float>(kColumns) * 2.0f - 1.0f;
-        blob.center_y =
-            (center_row + 0.5f) / static_cast<float>(kRows) * 2.0f - 1.0f;
-        blobs[blob_count++] = blob;
+      if (blob.cells == 0) {
+        continue;
+      }
+
+      ++blob_count;
+      const float center_col = sum_col / static_cast<float>(blob.cells);
+      const float center_row = sum_row / static_cast<float>(blob.cells);
+      blob.center_x =
+          (center_col + 0.5f) / static_cast<float>(kColumns) * 2.0f - 1.0f;
+      blob.center_y =
+          (center_row + 0.5f) / static_cast<float>(kRows) * 2.0f - 1.0f;
+
+      if (blob.cells >= kCandidateBlobMinCells) {
+        ++summary.candidate_blob_count;
+        if (!have_target_blob || blob.cells > target_blob.cells) {
+          target_blob = blob;
+          have_target_blob = true;
+        }
       }
     }
 
@@ -262,24 +269,13 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
         ? static_cast<float>(vertical_changed[2]) / vertical_cells[2] : 0.0f;
 
     // Stage 4: provisional tracking target. This is perception tuning, not a
-    // personality LOCK. For now choose the largest blob that passed the 5-cell
-    // candidate floor and use only that blob's center as semantic direction.
-    const MotionBlob* target_blob = nullptr;
-    for (size_t i = 0; i < blob_count; ++i) {
-      if (blobs[i].cells < kCandidateBlobMinCells) {
-        continue;
-      }
-      ++summary.candidate_blob_count;
-      if (target_blob == nullptr || blobs[i].cells > target_blob->cells) {
-        target_blob = &blobs[i];
-      }
-    }
-
-    if (target_blob != nullptr) {
+    // personality LOCK. Keep only the largest qualifying blob; retaining all
+    // 192 possible blobs would waste several KB of the Arduino task stack.
+    if (have_target_blob) {
       summary.target_blob_cells =
-          static_cast<uint16_t>(target_blob->cells);
-      summary.motion_x = target_blob->center_x;
-      summary.motion_y = target_blob->center_y;
+          static_cast<uint16_t>(target_blob.cells);
+      summary.motion_x = target_blob.center_x;
+      summary.motion_y = target_blob.center_y;
     }
 
     nerve::NeuronType type = nerve::NeuronType::NONE;
@@ -290,9 +286,9 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
           : nerve::NeuronType::DARKER;
       strength =
           static_cast<float>(magnitude(summary.luma_change)) / 255.0f;
-    } else if (target_blob != nullptr) {
+    } else if (have_target_blob) {
       type = nerve::NeuronType::MOTION_DETECTED;
-      strength = static_cast<float>(target_blob->cells) /
+      strength = static_cast<float>(target_blob.cells) /
                  static_cast<float>(kCells);
     }
 
