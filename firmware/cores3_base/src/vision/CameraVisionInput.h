@@ -23,6 +23,11 @@ struct VisionFrameSummary {
   float motion_top = 0.0f;
   float motion_middle = 0.0f;
   float motion_bottom = 0.0f;
+  uint16_t raw_changed_cells = 0;
+  uint16_t cleaned_changed_cells = 0;
+  uint16_t blob_count = 0;
+  uint16_t candidate_blob_count = 0;
+  uint16_t target_blob_cells = 0;
   int16_t luma_change = 0;
 };
 
