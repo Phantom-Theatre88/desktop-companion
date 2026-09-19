@@ -13,3 +13,6 @@ build/
 gateway/.env
 gateway/node_modules/
 screenlog.0
+
+# Local camera viewer Wi-Fi credentials.
+/tools/cores3_camera_viewer/wifi_secrets.h
