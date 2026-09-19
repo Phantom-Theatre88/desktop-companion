@@ -67,6 +67,24 @@ int main() {
   behavior.tick(4300,context);
   assert(behavior.microBehavior().eye_openness==0);
 
+  // Low-level motion direction steers gaze without raw camera coordinates.
+  ghost::BehaviorEngine directedMotionBehavior;
+  ghost::HeartContext directedContext;
+  directedMotionBehavior.begin(0);
+  directedContext.captured_ms = 1000;
+  nerve::NeuronPayload leftMotionPayload;
+  leftMotionPayload.scalar = 0.4f;
+  leftMotionPayload.x = -800;
+  leftMotionPayload.y = 200;
+  directedMotionBehavior.onNeuron(
+      nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
+                        nerve::NeuronSource::CAMERA_M5,
+                        900, 1.0f, leftMotionPayload),
+      directedContext);
+  directedMotionBehavior.tick(1040,directedContext);
+  assert(directedMotionBehavior.microBehavior().gaze_x < -0.25f);
+  assert(directedMotionBehavior.microBehavior().gaze_y > 0.02f);
+
   // Heart-driven autonomous behavior: baseline curiosity chooses a look.
   ghost::BehaviorEngine autonomousBehavior;
   ghost::HeartContext curiousContext;
@@ -135,5 +153,5 @@ int main() {
   assert(boredBehavior.autonomousAction()==ghost::AutonomousAction::BORED_SCAN);
   boredBehavior.tick(16000,boredContext);
   assert(std::fabs(boredBehavior.microBehavior().gaze_x) > 0.05f);
-  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry, autonomous Heart-driven behavior, Vision pause/resume arbitration\n";
+  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry, directed motion gaze, autonomous Heart-driven behavior, Vision pause/resume arbitration\n";
 }
