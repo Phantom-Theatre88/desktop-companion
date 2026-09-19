@@ -49,10 +49,12 @@ class HeartEngine {
 
   HeartContext snapshot(uint32_t now_ms) const;
   const HeartState& state() const { return state_; }
+  const HeartState& baseline() const { return baseline_; }
   nerve::NeuronType lastEventType() const { return last_event_type_; }
   uint32_t lastEventMs() const { return last_event_ms_; }
   uint32_t lastHeartChangeMs() const { return last_heart_change_ms_; }
   float lastImpactScale() const { return last_impact_scale_; }
+  uint32_t lastRecoveryMs() const { return last_recovery_ms_; }
 
   bool primarySnapshotLoaded() const { return primary_snapshot_loaded_; }
   bool firstBootInitialized() const { return first_boot_initialized_; }
@@ -77,6 +79,7 @@ class HeartEngine {
   static float clampStrength(float value);
   static uint8_t stimulusFamily(nerve::NeuronType type);
   float habituationScaleFor(nerve::NeuronType type, uint32_t now_ms);
+  bool applyRecoveryStep(uint32_t now_ms);
   void applyDelta(float mood,
                   float affection,
                   float curiosity,
@@ -87,6 +90,7 @@ class HeartEngine {
   void clampState();
 
   HeartState state_{};
+  HeartState baseline_{};
   HeartState primary_snapshot_{};
   HeartRestorePlan restore_plan_{};
   HeartPersistence persistence_{};
