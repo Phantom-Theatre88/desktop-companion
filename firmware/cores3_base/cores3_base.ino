@@ -26,8 +26,36 @@ uint32_t last_camera_capture_ms = 0;
 uint32_t last_body_motion_ms = 0;
 bool body_motion_seen = false;
 uint32_t last_recovery_trace_ms = 0;
+deskbot::ghost::AutonomousAction last_autonomous_trace_action =
+    deskbot::ghost::AutonomousAction::NONE;
 constexpr uint32_t kFaceRenderIntervalMs = 40;
 constexpr uint32_t kCameraCaptureIntervalMs = 2000;
+
+const char* autonomousActionName(deskbot::ghost::AutonomousAction action) {
+  switch (action) {
+    case deskbot::ghost::AutonomousAction::CURIOUS_LOOK:
+      return "CURIOUS_LOOK";
+    case deskbot::ghost::AutonomousAction::BORED_SCAN:
+      return "BORED_SCAN";
+    case deskbot::ghost::AutonomousAction::NONE:
+    default:
+      return "NONE";
+  }
+}
+
+void traceAutonomousBehavior() {
+  const auto action = runtime.ghost().behaviorEngine().autonomousAction();
+  if (action == last_autonomous_trace_action) {
+    return;
+  }
+  last_autonomous_trace_action = action;
+  const auto& heart = runtime.ghost().heart();
+  Serial.printf("[BEHAVIOR][AUTO] %s curiosity=%.3f boredom=%.3f attention=%.3f\n",
+                autonomousActionName(action),
+                heart.curiosity,
+                heart.boredom,
+                heart.attention);
+}
 
 void traceHeartRecovery() {
   auto& heart_engine = runtime.ghost().heartEngine();
@@ -266,6 +294,7 @@ void loop() {
   const uint32_t body_now_ms = millis();
   runtime.tick(body_now_ms);
   traceHeartRecovery();
+  traceAutonomousBehavior();
   renderLivingFace(body_now_ms);
 
   delay(10);
