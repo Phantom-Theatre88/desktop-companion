@@ -216,6 +216,23 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
       micro_behavior_.gaze_y = clampSigned(
           micro_behavior_.gaze_y * (1.0f - gaze_weight) +
           visual_target_y_ * gaze_weight * 0.55f);
+
+      // Make directional attention readable on an eye-only face. Keep width
+      // unchanged and alter vertical aspect only: the eye on the attended side
+      // grows taller while the opposite eye gets slightly shorter.
+      const float horizontal_attention = visual_target_x_ * amount;
+      if (horizontal_attention > 0.0f) {
+        micro_behavior_.right_shape.height_scale =
+            1.0f + 0.14f * horizontal_attention;
+        micro_behavior_.left_shape.height_scale =
+            1.0f - 0.10f * horizontal_attention;
+      } else if (horizontal_attention < 0.0f) {
+        const float left_amount = -horizontal_attention;
+        micro_behavior_.left_shape.height_scale =
+            1.0f + 0.14f * left_amount;
+        micro_behavior_.right_shape.height_scale =
+            1.0f - 0.10f * left_amount;
+      }
     } else if (visual_event_type_ == nerve::NeuronType::BRIGHTER) {
       resting_openness = clamp01(resting_openness - 0.10f * amount);
     } else if (visual_event_type_ == nerve::NeuronType::DARKER) {
