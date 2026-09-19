@@ -50,6 +50,7 @@ class BehaviorEngine {
   uint32_t lastReceivedMs() const { return last_received_ms_; }
   AutonomousAction autonomousAction() const { return autonomous_action_; }
   uint32_t lastAutonomousDecisionMs() const { return last_autonomous_decision_ms_; }
+  uint32_t autonomousDecisionSeq() const { return autonomous_decision_seq_; }
   bool autonomousPaused() const { return autonomous_paused_; }
   AutonomousLifecycle lastAutonomousLifecycle() const { return last_autonomous_lifecycle_; }
   uint32_t autonomousLifecycleSeq() const { return autonomous_lifecycle_seq_; }
@@ -70,6 +71,7 @@ class BehaviorEngine {
   AutonomousAction autonomous_action_ = AutonomousAction::NONE;
   uint32_t autonomous_action_started_ms_ = 0;
   uint32_t last_autonomous_decision_ms_ = 0;
+  uint32_t autonomous_decision_seq_ = 0;
   uint8_t autonomous_sequence_ = 0;
   float autonomous_direction_ = 1.0f;
   bool autonomous_paused_ = false;
