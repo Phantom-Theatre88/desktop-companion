@@ -22,7 +22,145 @@ constexpr uint32_t kStaConnectTimeoutMs = 15000;
 constexpr uint16_t kWidth = 320;
 constexpr uint16_t kHeight = 240;
 
+constexpr size_t kMaskColumns = 16;
+constexpr size_t kMaskRows = 12;
+constexpr size_t kMaskCells = kMaskColumns * kMaskRows;
+constexpr uint32_t kMaskIntervalMs = 2000;
+constexpr int kCellChangeThreshold = 20;
+
+uint8_t previous_grid[kMaskCells]{};
+bool latest_mask[kMaskCells]{};
+bool have_previous_grid = false;
+uint8_t previous_mean = 0;
+uint32_t last_mask_sample_ms = 0;
+
 httpd_handle_t server = nullptr;
+
+
+uint8_t rgb565Luma(const uint8_t* data, size_t pixel_index) {
+  const size_t i = pixel_index * 2;
+  const uint16_t pixel =
+      (static_cast<uint16_t>(data[i]) << 8) |
+      static_cast<uint16_t>(data[i + 1]);
+  const uint16_t r = ((pixel >> 11) & 31u) * 255u / 31u;
+  const uint16_t g = ((pixel >> 5) & 63u) * 255u / 63u;
+  const uint16_t b = (pixel & 31u) * 255u / 31u;
+  return static_cast<uint8_t>((r * 30u + g * 59u + b * 11u) / 100u);
+}
+
+void sampleGrid(const camera_fb_t* frame, uint8_t* grid, uint8_t& mean) {
+  uint32_t sum = 0;
+  for (size_t row = 0; row < kMaskRows; ++row) {
+    for (size_t col = 0; col < kMaskColumns; ++col) {
+      uint16_t cell = 0;
+      for (size_t dy = 1; dy <= 3; dy += 2) {
+        for (size_t dx = 1; dx <= 3; dx += 2) {
+          const size_t x =
+              ((col * 4 + dx) * frame->width) / (kMaskColumns * 4);
+          const size_t y =
+              ((row * 4 + dy) * frame->height) / (kMaskRows * 4);
+          cell += rgb565Luma(frame->buf, y * frame->width + x);
+        }
+      }
+      const uint8_t value = static_cast<uint8_t>(cell / 4);
+      grid[row * kMaskColumns + col] = value;
+      sum += value;
+    }
+  }
+  mean = static_cast<uint8_t>(sum / kMaskCells);
+}
+
+void updateMotionMask(camera_fb_t* frame, uint32_t now_ms) {
+  if (have_previous_grid &&
+      now_ms - last_mask_sample_ms < kMaskIntervalMs) {
+    return;
+  }
+
+  uint8_t grid[kMaskCells];
+  uint8_t mean = 0;
+  sampleGrid(frame, grid, mean);
+
+  for (size_t i = 0; i < kMaskCells; ++i) {
+    latest_mask[i] = false;
+  }
+
+  if (have_previous_grid) {
+    const int luma_shift = static_cast<int>(mean) -
+                           static_cast<int>(previous_mean);
+    size_t changed = 0;
+
+    for (size_t i = 0; i < kMaskCells; ++i) {
+      const int residual =
+          static_cast<int>(grid[i]) -
+          static_cast<int>(previous_grid[i]) -
+          luma_shift;
+      const int magnitude = residual < 0 ? -residual : residual;
+      if (magnitude >= kCellChangeThreshold) {
+        latest_mask[i] = true;
+        ++changed;
+      }
+    }
+
+    Serial.printf("[VIEWER][MASK] changed=%u/%u motion=%.3f luma_shift=%d\n",
+                  static_cast<unsigned>(changed),
+                  static_cast<unsigned>(kMaskCells),
+                  static_cast<float>(changed) /
+                      static_cast<float>(kMaskCells),
+                  luma_shift);
+  } else {
+    Serial.println("[VIEWER][MASK] baseline captured");
+  }
+
+  for (size_t i = 0; i < kMaskCells; ++i) {
+    previous_grid[i] = grid[i];
+  }
+  previous_mean = mean;
+  have_previous_grid = true;
+  last_mask_sample_ms = now_ms;
+}
+
+void tintPixelRed(uint8_t* data, size_t pixel_index) {
+  const size_t i = pixel_index * 2;
+  const uint16_t pixel =
+      (static_cast<uint16_t>(data[i]) << 8) |
+      static_cast<uint16_t>(data[i + 1]);
+
+  const uint16_t r = (pixel >> 11) & 31u;
+  const uint16_t g = (pixel >> 5) & 63u;
+  const uint16_t b = pixel & 31u;
+
+  // Roughly 2/3 red overlay while preserving enough of the live image.
+  const uint16_t out_r = static_cast<uint16_t>((r + 31u * 2u) / 3u);
+  const uint16_t out_g = static_cast<uint16_t>(g / 3u);
+  const uint16_t out_b = static_cast<uint16_t>(b / 3u);
+  const uint16_t out =
+      static_cast<uint16_t>((out_r << 11) | (out_g << 5) | out_b);
+
+  data[i] = static_cast<uint8_t>(out >> 8);
+  data[i + 1] = static_cast<uint8_t>(out & 0xff);
+}
+
+void drawMotionMask(camera_fb_t* frame) {
+  for (size_t row = 0; row < kMaskRows; ++row) {
+    for (size_t col = 0; col < kMaskColumns; ++col) {
+      if (!latest_mask[row * kMaskColumns + col]) {
+        continue;
+      }
+
+      const size_t x0 = (col * frame->width) / kMaskColumns;
+      const size_t x1 = ((col + 1) * frame->width) / kMaskColumns;
+      const size_t y0 = (row * frame->height) / kMaskRows;
+      const size_t y1 = ((row + 1) * frame->height) / kMaskRows;
+
+      // Checkerboard tint keeps the underlying camera image readable.
+      for (size_t y = y0; y < y1; y += 2) {
+        for (size_t x = x0; x < x1; x += 2) {
+          tintPixelRed(frame->buf, y * frame->width + x);
+        }
+      }
+    }
+  }
+}
 
 camera_config_t makeCameraConfig() {
   camera_config_t config{};
@@ -77,7 +215,7 @@ esp_err_t indexHandler(httpd_req_t* req) {
       "background-size:6.25% 8.333333%}"
       "</style></head><body><main>"
       "<h1>CoreS3 Camera — Live</h1>"
-      "<p>Raw camera view. Grid = Vision 16×12 sampling layout.</p>"
+      "<p>Grid = Vision 16×12. Red cells = motion mask sampled about every 2 seconds.</p>"
       "<div class='frame'><img src='/stream' alt='CoreS3 live camera'><div class='grid'></div></div>"
       "</main></body></html>";
 
@@ -110,6 +248,9 @@ esp_err_t streamHandler(httpd_req_t* req) {
       delay(30);
       continue;
     }
+
+    updateMotionMask(frame, millis());
+    drawMotionMask(frame);
 
     uint8_t* jpg = nullptr;
     size_t jpg_len = 0;
