@@ -92,6 +92,8 @@ class HeartEngine {
   bool primary_save_ok_ = false;
   bool restore_pending_ = false;
   uint32_t last_tick_ms_ = 0;
+  uint32_t last_heart_change_ms_ = 0;
+  uint32_t last_boredom_step_ms_ = 0;
   nerve::NeuronType last_event_type_ = nerve::NeuronType::NONE;
   uint32_t last_event_ms_ = 0;
 };
