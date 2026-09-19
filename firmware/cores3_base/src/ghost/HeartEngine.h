@@ -52,6 +52,7 @@ class HeartEngine {
   nerve::NeuronType lastEventType() const { return last_event_type_; }
   uint32_t lastEventMs() const { return last_event_ms_; }
   uint32_t lastHeartChangeMs() const { return last_heart_change_ms_; }
+  float lastImpactScale() const { return last_impact_scale_; }
 
   bool primarySnapshotLoaded() const { return primary_snapshot_loaded_; }
   bool firstBootInitialized() const { return first_boot_initialized_; }
@@ -74,6 +75,8 @@ class HeartEngine {
  private:
   static float clamp01(float value);
   static float clampStrength(float value);
+  static uint8_t stimulusFamily(nerve::NeuronType type);
+  float habituationScaleFor(nerve::NeuronType type, uint32_t now_ms);
   void applyDelta(float mood,
                   float affection,
                   float curiosity,
@@ -94,6 +97,10 @@ class HeartEngine {
   uint32_t last_tick_ms_ = 0;
   uint32_t last_heart_change_ms_ = 0;
   uint32_t last_boredom_step_ms_ = 0;
+  uint32_t last_stimulus_ms_ = 0;
+  uint8_t last_stimulus_family_ = 0;
+  uint8_t repeated_stimulus_count_ = 0;
+  float last_impact_scale_ = 1.0f;
   nerve::NeuronType last_event_type_ = nerve::NeuronType::NONE;
   uint32_t last_event_ms_ = 0;
 };
