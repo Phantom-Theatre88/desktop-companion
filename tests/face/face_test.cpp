@@ -84,6 +84,29 @@ int main() {
   directedMotionBehavior.tick(1040,directedContext);
   assert(directedMotionBehavior.microBehavior().gaze_x < -0.25f);
   assert(directedMotionBehavior.microBehavior().gaze_y > 0.02f);
+  const auto leftDirected = directedMotionBehavior.microBehavior();
+  assert(leftDirected.left_shape.width_scale == 1.0f);
+  assert(leftDirected.right_shape.width_scale == 1.0f);
+  assert(leftDirected.left_shape.height_scale > 1.05f);
+  assert(leftDirected.right_shape.height_scale < 0.96f);
+
+  ghost::BehaviorEngine rightDirectedBehavior;
+  rightDirectedBehavior.begin(0);
+  ghost::HeartContext rightContext;
+  rightContext.captured_ms = 1000;
+  nerve::NeuronPayload rightMotionPayload;
+  rightMotionPayload.scalar = 0.4f;
+  rightMotionPayload.x = 800;
+  rightMotionPayload.y = 0;
+  rightDirectedBehavior.onNeuron(
+      nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
+                        nerve::NeuronSource::CAMERA_M5,
+                        900, 1.0f, rightMotionPayload),
+      rightContext);
+  rightDirectedBehavior.tick(1040,rightContext);
+  const auto rightDirected = rightDirectedBehavior.microBehavior();
+  assert(rightDirected.right_shape.height_scale > 1.05f);
+  assert(rightDirected.left_shape.height_scale < 0.96f);
 
   // Heart-driven autonomous behavior: baseline curiosity chooses a look.
   ghost::BehaviorEngine autonomousBehavior;
@@ -153,5 +176,5 @@ int main() {
   assert(boredBehavior.autonomousAction()==ghost::AutonomousAction::BORED_SCAN);
   boredBehavior.tick(16000,boredContext);
   assert(std::fabs(boredBehavior.microBehavior().gaze_x) > 0.05f);
-  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry, directed motion gaze, autonomous Heart-driven behavior, Vision pause/resume arbitration\n";
+  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry, directed motion gaze/asymmetry, autonomous Heart-driven behavior, Vision pause/resume arbitration\n";
 }
