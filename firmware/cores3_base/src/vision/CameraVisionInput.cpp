@@ -64,12 +64,55 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
   if (comparable) {
     summary.luma_change = static_cast<int>(summary.average_luma) - previous_mean_;
     size_t changed = 0;
-    for (size_t i = 0; i < kCells; ++i) {
-      // Remove a global illumination shift before classifying spatial change.
-      const int residual = static_cast<int>(grid[i]) - previous_[i] - summary.luma_change;
-      if (magnitude(residual) >= kCellChangeThreshold) ++changed;
+    float weighted_x = 0.0f;
+    float weighted_y = 0.0f;
+    float direction_weight = 0.0f;
+    float fallback_x = 0.0f;
+    float fallback_y = 0.0f;
+
+    for (size_t row = 0; row < kRows; ++row) {
+      for (size_t col = 0; col < kColumns; ++col) {
+        const size_t i = row * kColumns + col;
+        // Remove a global illumination shift before classifying spatial change.
+        const int residual =
+            static_cast<int>(grid[i]) - previous_[i] - summary.luma_change;
+        if (magnitude(residual) < kCellChangeThreshold) {
+          continue;
+        }
+
+        ++changed;
+        const float nx =
+            (static_cast<float>(col) + 0.5f) /
+                static_cast<float>(kColumns) * 2.0f - 1.0f;
+        const float ny =
+            (static_cast<float>(row) + 0.5f) /
+                static_cast<float>(kRows) * 2.0f - 1.0f;
+        fallback_x += nx;
+        fallback_y += ny;
+
+        // Prefer cells that are visually salient in the CURRENT frame. This
+        // reduces the tendency of frame differencing to look halfway between
+        // an object's old and new positions after it moves.
+        const float current_contrast = static_cast<float>(
+            magnitude(static_cast<int>(grid[i]) -
+                      static_cast<int>(summary.average_luma)));
+        const float weight = current_contrast + 1.0f;
+        weighted_x += nx * weight;
+        weighted_y += ny * weight;
+        direction_weight += weight;
+      }
     }
+
     summary.motion_score = static_cast<float>(changed) / kCells;
+    if (changed > 0) {
+      if (direction_weight > static_cast<float>(changed) * 2.0f) {
+        summary.motion_x = weighted_x / direction_weight;
+        summary.motion_y = weighted_y / direction_weight;
+      } else {
+        summary.motion_x = fallback_x / static_cast<float>(changed);
+        summary.motion_y = fallback_y / static_cast<float>(changed);
+      }
+    }
     nerve::NeuronType type = nerve::NeuronType::NONE;
     float strength = 0;
     if (magnitude(summary.luma_change) >= kBrightnessThreshold) {
@@ -82,7 +125,12 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
     if (type != nerve::NeuronType::NONE &&
         (!have_event_ || frame.timestamp_ms - last_event_ms_ >= kEventCooldownMs)) {
       nerve::NeuronPayload payload;
-      payload.scalar = strength;  // normalized change strength, no raw image/position
+      payload.scalar = strength;
+      if (type == nerve::NeuronType::MOTION_DETECTED) {
+        // Semantic normalized direction, never raw camera pixel coordinates.
+        payload.x = static_cast<int32_t>(summary.motion_x * 1000.0f);
+        payload.y = static_cast<int32_t>(summary.motion_y * 1000.0f);
+      }
       pending_neuron_ = nerve::makeNeuron(type, nerve::NeuronSource::CAMERA_M5,
                                           frame.timestamp_ms, 1.0f, payload);
       pending_ = have_event_ = true;
