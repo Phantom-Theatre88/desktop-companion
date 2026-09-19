@@ -8,8 +8,36 @@ constexpr uint32_t kMaxFrameGapMs = 6500;
 constexpr uint32_t kEventCooldownMs = 3000;
 constexpr int kBrightnessThreshold = 24;
 constexpr int kCellChangeThreshold = 20;
-constexpr float kMotionFraction = 0.12f;
+constexpr size_t kCandidateBlobMinCells = 5;
 int magnitude(int v) { return v < 0 ? -v : v; }
+
+struct MotionBlob {
+  size_t cells = 0;
+  size_t min_col = 0;
+  size_t max_col = 0;
+  size_t min_row = 0;
+  size_t max_row = 0;
+  float center_x = 0.0f;
+  float center_y = 0.0f;
+};
+
+size_t neighborCount8(const bool* mask, size_t row, size_t col) {
+  size_t count = 0;
+  for (int dy = -1; dy <= 1; ++dy) {
+    for (int dx = -1; dx <= 1; ++dx) {
+      if (dx == 0 && dy == 0) continue;
+      const int y = static_cast<int>(row) + dy;
+      const int x = static_cast<int>(col) + dx;
+      if (x < 0 || y < 0 || x >= 16 || y >= 12) {
+        continue;
+      }
+      if (mask[static_cast<size_t>(y) * 16 + static_cast<size_t>(x)]) {
+        ++count;
+      }
+    }
+  }
+  return count;
+}
 }
 
 void CameraVisionInput::reset() {
@@ -63,58 +91,163 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
       frame.width == previous_width_ && frame.height == previous_height_;
   if (comparable) {
     summary.luma_change = static_cast<int>(summary.average_luma) - previous_mean_;
-    size_t changed = 0;
-    float weighted_x = 0.0f;
-    float weighted_y = 0.0f;
-    float direction_weight = 0.0f;
-    float fallback_x = 0.0f;
-    float fallback_y = 0.0f;
+
+    bool raw_mask[kCells]{};
+    bool supported_mask[kCells]{};
+    bool cleaned_mask[kCells]{};
+
     uint16_t horizontal_changed[3] = {0, 0, 0};
     uint16_t horizontal_cells[3] = {0, 0, 0};
     uint16_t vertical_changed[3] = {0, 0, 0};
     uint16_t vertical_cells[3] = {0, 0, 0};
 
+    // Stage 1: raw spatial difference after removing global illumination shift.
     for (size_t row = 0; row < kRows; ++row) {
       for (size_t col = 0; col < kColumns; ++col) {
         const size_t i = row * kColumns + col;
-        const size_t horizontal_region = (col * 3) / kColumns;
-        const size_t vertical_region = (row * 3) / kRows;
-        ++horizontal_cells[horizontal_region];
-        ++vertical_cells[vertical_region];
-
-        // Remove a global illumination shift before classifying spatial change.
         const int residual =
             static_cast<int>(grid[i]) - previous_[i] - summary.luma_change;
-        if (magnitude(residual) < kCellChangeThreshold) {
-          continue;
+        if (magnitude(residual) >= kCellChangeThreshold) {
+          raw_mask[i] = true;
+          ++summary.raw_changed_cells;
         }
-
-        ++changed;
-        ++horizontal_changed[horizontal_region];
-        ++vertical_changed[vertical_region];
-        const float nx =
-            (static_cast<float>(col) + 0.5f) /
-                static_cast<float>(kColumns) * 2.0f - 1.0f;
-        const float ny =
-            (static_cast<float>(row) + 0.5f) /
-                static_cast<float>(kRows) * 2.0f - 1.0f;
-        fallback_x += nx;
-        fallback_y += ny;
-
-        // Prefer cells that are visually salient in the CURRENT frame. This
-        // reduces the tendency of frame differencing to look halfway between
-        // an object's old and new positions after it moves.
-        const float current_contrast = static_cast<float>(
-            magnitude(static_cast<int>(grid[i]) -
-                      static_cast<int>(summary.average_luma)));
-        const float weight = current_contrast + 1.0f;
-        weighted_x += nx * weight;
-        weighted_y += ny * weight;
-        direction_weight += weight;
       }
     }
 
-    summary.motion_score = static_cast<float>(changed) / kCells;
+    // Stage 2a: remove isolated one-cell noise. A changed cell needs at least
+    // one changed neighbour in the surrounding 3x3 area.
+    for (size_t row = 0; row < kRows; ++row) {
+      for (size_t col = 0; col < kColumns; ++col) {
+        const size_t i = row * kColumns + col;
+        supported_mask[i] =
+            raw_mask[i] && neighborCount8(raw_mask, row, col) >= 1;
+      }
+    }
+
+    // Stage 2b: fill only very small gaps. Do not broadly dilate the mask:
+    // bridge a blank cell only when it lies between horizontal/vertical
+    // neighbours, or when three or more nearby supported cells surround it.
+    for (size_t row = 0; row < kRows; ++row) {
+      for (size_t col = 0; col < kColumns; ++col) {
+        const size_t i = row * kColumns + col;
+        if (supported_mask[i]) {
+          cleaned_mask[i] = true;
+          continue;
+        }
+
+        const bool left = col > 0 && supported_mask[i - 1];
+        const bool right = col + 1 < kColumns && supported_mask[i + 1];
+        const bool up = row > 0 && supported_mask[i - kColumns];
+        const bool down = row + 1 < kRows && supported_mask[i + kColumns];
+        const bool bridge = (left && right) || (up && down);
+        cleaned_mask[i] =
+            bridge || neighborCount8(supported_mask, row, col) >= 3;
+      }
+    }
+
+    // Stage 3: 4-neighbour connected components. This turns spatial change
+    // into explicit candidate blobs instead of averaging every changed cell.
+    bool visited[kCells]{};
+    size_t queue[kCells]{};
+    MotionBlob blobs[kCells]{};
+    size_t blob_count = 0;
+
+    for (size_t start_cell = 0; start_cell < kCells; ++start_cell) {
+      if (!cleaned_mask[start_cell] || visited[start_cell]) {
+        continue;
+      }
+
+      MotionBlob blob;
+      const size_t start_row = start_cell / kColumns;
+      const size_t start_col = start_cell % kColumns;
+      blob.min_col = blob.max_col = start_col;
+      blob.min_row = blob.max_row = start_row;
+
+      size_t head = 0;
+      size_t tail = 0;
+      queue[tail++] = start_cell;
+      visited[start_cell] = true;
+      float sum_col = 0.0f;
+      float sum_row = 0.0f;
+
+      while (head < tail) {
+        const size_t index = queue[head++];
+        const size_t row = index / kColumns;
+        const size_t col = index % kColumns;
+
+        ++blob.cells;
+        ++summary.cleaned_changed_cells;
+        sum_col += static_cast<float>(col);
+        sum_row += static_cast<float>(row);
+        if (col < blob.min_col) blob.min_col = col;
+        if (col > blob.max_col) blob.max_col = col;
+        if (row < blob.min_row) blob.min_row = row;
+        if (row > blob.max_row) blob.max_row = row;
+
+        const size_t hregion = (col * 3) / kColumns;
+        const size_t vregion = (row * 3) / kRows;
+        ++horizontal_changed[hregion];
+        ++vertical_changed[vregion];
+
+        if (col > 0) {
+          const size_t n = index - 1;
+          if (cleaned_mask[n] && !visited[n]) {
+            visited[n] = true;
+            queue[tail++] = n;
+          }
+        }
+        if (col + 1 < kColumns) {
+          const size_t n = index + 1;
+          if (cleaned_mask[n] && !visited[n]) {
+            visited[n] = true;
+            queue[tail++] = n;
+          }
+        }
+        if (row > 0) {
+          const size_t n = index - kColumns;
+          if (cleaned_mask[n] && !visited[n]) {
+            visited[n] = true;
+            queue[tail++] = n;
+          }
+        }
+        if (row + 1 < kRows) {
+          const size_t n = index + kColumns;
+          if (cleaned_mask[n] && !visited[n]) {
+            visited[n] = true;
+            queue[tail++] = n;
+          }
+        }
+      }
+
+      if (blob.cells > 0 && blob_count < kCells) {
+        const float center_col = sum_col / static_cast<float>(blob.cells);
+        const float center_row = sum_row / static_cast<float>(blob.cells);
+        blob.center_x =
+            (center_col + 0.5f) / static_cast<float>(kColumns) * 2.0f - 1.0f;
+        blob.center_y =
+            (center_row + 0.5f) / static_cast<float>(kRows) * 2.0f - 1.0f;
+        blobs[blob_count++] = blob;
+      }
+    }
+
+    summary.blob_count = static_cast<uint16_t>(blob_count);
+
+    for (size_t col = 0; col < kColumns; ++col) {
+      ++horizontal_cells[(col * 3) / kColumns];
+    }
+    for (size_t row = 0; row < kRows; ++row) {
+      ++vertical_cells[(row * 3) / kRows];
+    }
+    // Convert region cell counts from one-dimensional spans to full grid cell
+    // counts so the ratios remain comparable with earlier diagnostics.
+    for (size_t r = 0; r < 3; ++r) {
+      horizontal_cells[r] *= kRows;
+      vertical_cells[r] *= kColumns;
+    }
+
+    summary.motion_score =
+        static_cast<float>(summary.cleaned_changed_cells) /
+        static_cast<float>(kCells);
     summary.motion_left = horizontal_cells[0]
         ? static_cast<float>(horizontal_changed[0]) / horizontal_cells[0] : 0.0f;
     summary.motion_center = horizontal_cells[1]
@@ -128,35 +261,56 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
     summary.motion_bottom = vertical_cells[2]
         ? static_cast<float>(vertical_changed[2]) / vertical_cells[2] : 0.0f;
 
-    if (changed > 0) {
-      if (direction_weight > static_cast<float>(changed) * 2.0f) {
-        summary.motion_x = weighted_x / direction_weight;
-        summary.motion_y = weighted_y / direction_weight;
-      } else {
-        summary.motion_x = fallback_x / static_cast<float>(changed);
-        summary.motion_y = fallback_y / static_cast<float>(changed);
+    // Stage 4: provisional tracking target. This is perception tuning, not a
+    // personality LOCK. For now choose the largest blob that passed the 5-cell
+    // candidate floor and use only that blob's center as semantic direction.
+    const MotionBlob* target_blob = nullptr;
+    for (size_t i = 0; i < blob_count; ++i) {
+      if (blobs[i].cells < kCandidateBlobMinCells) {
+        continue;
+      }
+      ++summary.candidate_blob_count;
+      if (target_blob == nullptr || blobs[i].cells > target_blob->cells) {
+        target_blob = &blobs[i];
       }
     }
-    nerve::NeuronType type = nerve::NeuronType::NONE;
-    float strength = 0;
-    if (magnitude(summary.luma_change) >= kBrightnessThreshold) {
-      type = summary.luma_change > 0 ? nerve::NeuronType::BRIGHTER : nerve::NeuronType::DARKER;
-      strength = static_cast<float>(magnitude(summary.luma_change)) / 255.0f;
-    } else if (summary.motion_score >= kMotionFraction) {
-      type = nerve::NeuronType::MOTION_DETECTED;
-      strength = summary.motion_score;
+
+    if (target_blob != nullptr) {
+      summary.target_blob_cells =
+          static_cast<uint16_t>(target_blob->cells);
+      summary.motion_x = target_blob->center_x;
+      summary.motion_y = target_blob->center_y;
     }
+
+    nerve::NeuronType type = nerve::NeuronType::NONE;
+    float strength = 0.0f;
+    if (magnitude(summary.luma_change) >= kBrightnessThreshold) {
+      type = summary.luma_change > 0
+          ? nerve::NeuronType::BRIGHTER
+          : nerve::NeuronType::DARKER;
+      strength =
+          static_cast<float>(magnitude(summary.luma_change)) / 255.0f;
+    } else if (target_blob != nullptr) {
+      type = nerve::NeuronType::MOTION_DETECTED;
+      strength = static_cast<float>(target_blob->cells) /
+                 static_cast<float>(kCells);
+    }
+
     if (type != nerve::NeuronType::NONE &&
-        (!have_event_ || frame.timestamp_ms - last_event_ms_ >= kEventCooldownMs)) {
+        (!have_event_ ||
+         frame.timestamp_ms - last_event_ms_ >= kEventCooldownMs)) {
       nerve::NeuronPayload payload;
       payload.scalar = strength;
       if (type == nerve::NeuronType::MOTION_DETECTED) {
-        // Semantic normalized direction, never raw camera pixel coordinates.
-        payload.x = static_cast<int32_t>(summary.motion_x * 1000.0f);
-        payload.y = static_cast<int32_t>(summary.motion_y * 1000.0f);
+        // Semantic normalized blob-center direction, never raw pixel position.
+        payload.x =
+            static_cast<int32_t>(summary.motion_x * 1000.0f);
+        payload.y =
+            static_cast<int32_t>(summary.motion_y * 1000.0f);
       }
-      pending_neuron_ = nerve::makeNeuron(type, nerve::NeuronSource::CAMERA_M5,
-                                          frame.timestamp_ms, 1.0f, payload);
+      pending_neuron_ =
+          nerve::makeNeuron(type, nerve::NeuronSource::CAMERA_M5,
+                            frame.timestamp_ms, 1.0f, payload);
       pending_ = have_event_ = true;
       last_event_ms_ = frame.timestamp_ms;
     }
