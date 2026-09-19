@@ -37,6 +37,11 @@ void BehaviorEngine::begin(uint32_t now_ms) {
   last_autonomous_decision_ms_ = now_ms;
   autonomous_sequence_ = 0;
   autonomous_direction_ = 1.0f;
+  autonomous_paused_ = false;
+  autonomous_pause_started_ms_ = 0;
+  last_autonomous_lifecycle_ = AutonomousLifecycle::NONE;
+  autonomous_lifecycle_seq_ = 0;
+  autonomous_lifecycle_ms_ = now_ms;
   micro_behavior_ = MicroBehaviorFrame{};
   micro_behavior_.generated_ms = now_ms;
 }
@@ -54,7 +59,12 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   if (neuron.type == nerve::NeuronType::TOUCH ||
       neuron.type == nerve::NeuronType::PICKED_UP ||
       neuron.type == nerve::NeuronType::SHAKE) {
+    if (autonomous_action_ != AutonomousAction::NONE) {
+      markAutonomousLifecycle(AutonomousLifecycle::CANCEL, neuron.timestamp_ms);
+    }
     autonomous_action_ = AutonomousAction::NONE;
+    autonomous_paused_ = false;
+    autonomous_pause_started_ms_ = 0;
     last_autonomous_decision_ms_ = neuron.timestamp_ms;
   }
 
@@ -63,7 +73,12 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
       neuron.type == nerve::NeuronType::DARKER) {
     visual_event_type_ = neuron.type;
     visual_event_ms_ = neuron.timestamp_ms;
-    return;  // Visual observations cannot cancel a touch or body response.
+    if (autonomous_action_ != AutonomousAction::NONE && !autonomous_paused_) {
+      autonomous_paused_ = true;
+      autonomous_pause_started_ms_ = neuron.timestamp_ms;
+      markAutonomousLifecycle(AutonomousLifecycle::PAUSE, neuron.timestamp_ms);
+    }
+    return;  // Vision overlays but does not discard autonomous intent.
   }
   last_event_ms_ = neuron.timestamp_ms;
   last_event_type_ = neuron.type;
@@ -108,6 +123,18 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   const uint32_t visual_age = now_ms - visual_event_ms_;
   const bool visual_response = visual_age < 600;
 
+  // Vision pauses autonomous action time. Repeated Vision events keep the pause
+  // alive because visual_event_ms_ moves forward, but pause_started_ms_ remains
+  // the first interruption point. When Vision clears, shift the action start
+  // forward by the exact paused duration so no autonomous lifetime is lost.
+  if (autonomous_paused_ && !visual_response) {
+    const uint32_t paused_ms = now_ms - autonomous_pause_started_ms_;
+    autonomous_action_started_ms_ += paused_ms;
+    autonomous_paused_ = false;
+    autonomous_pause_started_ms_ = 0;
+    markAutonomousLifecycle(AutonomousLifecycle::RESUME, now_ms);
+  }
+
   if (!touch_response && !picked_up_response && !shake_response &&
       !visual_response &&
       autonomous_action_ == AutonomousAction::NONE &&
@@ -116,11 +143,15 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     chooseAutonomousAction(now_ms, heart);
   }
 
-  if (autonomous_action_ == AutonomousAction::CURIOUS_LOOK &&
+  if (!autonomous_paused_ &&
+      autonomous_action_ == AutonomousAction::CURIOUS_LOOK &&
       (now_ms - autonomous_action_started_ms_) >= kCuriousLookMs) {
+    markAutonomousLifecycle(AutonomousLifecycle::COMPLETE, now_ms);
     autonomous_action_ = AutonomousAction::NONE;
-  } else if (autonomous_action_ == AutonomousAction::BORED_SCAN &&
+  } else if (!autonomous_paused_ &&
+             autonomous_action_ == AutonomousAction::BORED_SCAN &&
              (now_ms - autonomous_action_started_ms_) >= kBoredScanMs) {
+    markAutonomousLifecycle(AutonomousLifecycle::COMPLETE, now_ms);
     autonomous_action_ = AutonomousAction::NONE;
   }
 
@@ -171,7 +202,7 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   // Autonomous action layer. It only runs below external event responses.
   // The action is selected from Heart state, never by pure random choice.
   if (!touch_response && !picked_up_response && !shake_response &&
-      !visual_response) {
+      !visual_response && !autonomous_paused_) {
     const uint32_t autonomous_age = now_ms - autonomous_action_started_ms_;
     if (autonomous_action_ == AutonomousAction::CURIOUS_LOOK) {
       const float p = clamp01(
@@ -242,6 +273,8 @@ void BehaviorEngine::chooseAutonomousAction(uint32_t now_ms,
 
   if (heart.boredom >= kBoredThreshold) {
     autonomous_action_ = AutonomousAction::BORED_SCAN;
+    autonomous_paused_ = false;
+    markAutonomousLifecycle(AutonomousLifecycle::START, now_ms);
     ++autonomous_sequence_;
     return;
   }
@@ -249,6 +282,8 @@ void BehaviorEngine::chooseAutonomousAction(uint32_t now_ms,
   if (heart.curiosity >= kCuriousThreshold && heart.attention >= 0.35f) {
     autonomous_action_ = AutonomousAction::CURIOUS_LOOK;
     autonomous_direction_ = (autonomous_sequence_ % 2 == 0) ? 1.0f : -1.0f;
+    autonomous_paused_ = false;
+    markAutonomousLifecycle(AutonomousLifecycle::START, now_ms);
     ++autonomous_sequence_;
     return;
   }
@@ -256,6 +291,14 @@ void BehaviorEngine::chooseAutonomousAction(uint32_t now_ms,
   // "Do nothing" is a formal decision, not a missing branch.
   autonomous_action_ = AutonomousAction::NONE;
   ++autonomous_sequence_;
+}
+
+void BehaviorEngine::markAutonomousLifecycle(
+    AutonomousLifecycle lifecycle,
+    uint32_t now_ms) {
+  last_autonomous_lifecycle_ = lifecycle;
+  autonomous_lifecycle_ms_ = now_ms;
+  ++autonomous_lifecycle_seq_;
 }
 
 float BehaviorEngine::clamp01(float value) {
