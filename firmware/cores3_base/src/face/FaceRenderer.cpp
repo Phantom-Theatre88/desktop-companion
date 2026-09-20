@@ -113,6 +113,22 @@ void FaceRenderer::render(const ExpressionParams& target, uint32_t now_ms) {
                       expression.eye_color);
   }
 
+  // Deep-sleep effect: a few Zs drift upward and fade by position.
+  // This is explanatory Behavior decoration, not the primary emotional face.
+  if (expression.sleep_zzz) {
+    const float phase = clamp01(expression.sleep_zzz_phase);
+    canvas_->setTextDatum(middle_center);
+    for (int i = 0; i < 3; ++i) {
+      float p = phase + static_cast<float>(i) * 0.33f;
+      if (p >= 1.0f) p -= 1.0f;
+      const int16_t zx = static_cast<int16_t>(w * (0.73f + 0.08f * p));
+      const int16_t zy = static_cast<int16_t>(h * (0.63f - 0.30f * p));
+      canvas_->setTextSize(i == 0 ? 2 : 1);
+      canvas_->setTextColor(expression.eye_color, TFT_BLACK);
+      canvas_->drawString("Z", zx, zy);
+    }
+  }
+
   canvas_->pushSprite(0, 0);
 }
 
