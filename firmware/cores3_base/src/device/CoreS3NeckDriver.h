@@ -9,8 +9,13 @@ namespace device {
 struct NeckMotionCommand {
   uint32_t sequence = 0;
   uint32_t command_ms = 0;
-  float yaw_delta_deg = 0.0f;
-  float pitch_delta_deg = 0.0f;
+  float previous_yaw_deg = 0.0f;
+  float target_yaw_deg = 0.0f;
+  float previous_pitch_deg = 0.0f;
+  float target_pitch_deg = 0.0f;
+
+  float yawDeltaDeg() const { return target_yaw_deg - previous_yaw_deg; }
+  float pitchDeltaDeg() const { return target_pitch_deg - previous_pitch_deg; }
 };
 
 // Zero-base driver for the two serial-bus servos in the M5Stack Stack-chan body.
