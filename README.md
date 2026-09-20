@@ -20,7 +20,7 @@ M5Stack CoreS3を、単なる音声AI端末ではなく、
 
 既存Stack-chan系OSSを親Repoにはしません。
 
-`stack-chan-ko`、M5Stack/StackChan、Dotty StackChan、stackchan-local、RoboEyes、Xiaozhi、旧Yuki実装等は、初期基盤には入れません。
+M5Stack/StackChan、Dotty StackChan、stackchan-local、RoboEyes、Xiaozhi、旧Yuki実装等は、初期基盤には入れません。
 
 ## 現在地
 
