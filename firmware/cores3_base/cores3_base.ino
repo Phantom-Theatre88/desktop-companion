@@ -1,6 +1,7 @@
 #include <M5Unified.h>
 #include <M5GFX.h>
 
+#include "src/adapter/EspSrKibiDetector.h"
 #include "src/adapter/ImuAdapter.h"
 #include "src/adapter/TouchAdapter.h"
 #include "src/adapter/VoiceActivityAdapter.h"
@@ -25,6 +26,7 @@ deskbot::adapter::ImuAdapter imu_adapter;
 deskbot::device::CoreS3MicDriver mic_driver;
 deskbot::adapter::VoiceActivityAdapter voice_activity_adapter;
 deskbot::adapter::WakeWordAdapter wake_word_adapter;
+deskbot::adapter::EspSrKibiDetector kibi_detector;
 deskbot::device::CoreS3NeckDriver neck_driver;
 deskbot::device::CoreS3CameraDriver camera_driver;
 deskbot::vision::CameraVisionInput camera_vision;
@@ -592,11 +594,24 @@ void setup() {
   voice_activity_adapter.begin(millis());
   wake_word_adapter.begin("kibi");
   const bool mic_ready = mic_driver.begin(millis());
+
+  const bool kibi_ready = kibi_detector.begin();
+  if (kibi_ready) {
+    wake_word_adapter.setDetector(
+        deskbot::adapter::EspSrKibiDetector::handler,
+        &kibi_detector);
+  }
+
   Serial.printf("[SENSE][MIC] Device driver: %s sampleRate=16000\n",
                 mic_ready ? "READY" : "ERROR");
-  Serial.printf("[SENSE][MIC] Wake word target: %s detector=%s\n",
+  Serial.printf("[SENSE][MIC] Wake word target: %s detector=%s backend=%s\n",
                 wake_word_adapter.targetWord(),
-                wake_word_adapter.available() ? "READY" : "MODEL_REQUIRED");
+                wake_word_adapter.available() ? "READY" : "UNAVAILABLE",
+                kibi_detector.backendName());
+  if (!kibi_ready) {
+    Serial.printf("[SENSE][MIC] Wake detector unavailable: %s\n",
+                  kibi_detector.unavailableReason());
+  }
 
   runtime.tick(millis());
   renderLivingFace(millis());
