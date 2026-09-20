@@ -28,7 +28,7 @@ M5Stackを、単なる音声AI端末ではなく、
 - M5GFX
 - 独自コード
 
-`stack-chan-ko`、M5Stack/StackChan、Dotty StackChan、stackchan-local、M5Stack_RoboEyes、Xiaozhi、旧Yuki実装等は初期基盤へ入れない。
+M5Stack/StackChan、Dotty StackChan、stackchan-local、M5Stack_RoboEyes、Xiaozhi、旧Yuki実装等は初期基盤へ入れない。
 
 最初にCoreS3公式APIだけで各ハード機能を単独確認し、素体の正常性を確立する。
 
