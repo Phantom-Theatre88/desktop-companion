@@ -24,7 +24,7 @@ struct SynapseBinding {
 
 class SynapseRouter {
  public:
-  static constexpr size_t kMaxBindings = 24;
+  static constexpr size_t kMaxBindings = 32;
 
   bool connect(NeuronType type,
                SynapseTarget target,
