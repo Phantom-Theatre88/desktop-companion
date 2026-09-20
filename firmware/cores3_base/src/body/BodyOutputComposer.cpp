@@ -33,7 +33,14 @@ void BodyOutputComposer::onReflexIntent(const reflex::ReflexIntent& intent) {
   if (isVisualCause(intent.cause)) {
     visual_reflex_ = intent;
     have_visual_reflex_ = true;
-  } else {
+    return;
+  }
+
+  // LOCK 15 / 36:
+  // do not let a later low-priority body event overwrite a still-relevant
+  // stronger reflex. Strong/safety reflex > interpersonal response.
+  if (!have_direct_reflex_ ||
+      priorityOf(intent) >= priorityOf(direct_reflex_)) {
     direct_reflex_ = intent;
     have_direct_reflex_ = true;
   }
@@ -236,6 +243,25 @@ void BodyOutputComposer::applyVisualReflex(
         clamp01(expression.left.openness + 0.06f * amount);
     expression.right.openness =
         clamp01(expression.right.openness + 0.06f * amount);
+  }
+}
+
+BodyOutputComposer::ReflexPriority BodyOutputComposer::priorityOf(
+    const reflex::ReflexIntent& intent) {
+  switch (intent.type) {
+    case reflex::ReflexIntentType::STARTLE:
+    case reflex::ReflexIntentType::SHAKE_RESPONSE:
+      return ReflexPriority::STRONG;
+
+    case reflex::ReflexIntentType::TOUCH_RESPONSE:
+      return ReflexPriority::INTERPERSONAL;
+
+    case reflex::ReflexIntentType::LOOK_TOWARD_SOURCE:
+    case reflex::ReflexIntentType::LIGHT_ADAPT:
+      return ReflexPriority::VISUAL;
+
+    default:
+      return ReflexPriority::NONE;
   }
 }
 
