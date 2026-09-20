@@ -18,7 +18,8 @@ enum class NeuronType : uint16_t {
   // Touch / body
   TOUCH,
   STROKE_DETECTED,
-  PICKED_UP,
+  LIFT_STARTED,  // immediate body/reflex cue; not a confirmed held state
+  PICKED_UP,     // confirmed state for Ghost/Heart
   SHAKE,
 
   // Vision / audio
