@@ -11,6 +11,17 @@ enum class VisualProp : uint8_t {
   COFFEE_CUP,
 };
 
+enum class VisualEffect : uint8_t {
+  NONE = 0,
+  TEAR,
+  SWEAT,
+  BLUSH,
+  QUESTION,
+  NOTICE,
+  SPARKLE,
+  ANGER,
+};
+
 // Body geometry only; no moods, random motion, or event selection.
 struct EyeShape {
   float width_scale = 1.0f;        // 0.65..1.20 of existing neutral width
