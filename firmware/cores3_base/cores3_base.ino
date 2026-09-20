@@ -33,6 +33,10 @@ uint32_t last_recovery_trace_ms = 0;
 uint32_t last_imu_diag_ms = 0;
 const char* last_imu_state_name = nullptr;
 
+uint32_t neck_efference_seq = 0;
+float last_neck_pitch_norm = 0.0f;
+bool neck_efference_initialized = false;
+
 uint8_t last_imu_shake_reversals = 0;
 deskbot::ghost::AutonomousAction last_autonomous_trace_action =
     deskbot::ghost::AutonomousAction::NONE;
@@ -280,6 +284,29 @@ void renderLivingFace(uint32_t now_ms) {
   const auto& micro = runtime.ghost().behaviorEngine().microBehavior();
   const auto body = body_output.compose(micro, now_ms);
   face_renderer.render(body.face, now_ms);
+
+  // Efference copy comes from the command BEFORE the Device Driver boundary.
+  // Keep the proven servo driver untouched. The IMU receives only the expected
+  // pitch change of our own commanded body motion.
+  constexpr float kPitchRangeDeg = 7.0f;
+  constexpr float kPitchCommandThresholdNorm = 0.09f;  // ~= 2 raw steps.
+  if (!neck_efference_initialized) {
+    last_neck_pitch_norm = body.neck_pitch;
+    neck_efference_initialized = true;
+  } else {
+    const float delta_norm = body.neck_pitch - last_neck_pitch_norm;
+    const float abs_delta_norm = delta_norm < 0.0f ? -delta_norm : delta_norm;
+    if (abs_delta_norm >= kPitchCommandThresholdNorm) {
+      deskbot::adapter::NeckEfferenceCopy command;
+      command.sequence = ++neck_efference_seq;
+      command.command_ms = now_ms;
+      command.previous_pitch_deg = last_neck_pitch_norm * kPitchRangeDeg;
+      command.target_pitch_deg = body.neck_pitch * kPitchRangeDeg;
+      imu_adapter.setSelfMotionCommand(command);
+      last_neck_pitch_norm = body.neck_pitch;
+    }
+  }
+
   neck_driver.tick(now_ms, body.neck_yaw, body.neck_pitch);
 }
 
@@ -503,11 +530,6 @@ void loop() {
   runtime.tick(now_ms);
   pollTouch(now_ms);
 
-  // Efference copy: pass the actual neck command into the IMU classifier.
-  // The adapter subtracts only the gravity-vector change predicted by the
-  // commanded pitch motion instead of blindly ignoring all IMU direction
-  // changes while the neck is active.
-  imu_adapter.setSelfMotionCommand(neck_driver.lastMotionCommand());
   pollImu(now_ms);
 
   pollCamera(now_ms);
