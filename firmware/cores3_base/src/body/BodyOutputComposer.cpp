@@ -66,6 +66,8 @@ BodyFrame BodyOutputComposer::compose(
   expression.mouth_open = behavior.mouth_open;
   expression.prop = behavior.prop;
   expression.prop_progress = behavior.prop_progress;
+  expression.sleep_zzz = behavior.sleep_zzz;
+  expression.sleep_zzz_phase = behavior.sleep_zzz_phase;
   expression.left.openness =
       clamp01(behavior.eye_openness + behavior.left_eye_bias);
   expression.right.openness =
