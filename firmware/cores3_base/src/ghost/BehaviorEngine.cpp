@@ -13,16 +13,7 @@ constexpr uint32_t kBlinkPeriodMs = 4200;
 constexpr uint32_t kBlinkCloseMs = 90;
 constexpr uint32_t kBlinkHoldMs = 45;
 constexpr uint32_t kBlinkOpenMs = 110;
-constexpr uint32_t kTouchResponseMs = 500;
-constexpr uint32_t kPickedUpResponseMs = 700;
-constexpr uint32_t kPickedUpMouthMs = 350;
-constexpr uint32_t kShakeResponseMs = 650;
 constexpr uint32_t kVisualResponseMs = 1500;
-constexpr uint32_t kMotionAttackMs = 120;
-constexpr uint32_t kMotionHoldMs = 300;
-constexpr uint32_t kMotionReleaseMs =
-    kVisualResponseMs - kMotionAttackMs - kMotionHoldMs;
-constexpr float kMotionDirectionDeadzone = 0.12f;
 constexpr uint32_t kAutonomousDecisionIntervalMs = 15000;
 constexpr uint32_t kCuriousLookMs = 1800;
 constexpr uint32_t kBoredScanMs = 2600;
@@ -129,17 +120,6 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   // LOCK 52: internal senses should become visible body responses through the
   // normal SemanticNeuron -> Ghost -> Behavior path. These amplitudes/times are
   // implementation tuning values, not personality LOCK values.
-  const uint32_t event_age_ms = now_ms - last_event_ms_;
-  const bool touch_response =
-      last_event_type_ == nerve::NeuronType::TOUCH &&
-      event_age_ms < kTouchResponseMs;
-  const bool picked_up_response =
-      last_event_type_ == nerve::NeuronType::PICKED_UP &&
-      event_age_ms < kPickedUpResponseMs;
-  const bool shake_response =
-      last_event_type_ == nerve::NeuronType::SHAKE &&
-      event_age_ms < kShakeResponseMs;
-
   const uint32_t visual_age = now_ms - visual_event_ms_;
   const bool visual_response = visual_age < kVisualResponseMs;
 
@@ -158,8 +138,7 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     resumed_this_tick = true;
   }
 
-  if (!touch_response && !picked_up_response && !shake_response &&
-      !visual_response &&
+  if (!visual_response &&
       autonomous_action_ == AutonomousAction::NONE &&
       (now_ms - last_autonomous_decision_ms_) >=
           kAutonomousDecisionIntervalMs) {
@@ -178,140 +157,15 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     autonomous_action_ = AutonomousAction::NONE;
   }
 
-  if (touch_response) {
-    const float amount = 1.0f - static_cast<float>(event_age_ms) / kTouchResponseMs;
-    micro_behavior_.left_shape.lower_lid = 0.22f * amount;
-    micro_behavior_.left_shape.radius_scale = 1.0f + 0.20f * amount;
-    // TOUCH eyelid experiment: add a gentle mirrored upper-lid slope.
-    // Negative tilt uses the renderer's softer inner-edge direction, while
-    // lower-lid lift remains the primary "touched" cue.
-    micro_behavior_.left_shape.tilt = -0.45f * amount;
-    micro_behavior_.right_shape = micro_behavior_.left_shape;
-    resting_openness = clamp01(resting_openness + 0.10f);
-    micro_behavior_.gaze_x *= 0.35f;
-    micro_behavior_.gaze_y = clampSigned(micro_behavior_.gaze_y - 0.08f);
-  } else if (picked_up_response) {
-    const float amount = 1.0f - static_cast<float>(event_age_ms) / kPickedUpResponseMs;
-    micro_behavior_.left_shape.height_scale = 1.0f + 0.18f * amount;
-    micro_behavior_.left_shape.width_scale = 1.0f + 0.04f * amount;
-    micro_behavior_.right_shape = micro_behavior_.left_shape;
-    micro_behavior_.eye_spacing_scale = 1.0f + 0.025f * amount;
-    // Being lifted is treated as immediate attention/arousal rather than a
-    // fixed emotion preset.
-    resting_openness = clamp01(resting_openness + 0.18f);
-    micro_behavior_.gaze_x *= 0.20f;
-    micro_behavior_.gaze_y = clampSigned(micro_behavior_.gaze_y + 0.10f);
+  // Immediate sensor-driven body expression is owned by Reflex -> Body Output.
+  // Behavior remains the continuous Heart/autonomous stream.
 
-    // First transient-mouth experiment: a short small "o" accompanies the
-    // immediate PICKED_UP surprise, then disappears while the eye response
-    // continues. Mouth is a Behavior accent, not a permanent face component.
-    if (event_age_ms < kPickedUpMouthMs) {
-      micro_behavior_.mouth_open =
-          1.0f - static_cast<float>(event_age_ms) /
-                     static_cast<float>(kPickedUpMouthMs);
-    }
-  } else if (shake_response) {
-    // A shake is a stronger body event. Keep the response procedural and
-    // temporary; exact expression design remains a later Face task.
-    resting_openness = clamp01(resting_openness + 0.12f);
-    const float shake_phase = static_cast<float>(event_age_ms) * 0.035f;
-    const float amount = 1.0f - static_cast<float>(event_age_ms) / kShakeResponseMs;
-    micro_behavior_.jitter_x = sinf(shake_phase) * 0.65f * amount;
-    micro_behavior_.jitter_y = sinf(shake_phase * 0.7f) * 0.30f * amount;
-    micro_behavior_.left_shape.upper_lid = 0.18f * amount;
-    micro_behavior_.right_shape.height_scale = 1.0f + 0.12f * amount;
-  }
-
-  // Low-level Vision body response. Directional motion is intentionally
-  // "fast in, slow out": make the direction obvious first, hold it briefly,
-  // then let the face relax back to neutral.
-  if (!touch_response && !picked_up_response && !shake_response &&
-      visual_age < kVisualResponseMs) {
-    float amount = 0.0f;
-    if (visual_age < kMotionAttackMs) {
-      amount = static_cast<float>(visual_age) /
-               static_cast<float>(kMotionAttackMs);
-    } else if (visual_age < kMotionAttackMs + kMotionHoldMs) {
-      amount = 1.0f;
-    } else {
-      const uint32_t release_age =
-          visual_age - kMotionAttackMs - kMotionHoldMs;
-      amount = 1.0f -
-          static_cast<float>(release_age) /
-          static_cast<float>(kMotionReleaseMs);
-    }
-    amount = clamp01(amount);
-
-    if (visual_event_type_ == nerve::NeuronType::MOTION_DETECTED) {
-      resting_openness = clamp01(resting_openness + 0.10f * amount);
-
-      // Do not translate the whole eye pair during a Vision direction cue.
-      // On this pupil-less face the short travel distance reads as slow drift,
-      // so direction is expressed by shape only.
-      micro_behavior_.gaze_x = 0.0f;
-      micro_behavior_.gaze_y = 0.0f;
-
-      // Camera/image X and the face's screen-left/screen-right naming are
-      // opposite for a robot facing the user. Therefore invert the side used
-      // for the visible cue: motion on camera-right emphasizes screen-left,
-      // and camera-left emphasizes screen-right.
-      //
-      // Use strong silhouette contrast within the existing EyeShape bounds:
-      // attended side = tall + narrow, opposite side = short + wide.
-      const float abs_x = visual_target_x_ < 0.0f
-          ? -visual_target_x_ : visual_target_x_;
-      if (abs_x >= kMotionDirectionDeadzone) {
-        // Once the direction is trustworthy enough to cross the deadzone,
-        // show it clearly. Do not weaken the cue merely because the blob
-        // center is only moderately off-center.
-        const float emphasis = amount;
-
-        auto emphasizeScreenLeft = [&]() {
-          micro_behavior_.left_shape.height_scale =
-              1.0f + 0.25f * emphasis;
-          micro_behavior_.left_shape.width_scale =
-              1.0f - 0.20f * emphasis;
-          micro_behavior_.right_shape.height_scale =
-              1.0f - 0.40f * emphasis;
-          micro_behavior_.right_shape.width_scale =
-              1.0f + 0.20f * emphasis;
-        };
-        auto emphasizeScreenRight = [&]() {
-          micro_behavior_.right_shape.height_scale =
-              1.0f + 0.25f * emphasis;
-          micro_behavior_.right_shape.width_scale =
-              1.0f - 0.20f * emphasis;
-          micro_behavior_.left_shape.height_scale =
-              1.0f - 0.40f * emphasis;
-          micro_behavior_.left_shape.width_scale =
-              1.0f + 0.20f * emphasis;
-        };
-
-        if (visual_target_x_ > 0.0f) {
-          emphasizeScreenLeft();
-        } else {
-          emphasizeScreenRight();
-        }
-      }
-    } else if (visual_event_type_ == nerve::NeuronType::BRIGHTER) {
-      const float legacy_amount = 1.0f -
-          static_cast<float>(visual_age) /
-          static_cast<float>(kVisualResponseMs);
-      resting_openness =
-          clamp01(resting_openness - 0.10f * legacy_amount);
-    } else if (visual_event_type_ == nerve::NeuronType::DARKER) {
-      const float legacy_amount = 1.0f -
-          static_cast<float>(visual_age) /
-          static_cast<float>(kVisualResponseMs);
-      resting_openness =
-          clamp01(resting_openness + 0.06f * legacy_amount);
-    }
-  }
+  // Vision interruption still participates in Behavior arbitration, but its
+  // immediate directional/light body response is owned by Reflex -> Body Output.
 
   // Autonomous action layer. It only runs below external event responses.
   // The action is selected from Heart state, never by pure random choice.
-  if (!touch_response && !picked_up_response && !shake_response &&
-      !visual_response && !autonomous_paused_) {
+  if (!visual_response && !autonomous_paused_) {
     const uint32_t autonomous_age = now_ms - autonomous_action_started_ms_;
     if (autonomous_action_ == AutonomousAction::CURIOUS_LOOK) {
       const float p = clamp01(
@@ -364,12 +218,6 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   // mirrored while keeping the output subtle and continuous.
   micro_behavior_.left_eye_bias = sinf((t * 0.23f) + 0.4f) * 0.025f;
   micro_behavior_.right_eye_bias = sinf((t * 0.19f) + 2.0f) * 0.025f;
-
-  if (shake_response) {
-    const float shake_bias = sinf(static_cast<float>(event_age_ms) * 0.045f) * 0.05f;
-    micro_behavior_.left_eye_bias += shake_bias;
-    micro_behavior_.right_eye_bias -= shake_bias;
-  }
 
   micro_behavior_.generated_ms = now_ms;
 }
