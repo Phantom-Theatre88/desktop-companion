@@ -78,6 +78,41 @@ void FaceRenderer::render(const ExpressionParams& target, uint32_t now_ms) {
     canvas_->fillEllipse(mouth_cx, mouth_cy, inner_rx, inner_ry, TFT_BLACK);
   }
 
+  // Props are transient Behavior results, never part of the neutral face.
+  if (expression.prop == VisualProp::COFFEE_CUP) {
+    const float p = clamp01(expression.prop_progress);
+    const float approach = sinf(p * 3.14159265f);
+    const int16_t cup_x = static_cast<int16_t>(
+        w * (0.78f - 0.22f * approach));
+    const int16_t cup_y = static_cast<int16_t>(
+        h * (0.79f - 0.08f * approach));
+    const int16_t cup_w = static_cast<int16_t>(w * 0.105f);
+    const int16_t cup_h = static_cast<int16_t>(h * 0.090f);
+
+    canvas_->drawRoundRect(cup_x - cup_w / 2,
+                           cup_y - cup_h / 2,
+                           cup_w,
+                           cup_h,
+                           5,
+                           expression.eye_color);
+    canvas_->drawCircle(cup_x + cup_w / 2 + 4,
+                        cup_y,
+                        static_cast<int16_t>(cup_h * 0.28f),
+                        expression.eye_color);
+
+    const int16_t steam_h = static_cast<int16_t>(h * 0.035f);
+    canvas_->drawLine(cup_x - 6,
+                      cup_y - cup_h / 2 - 4,
+                      cup_x - 3,
+                      cup_y - cup_h / 2 - steam_h,
+                      expression.eye_color);
+    canvas_->drawLine(cup_x + 5,
+                      cup_y - cup_h / 2 - 3,
+                      cup_x + 8,
+                      cup_y - cup_h / 2 - steam_h + 2,
+                      expression.eye_color);
+  }
+
   canvas_->pushSprite(0, 0);
 }
 
