@@ -215,6 +215,7 @@ void renderLivingFace(uint32_t now_ms) {
   expression.spacing_scale = micro.eye_spacing_scale;
   expression.jitter_x = micro.jitter_x;
   expression.jitter_y = micro.jitter_y;
+  expression.mouth_open = micro.mouth_open;
   expression.left.openness = micro.eye_openness + micro.left_eye_bias;
   expression.right.openness = micro.eye_openness + micro.right_eye_bias;
   expression.offset_x = micro.gaze_x;
