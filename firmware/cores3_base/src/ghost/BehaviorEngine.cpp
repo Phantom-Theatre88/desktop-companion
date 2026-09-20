@@ -17,8 +17,15 @@ constexpr uint32_t kVisualResponseMs = 1500;
 constexpr uint32_t kAutonomousDecisionIntervalMs = 15000;
 constexpr uint32_t kCuriousLookMs = 1800;
 constexpr uint32_t kBoredScanMs = 2600;
+constexpr uint32_t kYawnMs = 3000;
+constexpr uint32_t kCoffeeBreakMs = 4200;
+constexpr uint32_t kWakeHoldMs = 15000;
 constexpr float kCuriousThreshold = 0.64f;
-constexpr float kBoredThreshold = 0.35f;
+constexpr float kBoredThreshold = 0.25f;
+constexpr float kDrowsySleepinessThreshold = 0.28f;
+constexpr float kDrowsyBoredomThreshold = 0.20f;
+constexpr float kSleepSleepinessThreshold = 0.42f;
+constexpr float kSleepBoredomThreshold = 0.28f;
 
 }  // namespace
 
@@ -33,6 +40,8 @@ void BehaviorEngine::begin(uint32_t now_ms) {
   last_event_ms_ = now_ms;
   last_event_type_ = nerve::NeuronType::NONE;
   autonomous_action_ = AutonomousAction::NONE;
+  life_state_ = LifeState::AWAKE;
+  awake_hold_until_ms_ = now_ms;
   autonomous_action_started_ms_ = now_ms;
   last_autonomous_decision_ms_ = now_ms;
   autonomous_decision_seq_ = 0;
@@ -52,6 +61,13 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   const uint32_t handled_ms = event_context.captured_ms;
   last_received_type_ = neuron.type;
   last_received_ms_ = neuron.timestamp_ms;
+
+  // Meaningful external input wakes the continuing inner-state layer.
+  // The immediate physical response still belongs to Reflex.
+  if (neuron.type != nerve::NeuronType::NONE) {
+    life_state_ = LifeState::AWAKE;
+    awake_hold_until_ms_ = handled_ms + kWakeHoldMs;
+  }
 
   // LOCK 15 arbitration:
   // - Direct body interaction cancels autonomous behavior.
@@ -98,6 +114,8 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   const HeartState& heart = heart_context.state;
   const HeartState& baseline = heart_context.baseline;
 
+  updateLifeState(now_ms, heart);
+
   // Rebuild the Heart/Behavior body frame every tick. Reflex is composed later
   // in BodyOutputComposer and must not be baked into this stream.
   micro_behavior_.left_shape = face::EyeShape{};
@@ -105,6 +123,8 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   micro_behavior_.eye_spacing_scale = 1.0f;
   micro_behavior_.jitter_x = micro_behavior_.jitter_y = 0.0f;
   micro_behavior_.mouth_open = 0.0f;
+  micro_behavior_.prop = face::VisualProp::NONE;
+  micro_behavior_.prop_progress = 0.0f;
   micro_behavior_.neck_yaw = 0.0f;
   micro_behavior_.neck_pitch = 0.0f;
 
@@ -218,6 +238,16 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
              (now_ms - autonomous_action_started_ms_) >= kBoredScanMs) {
     markAutonomousLifecycle(AutonomousLifecycle::COMPLETE, now_ms);
     autonomous_action_ = AutonomousAction::NONE;
+  } else if (!resumed_this_tick && !autonomous_paused_ &&
+             autonomous_action_ == AutonomousAction::YAWN &&
+             (now_ms - autonomous_action_started_ms_) >= kYawnMs) {
+    markAutonomousLifecycle(AutonomousLifecycle::COMPLETE, now_ms);
+    autonomous_action_ = AutonomousAction::NONE;
+  } else if (!resumed_this_tick && !autonomous_paused_ &&
+             autonomous_action_ == AutonomousAction::COFFEE_BREAK &&
+             (now_ms - autonomous_action_started_ms_) >= kCoffeeBreakMs) {
+    markAutonomousLifecycle(AutonomousLifecycle::COMPLETE, now_ms);
+    autonomous_action_ = AutonomousAction::NONE;
   }
 
   // Immediate sensor-driven body expression is owned by Reflex -> Body Output.
@@ -253,13 +283,60 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
       micro_behavior_.gaze_x = 0.0f;
       micro_behavior_.gaze_y = clampSigned(cosf(phase) * 0.05f);
       micro_behavior_.left_shape.upper_lid = 0.05f + heart.boredom * 0.05f;
-      micro_behavior_.right_shape.upper_lid = micro_behavior_.left_shape.upper_lid;
+      micro_behavior_.right_shape.upper_lid =
+          micro_behavior_.left_shape.upper_lid;
       micro_behavior_.neck_yaw =
           clampSigned(micro_behavior_.neck_yaw +
                       sinf(phase) * scan_amount * 0.55f);
       micro_behavior_.neck_pitch =
-          clampSigned(micro_behavior_.neck_pitch + 0.12f);
+          clampSigned(micro_behavior_.neck_pitch - 0.12f);
+    } else if (autonomous_action_ == AutonomousAction::YAWN) {
+      const float p = clamp01(
+          static_cast<float>(autonomous_age) / static_cast<float>(kYawnMs));
+      const float envelope = sinf(p * 3.14159265f);
+      micro_behavior_.mouth_open = envelope;
+      micro_behavior_.left_shape.upper_lid = 0.10f + 0.35f * envelope;
+      micro_behavior_.right_shape.upper_lid =
+          micro_behavior_.left_shape.upper_lid;
+      resting_openness = clamp01(resting_openness - 0.30f * envelope);
+      micro_behavior_.neck_pitch =
+          clampSigned(micro_behavior_.neck_pitch + 0.28f * envelope);
+    } else if (autonomous_action_ == AutonomousAction::COFFEE_BREAK) {
+      const float p = clamp01(
+          static_cast<float>(autonomous_age) /
+          static_cast<float>(kCoffeeBreakMs));
+      const float sip = sinf(p * 3.14159265f);
+      micro_behavior_.prop = face::VisualProp::COFFEE_CUP;
+      micro_behavior_.prop_progress = p;
+      micro_behavior_.mouth_open = 0.10f * sip;
+      micro_behavior_.neck_pitch =
+          clampSigned(micro_behavior_.neck_pitch - 0.08f * sip);
+      micro_behavior_.left_shape.upper_lid = 0.05f + 0.08f * sip;
+      micro_behavior_.right_shape.upper_lid =
+          micro_behavior_.left_shape.upper_lid;
     }
+  }
+
+  // Life-state layer. This persists underneath one-shot autonomous actions.
+  if (life_state_ == LifeState::DROWSY) {
+    const float drowsy =
+        clamp01((heart.sleepiness - kDrowsySleepinessThreshold) / 0.30f);
+    resting_openness = clamp01(resting_openness - 0.28f * drowsy);
+    const float drowsy_lid = 0.12f * drowsy;
+    if (micro_behavior_.left_shape.upper_lid < drowsy_lid) {
+      micro_behavior_.left_shape.upper_lid = drowsy_lid;
+    }
+    micro_behavior_.right_shape.upper_lid =
+        micro_behavior_.left_shape.upper_lid;
+    micro_behavior_.neck_pitch =
+        clampSigned(micro_behavior_.neck_pitch - 0.16f * drowsy);
+  } else if (life_state_ == LifeState::SLEEPING) {
+    resting_openness = 0.0f;
+    micro_behavior_.mouth_open = 0.0f;
+    micro_behavior_.prop = face::VisualProp::NONE;
+    micro_behavior_.neck_yaw = clampSigned(sinf(t * 0.22f) * 0.05f);
+    micro_behavior_.neck_pitch =
+        clampSigned(-0.55f + sinf(t * 0.36f) * 0.035f);
   }
 
   // Blink envelope. This gives the standalone body a life rhythm without
@@ -301,6 +378,23 @@ void BehaviorEngine::chooseAutonomousAction(uint32_t now_ms,
   ++autonomous_decision_seq_;
   autonomous_action_started_ms_ = now_ms;
 
+  if (life_state_ == LifeState::SLEEPING) {
+    autonomous_action_ = AutonomousAction::NONE;
+    ++autonomous_sequence_;
+    return;
+  }
+
+  if (life_state_ == LifeState::DROWSY) {
+    autonomous_action_ =
+        (heart.sleepiness >= 0.36f || (autonomous_sequence_ % 2 == 0))
+            ? AutonomousAction::YAWN
+            : AutonomousAction::COFFEE_BREAK;
+    autonomous_paused_ = false;
+    markAutonomousLifecycle(AutonomousLifecycle::START, now_ms);
+    ++autonomous_sequence_;
+    return;
+  }
+
   if (heart.boredom >= kBoredThreshold) {
     autonomous_action_ = AutonomousAction::BORED_SCAN;
     autonomous_paused_ = false;
@@ -321,6 +415,34 @@ void BehaviorEngine::chooseAutonomousAction(uint32_t now_ms,
   // "Do nothing" is a formal decision, not a missing branch.
   autonomous_action_ = AutonomousAction::NONE;
   ++autonomous_sequence_;
+}
+
+void BehaviorEngine::updateLifeState(uint32_t now_ms,
+                                     const HeartState& heart) {
+  if (static_cast<int32_t>(awake_hold_until_ms_ - now_ms) > 0) {
+    life_state_ = LifeState::AWAKE;
+    return;
+  }
+
+  if (heart.sleepiness >= kSleepSleepinessThreshold &&
+      heart.boredom >= kSleepBoredomThreshold) {
+    if (life_state_ != LifeState::SLEEPING &&
+        autonomous_action_ != AutonomousAction::NONE) {
+      markAutonomousLifecycle(AutonomousLifecycle::CANCEL, now_ms);
+      autonomous_action_ = AutonomousAction::NONE;
+      autonomous_paused_ = false;
+    }
+    life_state_ = LifeState::SLEEPING;
+    return;
+  }
+
+  if (heart.sleepiness >= kDrowsySleepinessThreshold &&
+      heart.boredom >= kDrowsyBoredomThreshold) {
+    life_state_ = LifeState::DROWSY;
+    return;
+  }
+
+  life_state_ = LifeState::AWAKE;
 }
 
 void BehaviorEngine::markAutonomousLifecycle(
