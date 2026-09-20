@@ -16,6 +16,7 @@ class CoreS3NeckDriver {
   void tick(uint32_t now_ms, float yaw_norm, float pitch_norm);
 
   bool available() const { return available_; }
+  bool motionRecently(uint32_t now_ms) const;
 
  private:
   static float clampSigned(float value);
@@ -38,6 +39,7 @@ class CoreS3NeckDriver {
   bool available_ = false;
   bool torque_enabled_ = false;
   uint32_t last_update_ms_ = 0;
+  uint32_t last_motion_command_ms_ = 0;
   int16_t last_yaw_raw_ = -32768;
   int16_t last_pitch_raw_ = -32768;
 };
