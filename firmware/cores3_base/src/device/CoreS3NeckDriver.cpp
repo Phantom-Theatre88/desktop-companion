@@ -1,12 +1,25 @@
 #include "CoreS3NeckDriver.h"
 
 #include <math.h>
+#include <M5Unified.h>
 
 namespace deskbot {
 namespace device {
 namespace {
 
 constexpr uint32_t kServoBaud = 1000000;
+
+// M5StackChan CoreS3 mount board: the SCS servo rail is NOT permanently on.
+// The official platform enables VM_EN through PY32 IO expander @ 0x6F, pin 0.
+constexpr uint8_t kPy32Address = 0x6F;
+constexpr uint32_t kPy32I2cHz = 100000;
+constexpr uint8_t kPy32RegVersion = 0x02;
+constexpr uint8_t kPy32RegGpioModeL = 0x03;
+constexpr uint8_t kPy32RegGpioOutL = 0x05;
+constexpr uint8_t kPy32RegGpioPullUpL = 0x09;
+constexpr uint8_t kPy32RegGpioPullDownL = 0x0B;
+constexpr uint8_t kServoPowerMask = 0x01;  // PY32 pin 0 / VM_EN
+constexpr uint32_t kServoPowerSettleMs = 200;
 constexpr int kServoRxPin = 7;
 constexpr int kServoTxPin = 6;
 constexpr uint8_t kYawId = 1;
@@ -35,6 +48,15 @@ constexpr int16_t kMinRawChange = 2;
 }  // namespace
 
 bool CoreS3NeckDriver::begin(uint32_t now_ms) {
+  available_ = false;
+  torque_enabled_ = false;
+  servo_power_ready_ = enableServoPower();
+  if (!servo_power_ready_) {
+    return false;
+  }
+
+  // Give the mount-board servo rail time to rise before speaking SCS protocol.
+  delay(kServoPowerSettleMs);
   serial_.begin(kServoBaud, SERIAL_8N1, kServoRxPin, kServoTxPin);
   delay(5);
 
@@ -120,6 +142,51 @@ int16_t CoreS3NeckDriver::normToRaw(float normalized,
   const int16_t target =
       static_cast<int16_t>(roundf(static_cast<float>(zero_raw) + raw_offset));
   return clampRaw(target, low_raw, high_raw);
+}
+
+bool CoreS3NeckDriver::updatePy32Bit(uint8_t reg,
+                                      uint8_t mask,
+                                      bool enabled) {
+  uint8_t value = 0;
+  if (!M5.In_I2C.readRegister(
+          kPy32Address, reg, &value, 1, kPy32I2cHz)) {
+    return false;
+  }
+  const uint8_t next =
+      enabled ? static_cast<uint8_t>(value | mask)
+              : static_cast<uint8_t>(value & ~mask);
+  return M5.In_I2C.writeRegister8(
+      kPy32Address, reg, next, kPy32I2cHz);
+}
+
+bool CoreS3NeckDriver::enableServoPower() {
+  if (!M5.In_I2C.isEnabled() && !M5.In_I2C.begin()) {
+    return false;
+  }
+
+  uint8_t version = 0;
+  if (!M5.In_I2C.readRegister(
+          kPy32Address, kPy32RegVersion, &version, 1, kPy32I2cHz)) {
+    return false;
+  }
+  servo_power_version_ = version;
+  if (version == 0x00 || version == 0xFF) {
+    return false;
+  }
+
+  // Mirror the official M5StackChan CoreS3 servo-power sequence:
+  // pin0 output, pull-up enabled / pull-down disabled, then VM_EN high.
+  if (!updatePy32Bit(kPy32RegGpioModeL, kServoPowerMask, true)) return false;
+  if (!updatePy32Bit(kPy32RegGpioPullDownL, kServoPowerMask, false)) return false;
+  if (!updatePy32Bit(kPy32RegGpioPullUpL, kServoPowerMask, true)) return false;
+  if (!updatePy32Bit(kPy32RegGpioOutL, kServoPowerMask, true)) return false;
+
+  uint8_t out = 0;
+  if (!M5.In_I2C.readRegister(
+          kPy32Address, kPy32RegGpioOutL, &out, 1, kPy32I2cHz)) {
+    return false;
+  }
+  return (out & kServoPowerMask) != 0;
 }
 
 void CoreS3NeckDriver::setTorque(bool enabled) {
