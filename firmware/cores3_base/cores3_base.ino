@@ -3,10 +3,13 @@
 
 #include "src/adapter/ImuAdapter.h"
 #include "src/adapter/TouchAdapter.h"
+#include "src/adapter/VoiceActivityAdapter.h"
+#include "src/adapter/WakeWordAdapter.h"
 #include "src/body/BodyOutputComposer.h"
 #include "src/core/DesktopCompanionRuntime.h"
 #include "src/device/CoreS3CameraDriver.h"
 #include "src/device/CoreS3ImuDriver.h"
+#include "src/device/CoreS3MicDriver.h"
 #include "src/device/CoreS3NeckDriver.h"
 #include "src/device/CoreS3TouchDriver.h"
 #include "src/face/FaceRenderer.h"
@@ -19,6 +22,9 @@ deskbot::device::CoreS3TouchDriver touch_driver;
 deskbot::adapter::TouchAdapter touch_adapter;
 deskbot::device::CoreS3ImuDriver imu_driver;
 deskbot::adapter::ImuAdapter imu_adapter;
+deskbot::device::CoreS3MicDriver mic_driver;
+deskbot::adapter::VoiceActivityAdapter voice_activity_adapter;
+deskbot::adapter::WakeWordAdapter wake_word_adapter;
 deskbot::device::CoreS3NeckDriver neck_driver;
 deskbot::device::CoreS3CameraDriver camera_driver;
 deskbot::vision::CameraVisionInput camera_vision;
@@ -31,6 +37,7 @@ uint32_t last_body_motion_ms = 0;
 bool body_motion_seen = false;
 uint32_t last_recovery_trace_ms = 0;
 uint32_t last_imu_diag_ms = 0;
+uint32_t last_mic_diag_ms = 0;
 const char* last_imu_state_name = nullptr;
 
 uint32_t neck_efference_seq = 0;
@@ -251,6 +258,8 @@ const char* reflexCauseName(deskbot::nerve::NeuronType type) {
     case deskbot::nerve::NeuronType::MOTION_DETECTED: return "MOTION";
     case deskbot::nerve::NeuronType::BRIGHTER: return "BRIGHTER";
     case deskbot::nerve::NeuronType::DARKER: return "DARKER";
+    case deskbot::nerve::NeuronType::LOUD_SOUND: return "LOUD_SOUND";
+    case deskbot::nerve::NeuronType::WAKE_WORD_DETECTED: return "WAKE_WORD";
     default: return "OTHER";
   }
 }
@@ -307,6 +316,48 @@ void renderLivingFace(uint32_t now_ms) {
       imu_adapter.setSelfMotionCommand(command);
       last_neck_pitch_norm = body.neck_pitch;
     }
+  }
+}
+
+void pollMic(uint32_t now_ms) {
+  deskbot::device::MicFrameView frame;
+  if (!mic_driver.poll(now_ms, frame)) {
+    return;
+  }
+
+  // Exact wake-word detection has higher semantic meaning than generic voice
+  // activity, so give a detector result first chance when a model is present.
+  deskbot::nerve::SemanticNeuron neuron;
+  if (wake_word_adapter.toNeuron(frame, neuron)) {
+    runtime.emit(neuron);
+    traceHeartState("WAKE_WORD_DETECTED");
+    Serial.printf("[NERVE][MIC] WAKE_WORD_DETECTED word=%s confidence=%.2f -> Reflex + Ghost/Heart/Memory/Behavior\n",
+                  wake_word_adapter.targetWord(),
+                  neuron.confidence);
+    return;
+  }
+
+  if (voice_activity_adapter.toNeuron(frame, neuron)) {
+    runtime.emit(neuron);
+    if (neuron.type == deskbot::nerve::NeuronType::VOICE_ACTIVITY) {
+      traceHeartState("VOICE_ACTIVITY");
+      Serial.printf("[NERVE][MIC] VOICE_ACTIVITY strength=%.3f -> Ghost/Heart/Memory/Behavior\n",
+                    neuron.payload.scalar);
+    } else if (neuron.type == deskbot::nerve::NeuronType::LOUD_SOUND) {
+      traceHeartState("LOUD_SOUND");
+      Serial.printf("[NERVE][MIC] LOUD_SOUND strength=%.3f -> Reflex + Ghost/Heart/Memory/Behavior\n",
+                    neuron.payload.scalar);
+    }
+  }
+
+  if ((now_ms - last_mic_diag_ms) >= 2000) {
+    last_mic_diag_ms = now_ms;
+    Serial.printf("[MIC][DIAG] rms=%.4f peak=%.4f floor=%.4f voice=%s wakeModel=%s\n",
+                  voice_activity_adapter.debugRms(),
+                  voice_activity_adapter.debugPeak(),
+                  voice_activity_adapter.debugNoiseFloor(),
+                  voice_activity_adapter.voiceActive() ? "YES" : "NO",
+                  wake_word_adapter.available() ? "READY" : "PENDING");
   }
 }
 
@@ -498,6 +549,15 @@ void setup() {
   Serial.printf("[SENSE][TOUCH] Device driver: %s\n",
                 M5.Touch.isEnabled() ? "READY" : "UNAVAILABLE");
 
+  voice_activity_adapter.begin(millis());
+  wake_word_adapter.begin("kibi");
+  const bool mic_ready = mic_driver.begin(millis());
+  Serial.printf("[SENSE][MIC] Device driver: %s sampleRate=16000\n",
+                mic_ready ? "READY" : "ERROR");
+  Serial.printf("[SENSE][MIC] Wake word target: %s detector=%s\n",
+                wake_word_adapter.targetWord(),
+                wake_word_adapter.available() ? "READY" : "MODEL_REQUIRED");
+
   imu_driver.begin();
   imu_adapter.begin(millis());
   Serial.printf("[SENSE][IMU] Device driver: %s\n",
@@ -546,6 +606,7 @@ void loop() {
   const uint32_t now_ms = millis();
   runtime.tick(now_ms);
   pollTouch(now_ms);
+  pollMic(now_ms);
 
   pollImu(now_ms);
 
