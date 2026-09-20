@@ -32,6 +32,8 @@ class BodyOutputComposer {
 
   static bool isVisualCause(nerve::NeuronType type);
   static ReflexPriority priorityOf(const reflex::ReflexIntent& intent);
+  static bool directIntentActiveAt(const reflex::ReflexIntent& intent,
+                                   uint32_t now_ms);
   static float clamp01(float value);
   static float clampSigned(float value);
   static float larger(float a, float b);
