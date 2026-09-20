@@ -39,6 +39,9 @@ deskbot::ghost::AutonomousAction last_autonomous_trace_action =
 uint32_t last_autonomous_trace_decision_ms = 0;
 uint32_t last_autonomous_trace_decision_seq = 0;
 uint32_t last_autonomous_lifecycle_seq = 0;
+deskbot::ghost::LifeState last_life_trace_state =
+    deskbot::ghost::LifeState::AWAKE;
+bool life_trace_initialized = false;
 constexpr uint32_t kFaceRenderIntervalMs = 40;
 constexpr uint32_t kCameraCaptureIntervalMs = 1000;
 
@@ -55,6 +58,18 @@ const char* autonomousActionName(deskbot::ghost::AutonomousAction action) {
     case deskbot::ghost::AutonomousAction::NONE:
     default:
       return "NONE";
+  }
+}
+
+const char* lifeStateName(deskbot::ghost::LifeState state) {
+  switch (state) {
+    case deskbot::ghost::LifeState::DROWSY:
+      return "DROWSY";
+    case deskbot::ghost::LifeState::SLEEPING:
+      return "SLEEPING";
+    case deskbot::ghost::LifeState::AWAKE:
+    default:
+      return "AWAKE";
   }
 }
 
@@ -79,6 +94,17 @@ const char* autonomousLifecycleName(
 
 void traceAutonomousBehavior() {
   const auto& behavior = runtime.ghost().behaviorEngine();
+  const auto life_state = behavior.lifeState();
+  if (!life_trace_initialized || life_state != last_life_trace_state) {
+    life_trace_initialized = true;
+    last_life_trace_state = life_state;
+    const auto& heart = runtime.ghost().heart();
+    Serial.printf("[BEHAVIOR][LIFE] %s boredom=%.3f sleepiness=%.3f\n",
+                  lifeStateName(life_state),
+                  heart.boredom,
+                  heart.sleepiness);
+  }
+
   const auto action = behavior.autonomousAction();
   const uint32_t decision_ms = behavior.lastAutonomousDecisionMs();
   const uint32_t decision_seq = behavior.autonomousDecisionSeq();
