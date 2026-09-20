@@ -150,6 +150,7 @@ void HeartEngine::onReflexResult(const reflex::ReflexResult& result,
 HeartContext HeartEngine::snapshot(uint32_t now_ms) const {
   HeartContext context;
   context.state = state_;
+  context.baseline = baseline_;
   context.captured_ms = now_ms;
   return context;
 }
