@@ -512,6 +512,29 @@ void setup() {
   Serial.printf("[BODY][NECK] Device driver: %s\n",
                 neck_ready ? "READY" : "ERROR");
 
+  // One-time hardware isolation test. This bypasses Heart/Behavior entirely:
+  // if this small yaw sweep moves the neck, UART/power/servo Driver are alive
+  // and the remaining fault is above the Device Driver boundary.
+  if (neck_ready) {
+    Serial.println("[BODY][NECK][SELFTEST] START");
+    delay(100);
+    neck_driver.tick(millis(), +0.45f, 0.0f);
+    delay(450);
+    neck_driver.tick(millis(), -0.45f, 0.0f);
+    delay(450);
+    neck_driver.tick(millis(), 0.0f, 0.0f);
+    delay(300);
+    Serial.println("[BODY][NECK][SELFTEST] COMPLETE");
+
+    // The deliberate boot sweep is our own motion. Re-arm semantic IMU state
+    // afterward so the self-test cannot become a fake pickup/shake event.
+    imu_adapter.begin(millis());
+    last_imu_state_name = nullptr;
+    last_imu_shake_reversals = 0;
+    body_motion_seen = false;
+    camera_vision.reset();
+  }
+
   runtime.tick(millis());
   renderLivingFace(millis());
   Serial.println("[DESKROBO] Reflex + Heart/Behavior -> BodyOutput -> Face/Neck loop started");
