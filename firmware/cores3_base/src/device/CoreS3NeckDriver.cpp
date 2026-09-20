@@ -29,6 +29,7 @@ constexpr float kPitchMaxDegrees = 7.0f;
 constexpr float kRawPerDegree = 3.2f;
 
 constexpr uint32_t kUpdateIntervalMs = 50;  // 20Hz body motion.
+constexpr uint32_t kVisionSettleAfterMoveMs = 650;
 constexpr int16_t kMinRawChange = 2;
 
 }  // namespace
@@ -39,6 +40,7 @@ bool CoreS3NeckDriver::begin(uint32_t now_ms) {
 
   available_ = true;
   last_update_ms_ = now_ms;
+  last_motion_command_ms_ = now_ms;
   setTorque(true);
   writePositions(kYawZeroRaw, kPitchZeroRaw);
   last_yaw_raw_ = kYawZeroRaw;
@@ -83,8 +85,14 @@ void CoreS3NeckDriver::tick(uint32_t now_ms,
   }
 
   writePositions(yaw_raw, pitch_raw);
+  last_motion_command_ms_ = now_ms;
   last_yaw_raw_ = yaw_raw;
   last_pitch_raw_ = pitch_raw;
+}
+
+bool CoreS3NeckDriver::motionRecently(uint32_t now_ms) const {
+  return available_ &&
+         (now_ms - last_motion_command_ms_) < kVisionSettleAfterMoveMs;
 }
 
 float CoreS3NeckDriver::clampSigned(float value) {
