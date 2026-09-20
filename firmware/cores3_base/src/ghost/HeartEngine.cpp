@@ -7,8 +7,11 @@ namespace {
 
 // LOCK 55 first production tuning. These values are deliberately small and
 // are implementation tuning, not permanent personality constants.
-constexpr uint32_t kBoredomStepIntervalMs = 60000;
-constexpr float kBoredomStep = 0.01f;
+constexpr uint32_t kBoredomStepIntervalMs = 45000;
+constexpr float kBoredomStep = 0.015f;
+constexpr uint32_t kSleepinessIdleDelayMs = 90000;
+constexpr uint32_t kSleepinessStepIntervalMs = 30000;
+constexpr float kSleepinessStep = 0.025f;
 constexpr uint32_t kHabituationWindowMs = 12000;
 constexpr float kHabituationFloor = 0.20f;
 constexpr uint32_t kRecoveryDelayMs = 15000;
@@ -49,6 +52,7 @@ void HeartEngine::begin(uint32_t now_ms) {
   last_tick_ms_ = now_ms;
   last_heart_change_ms_ = now_ms;
   last_boredom_step_ms_ = now_ms;
+  last_sleepiness_step_ms_ = now_ms;
   last_recovery_ms_ = now_ms;
   last_recovery_change_ms_ = 0;
   last_stimulus_ms_ = 0;
@@ -83,6 +87,18 @@ void HeartEngine::tick(uint32_t now_ms) {
     applyDelta(0.0f, 0.0f, 0.0f, kBoredomStep, 0.0f, 0.0f, now_ms);
     last_boredom_step_ms_ = now_ms;
   }
+
+  // LOCK 20 / Step 9 direction: sleepiness has its own time rhythm. Until a
+  // wall-clock/day-night rhythm is connected, the first standalone production
+  // behavior is inactivity-driven fatigue. This is monotonic TimeEngine time,
+  // not a random animation trigger.
+  const uint32_t since_sleepiness_step = now_ms - last_sleepiness_step_ms_;
+  if (since_event >= kSleepinessIdleDelayMs &&
+      since_sleepiness_step >= kSleepinessStepIntervalMs) {
+    applyDelta(0.0f, 0.0f, 0.0f, 0.0f, kSleepinessStep, 0.0f, now_ms);
+    last_sleepiness_step_ms_ = now_ms;
+  }
+
   last_tick_ms_ = now_ms;
 }
 
@@ -95,29 +111,31 @@ void HeartEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   last_event_type_ = neuron.type;
   last_event_ms_ = neuron.timestamp_ms;
   last_boredom_step_ms_ = neuron.timestamp_ms;
+  last_sleepiness_step_ms_ = neuron.timestamp_ms;
   const float impact = habituationScaleFor(neuron.type, neuron.timestamp_ms);
 
   switch (neuron.type) {
     case nerve::NeuronType::TOUCH:
       applyDelta(+0.03f * impact, +0.02f * impact, 0.0f,
-                 -0.04f * impact, 0.0f, +0.04f * impact,
+                 -0.04f * impact, -0.04f * impact, +0.04f * impact,
                  neuron.timestamp_ms);
       break;
 
     case nerve::NeuronType::PICKED_UP:
       applyDelta(0.0f, 0.0f, +0.03f * impact, -0.03f * impact,
-                 0.0f, +0.08f * impact, neuron.timestamp_ms);
+                 -0.08f * impact, +0.08f * impact, neuron.timestamp_ms);
       break;
 
     case nerve::NeuronType::SHAKE:
       applyDelta(-0.06f * impact, 0.0f, 0.0f, -0.02f * impact,
-                 0.0f, +0.10f * impact, neuron.timestamp_ms);
+                 -0.12f * impact, +0.10f * impact, neuron.timestamp_ms);
       break;
 
     case nerve::NeuronType::MOTION_DETECTED: {
       const float strength = clampStrength(neuron.payload.scalar);
       applyDelta(0.0f, 0.0f, +0.02f * strength * impact,
-                 -0.01f * strength * impact, 0.0f,
+                 -0.01f * strength * impact,
+                 -0.03f * strength * impact,
                  +0.03f * strength * impact, neuron.timestamp_ms);
       break;
     }
@@ -126,7 +144,8 @@ void HeartEngine::onNeuron(const nerve::SemanticNeuron& neuron,
     case nerve::NeuronType::DARKER: {
       const float strength = clampStrength(neuron.payload.scalar);
       applyDelta(0.0f, 0.0f, +0.01f * strength * impact, 0.0f,
-                 0.0f, +0.02f * strength * impact, neuron.timestamp_ms);
+                 -0.01f * strength * impact,
+                 +0.02f * strength * impact, neuron.timestamp_ms);
       break;
     }
 
