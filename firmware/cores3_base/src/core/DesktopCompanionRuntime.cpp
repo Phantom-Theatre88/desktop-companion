@@ -51,8 +51,12 @@ bool DesktopCompanionRuntime::begin(uint32_t now_ms) {
       nerve::NeuronType::PERSON_PRESENT,
       nerve::NeuronType::FACE_DETECTED,
       nerve::NeuronType::LOUD_SOUND,
-      nerve::NeuronType::PICKED_UP,
+      nerve::NeuronType::TOUCH,
+      nerve::NeuronType::LIFT_STARTED,
       nerve::NeuronType::SHAKE,
+      nerve::NeuronType::MOTION_DETECTED,
+      nerve::NeuronType::BRIGHTER,
+      nerve::NeuronType::DARKER,
   };
 
   for (const auto type : reflex_inputs) {
