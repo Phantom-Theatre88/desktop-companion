@@ -681,3 +681,40 @@ M5側の第一段階は、
 
 聴覚着手は、LOCK 55の「M5単独生命成立を優先」の延長として扱う。従来Step 6の感覚器官追加順を恒久的に廃棄するものではなく、現在の小ゴールである「存在感・対人反応」を優先するための先行実装とする。
 
+## LOCK 60｜ウェイクワード「kibi」実機成立
+
+2026-09-20、CoreS3実機でLOCK 59の第一段階聴覚経路を通過確認した。
+
+実機で確認できた経路は、
+
+**CoreS3 Mic → ESP-SR / MultiNet → WakeWordAdapter → `WAKE_WORD_DETECTED` → Semantic Neuron → Reflex / Ghost / Heart / Behavior → Body Output**
+
+とする。
+
+正式ウェイクワードは引き続き **「kibi」** とする。
+
+実機ログで少なくとも以下を確認した。
+
+- `wakeModel=READY`
+- `VOICE_ACTIVITY` のSemantic Neuron送出
+- `[BODY][ARBITER] WAKE_WORD -> ACCEPT`
+- `[HEART][CHANGE] WAKE_WORD_DETECTED`
+- `[NERVE][MIC] WAKE_WORD_DETECTED word=kibi confidence=1.00`
+- 複数回の「kibi」呼びかけで `WAKE_WORD_DETECTED` が発火
+
+M5側の「自分が呼ばれた」という意味認識は、Pi5や全文ASRなしで成立したものとして扱う。
+
+実装方式は、専用WakeNetモデルを偽装せず、現段階では **ESP-SR MultiNetの単一コマンド認識をWakeWord detectorとしてAdapter境界の内側へ収める**。将来、専用WakeNetモデル等へ交換しても、`WAKE_WORD_DETECTED` 以降のSemantic Neuron / Ghost / Behavior構造を変更しない。
+
+CoreS3 16MB環境では、M5Stack Arduino core 3.3.9のESP-SR標準配置だけでは同梱 `srmodels.bin` が収まらないため、現プロジェクトは以下を正式実装条件として採用する。
+
+- Arduino IDE：`Partition Scheme = ESP SR 16M`
+- プロジェクト内 `firmware/cores3_base/partitions.csv` を使用
+- model領域：`0xC10000 / 0x3E0000`
+- M5Stack core 3.3.9の `srmodels.bin` upload offsetを `0xD10000 → 0xC10000` に補正
+- 補正はrepo内 `patch_m5stack_esp_sr_upload_offset.sh` を使用
+
+M5Stack board package更新で `boards.txt` が上書きされた場合は、上記patchを再適用する。
+
+なお、同日に確認した `PICKED_UP` 誤検出と、低レベルVisionがsleepinessを減らして睡眠遷移を阻害する問題は、ウェイクワード成立とは別の未解決事項として保持する。これらをLOCK 60の成立条件へ混在させない。
+
