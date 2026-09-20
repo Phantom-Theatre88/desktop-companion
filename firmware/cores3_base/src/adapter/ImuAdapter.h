@@ -15,6 +15,9 @@ class ImuAdapter {
 
   const char* debugStateName() const;
   uint8_t debugShakeReversalCount() const { return shake_reversal_count_; }
+  float debugDeltaG() const { return debug_delta_g_; }
+  float debugMagnitudeDeviationG() const { return debug_magnitude_deviation_g_; }
+  bool debugQuiet() const { return debug_quiet_; }
 
  private:
   enum class MotionState : uint8_t {
@@ -53,6 +56,10 @@ class ImuAdapter {
   float last_shake_dz_ = 0.0f;
   uint32_t last_shake_impulse_ms_ = 0;
   uint8_t shake_reversal_count_ = 0;
+
+  float debug_delta_g_ = 0.0f;
+  float debug_magnitude_deviation_g_ = 0.0f;
+  bool debug_quiet_ = false;
 };
 
 }  // namespace adapter
