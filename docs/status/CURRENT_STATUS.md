@@ -358,3 +358,39 @@ Desktop Companion全体としては未完成。
 へ進み、自発行動を成立させる。
 
 ToF4Mは最初の外部感覚であるLOCKを維持しつつ、M5単独生命成立後に接続する。
+
+## 2026-09-20｜CoreS3聴覚・ウェイクワード「kibi」実機通過
+
+LOCK 59に基づくM5側聴覚の第一段階を、CoreS3実機で通過確認した。
+
+現在成立している経路：
+
+**CoreS3 Mic → Voice Activity / ESP-SR MultiNet → WakeWordAdapter → Semantic Neuron → Reflex / Ghost / Heart / Behavior → Body Output**
+
+確認済み：
+
+- CoreS3 Mic 16 kHz入力
+- `VOICE_ACTIVITY` 発火
+- ESP-SRモデル起動：`wakeModel=READY`
+- 正式ウェイクワード **「kibi」**
+- `WAKE_WORD_DETECTED word=kibi confidence=1.00`
+- `WAKE_WORD -> ACCEPT`
+- Heartへの `WAKE_WORD_DETECTED` 反映
+- 複数回の呼びかけで実機発火
+
+M5側で全文ASRは行わない。現在の責務分担は、
+
+**M5 = 耳・反射・身体 / Pi5 = ASR・理解・思考**
+
+を維持する。
+
+ESP-SR実装上、CoreS3 16MBではM5Stack Arduino core 3.3.9標準のESP-SRモデル配置が同梱 `srmodels.bin` と不整合だったため、repo内に専用 `partitions.csv` と upload offset patch helper を追加した。Arduino IDEは `ESP SR 16M` を選択し、model領域は `0xC10000 / 0x3E0000` を使用する。
+
+### 未解決として分離して保持
+
+- IMUの `LIFT_CANDIDATE / PICKED_UP` 誤検出
+- 低レベルVisionイベントがHeartのsleepinessを減らし、睡眠遷移を阻害する問題
+- Pi5側ASR / 発話内容理解 / LLM接続
+
+ウェイクワード経路自体は実機通過として扱い、上記残件と混同しない。
+
