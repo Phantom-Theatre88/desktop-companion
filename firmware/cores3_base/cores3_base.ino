@@ -342,7 +342,10 @@ void captureCameraFrame(uint32_t now_ms, bool startup_probe) {
   // Only dispatch after the camera has released I2C. Failed or known
   // self-motion captures invalidate the baseline and cannot leak stale events.
   const uint32_t delivered_ms = millis();
-  const bool suppress = body_motion_seen && delivered_ms - last_body_motion_ms < 3000;
+  const bool body_suppress =
+      body_motion_seen && delivered_ms - last_body_motion_ms < 3000;
+  const bool neck_suppress = neck_driver.motionRecently(delivered_ms);
+  const bool suppress = body_suppress || neck_suppress;
   if (!capture.captured || !capture.internal_i2c_restored || !vision.valid || suppress) {
     camera_vision.reset();
   } else {
