@@ -87,6 +87,10 @@ bool ImuAdapter::toNeuron(const device::ImuSample& sample,
       delta_g <= kRestDeltaG &&
       magnitude_deviation_g <= kRestMagnitudeDeviationG;
 
+  debug_delta_g_ = delta_g;
+  debug_magnitude_deviation_g_ = magnitude_deviation_g;
+  debug_quiet_ = quiet;
+
   const bool lift_motion =
       delta_g >= kLiftDeltaG ||
       magnitude_deviation_g >= kLiftMagnitudeDeviationG;
