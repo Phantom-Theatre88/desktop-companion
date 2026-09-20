@@ -477,6 +477,9 @@ void setup() {
   face_renderer.begin(M5.Display);
 
   const bool neck_ready = neck_driver.begin(millis());
+  Serial.printf("[BODY][NECK] PY32 servo power: %s version=0x%02X\n",
+                neck_driver.servoPowerReady() ? "ON" : "ERROR",
+                static_cast<unsigned>(neck_driver.servoPowerVersion()));
   Serial.printf("[BODY][NECK] Device driver: %s\n",
                 neck_ready ? "READY" : "ERROR");
 
