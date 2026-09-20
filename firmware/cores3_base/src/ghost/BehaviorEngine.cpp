@@ -230,20 +230,19 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     if (visual_event_type_ == nerve::NeuronType::MOTION_DETECTED) {
       resting_openness = clamp01(resting_openness + 0.10f * amount);
 
-      // Position is now only a tiny supporting cue. The physical face has no
-      // pupils and only a short travel distance, so direction is communicated
-      // primarily by left/right shape contrast rather than slow translation.
-      micro_behavior_.gaze_x = clampSigned(
-          micro_behavior_.gaze_x * (1.0f - 0.85f * amount) +
-          visual_target_x_ * 0.10f * amount);
-      micro_behavior_.gaze_y = clampSigned(
-          micro_behavior_.gaze_y * (1.0f - 0.65f * amount) +
-          visual_target_y_ * 0.08f * amount);
+      // Do not translate the whole eye pair during a Vision direction cue.
+      // On this pupil-less face the short travel distance reads as slow drift,
+      // so direction is expressed by shape only.
+      micro_behavior_.gaze_x = 0.0f;
+      micro_behavior_.gaze_y = 0.0f;
 
-      // Deliberately use the full current EyeShape height range for this
-      // experiment. The attended side becomes clearly tall (1.25), while the
-      // opposite eye clearly squashes (0.60). This is perception/body tuning,
-      // not a personality LOCK.
+      // Camera/image X and the face's screen-left/screen-right naming are
+      // opposite for a robot facing the user. Therefore invert the side used
+      // for the visible cue: motion on camera-right emphasizes screen-left,
+      // and camera-left emphasizes screen-right.
+      //
+      // Use strong silhouette contrast within the existing EyeShape bounds:
+      // attended side = tall + narrow, opposite side = short + wide.
       const float abs_x = visual_target_x_ < 0.0f
           ? -visual_target_x_ : visual_target_x_;
       if (abs_x >= kMotionDirectionDeadzone) {
@@ -251,16 +250,32 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
             (abs_x - kMotionDirectionDeadzone) /
             (1.0f - kMotionDirectionDeadzone);
         const float emphasis = clamp01(normalized) * amount;
+
+        auto emphasizeScreenLeft = [&]() {
+          micro_behavior_.left_shape.height_scale =
+              1.0f + 0.25f * emphasis;
+          micro_behavior_.left_shape.width_scale =
+              1.0f - 0.20f * emphasis;
+          micro_behavior_.right_shape.height_scale =
+              1.0f - 0.40f * emphasis;
+          micro_behavior_.right_shape.width_scale =
+              1.0f + 0.20f * emphasis;
+        };
+        auto emphasizeScreenRight = [&]() {
+          micro_behavior_.right_shape.height_scale =
+              1.0f + 0.25f * emphasis;
+          micro_behavior_.right_shape.width_scale =
+              1.0f - 0.20f * emphasis;
+          micro_behavior_.left_shape.height_scale =
+              1.0f - 0.40f * emphasis;
+          micro_behavior_.left_shape.width_scale =
+              1.0f + 0.20f * emphasis;
+        };
+
         if (visual_target_x_ > 0.0f) {
-          micro_behavior_.right_shape.height_scale =
-              1.0f + 0.25f * emphasis;
-          micro_behavior_.left_shape.height_scale =
-              1.0f - 0.40f * emphasis;
+          emphasizeScreenLeft();
         } else {
-          micro_behavior_.left_shape.height_scale =
-              1.0f + 0.25f * emphasis;
-          micro_behavior_.right_shape.height_scale =
-              1.0f - 0.40f * emphasis;
+          emphasizeScreenRight();
         }
       }
     } else if (visual_event_type_ == nerve::NeuronType::BRIGHTER) {
