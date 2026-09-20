@@ -15,8 +15,14 @@ namespace body {
 // FaceRenderer only draws the already-composed result.
 class BodyOutputComposer {
  public:
+  enum class ArbitrationResult : uint8_t {
+    ACCEPTED = 0,
+    ACCEPTED_VISUAL,
+    IGNORED_LOWER_PRIORITY,
+  };
+
   void begin(uint32_t now_ms);
-  void onReflexIntent(const reflex::ReflexIntent& intent);
+  ArbitrationResult onReflexIntent(const reflex::ReflexIntent& intent);
 
   face::ExpressionParams compose(
       const ghost::MicroBehaviorFrame& behavior,
