@@ -29,11 +29,12 @@ void BodyOutputComposer::begin(uint32_t now_ms) {
   have_visual_reflex_ = false;
 }
 
-void BodyOutputComposer::onReflexIntent(const reflex::ReflexIntent& intent) {
+BodyOutputComposer::ArbitrationResult BodyOutputComposer::onReflexIntent(
+    const reflex::ReflexIntent& intent) {
   if (isVisualCause(intent.cause)) {
     visual_reflex_ = intent;
     have_visual_reflex_ = true;
-    return;
+    return ArbitrationResult::ACCEPTED_VISUAL;
   }
 
   // LOCK 15 / 36:
@@ -44,7 +45,10 @@ void BodyOutputComposer::onReflexIntent(const reflex::ReflexIntent& intent) {
       priorityOf(intent) >= priorityOf(direct_reflex_)) {
     direct_reflex_ = intent;
     have_direct_reflex_ = true;
+    return ArbitrationResult::ACCEPTED;
   }
+
+  return ArbitrationResult::IGNORED_LOWER_PRIORITY;
 }
 
 face::ExpressionParams BodyOutputComposer::compose(
