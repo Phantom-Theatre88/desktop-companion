@@ -16,6 +16,8 @@ class CoreS3NeckDriver {
   void tick(uint32_t now_ms, float yaw_norm, float pitch_norm);
 
   bool available() const { return available_; }
+  bool servoPowerReady() const { return servo_power_ready_; }
+  uint8_t servoPowerVersion() const { return servo_power_version_; }
   bool motionRecently(uint32_t now_ms) const;
 
  private:
@@ -27,6 +29,8 @@ class CoreS3NeckDriver {
                            int16_t low_raw,
                            int16_t high_raw);
 
+  bool enableServoPower();
+  bool updatePy32Bit(uint8_t reg, uint8_t mask, bool enabled);
   void setTorque(bool enabled);
   void writePositions(int16_t yaw_raw, int16_t pitch_raw);
   void syncWrite(uint8_t address,
@@ -37,6 +41,8 @@ class CoreS3NeckDriver {
 
   HardwareSerial serial_{1};
   bool available_ = false;
+  bool servo_power_ready_ = false;
+  uint8_t servo_power_version_ = 0;
   bool torque_enabled_ = false;
   uint32_t last_update_ms_ = 0;
   uint32_t last_motion_command_ms_ = 0;
