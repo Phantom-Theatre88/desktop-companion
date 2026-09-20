@@ -26,6 +26,8 @@ uint32_t last_camera_capture_ms = 0;
 uint32_t last_body_motion_ms = 0;
 bool body_motion_seen = false;
 uint32_t last_recovery_trace_ms = 0;
+const char* last_imu_state_name = nullptr;
+uint8_t last_imu_shake_reversals = 0;
 deskbot::ghost::AutonomousAction last_autonomous_trace_action =
     deskbot::ghost::AutonomousAction::NONE;
 uint32_t last_autonomous_trace_decision_ms = 0;
@@ -239,7 +241,21 @@ void pollTouch(uint32_t now_ms) {
 void pollImu(uint32_t now_ms) {
   const auto sample = imu_driver.sample(now_ms);
   deskbot::nerve::SemanticNeuron neuron;
-  if (!imu_adapter.toNeuron(sample, neuron)) {
+  const bool emitted = imu_adapter.toNeuron(sample, neuron);
+
+  const char* state_name = imu_adapter.debugStateName();
+  const uint8_t reversals = imu_adapter.debugShakeReversalCount();
+  if (last_imu_state_name == nullptr ||
+      strcmp(last_imu_state_name, state_name) != 0 ||
+      reversals != last_imu_shake_reversals) {
+    Serial.printf("[IMU][STATE] %s shakeReversals=%u\n",
+                  state_name,
+                  static_cast<unsigned>(reversals));
+    last_imu_state_name = state_name;
+    last_imu_shake_reversals = reversals;
+  }
+
+  if (!emitted) {
     return;
   }
 
