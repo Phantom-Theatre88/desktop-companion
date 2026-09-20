@@ -27,6 +27,7 @@ enum class NeuronType : uint16_t {
   FACE_LOST,
   LOUD_SOUND,
   VOICE_ACTIVITY,
+  WAKE_WORD_DETECTED,
 
   // Higher-level requests / states
   LOOK_AT,
