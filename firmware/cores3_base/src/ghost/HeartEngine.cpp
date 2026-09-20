@@ -147,9 +147,13 @@ void HeartEngine::onNeuron(const nerve::SemanticNeuron& neuron,
 
     case nerve::NeuronType::MOTION_DETECTED: {
       const float strength = clampStrength(neuron.payload.scalar);
+      // Ambient low-level vision may attract attention/curiosity, but it must
+      // not erase fatigue. Otherwise camera motion can keep DeskRobo awake
+      // forever even though Behavior correctly refuses to treat it as a wake
+      // stimulus.
       applyDelta(0.0f, 0.0f, +0.02f * strength * impact,
                  -0.01f * strength * impact,
-                 -0.03f * strength * impact,
+                 0.0f,
                  +0.03f * strength * impact, neuron.timestamp_ms);
       break;
     }
@@ -170,7 +174,7 @@ void HeartEngine::onNeuron(const nerve::SemanticNeuron& neuron,
     case nerve::NeuronType::DARKER: {
       const float strength = clampStrength(neuron.payload.scalar);
       applyDelta(0.0f, 0.0f, +0.01f * strength * impact, 0.0f,
-                 -0.01f * strength * impact,
+                 0.0f,
                  +0.02f * strength * impact, neuron.timestamp_ms);
       break;
     }
