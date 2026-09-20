@@ -1,4 +1,5 @@
 #include <M5Unified.h>
+#include <ESP_SR.h>
 #include <M5GFX.h>
 
 #include "src/adapter/EspSrKibiDetector.h"
