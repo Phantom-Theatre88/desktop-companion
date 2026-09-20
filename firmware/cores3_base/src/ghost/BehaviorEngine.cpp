@@ -23,6 +23,7 @@ constexpr uint32_t kWakeHoldMs = 15000;
 constexpr uint32_t kSweatAfterShakeMs = 1800;
 constexpr uint32_t kNoticeEffectMs = 900;
 constexpr uint32_t kQuestionEffectMs = 1400;
+constexpr uint32_t kWakeWordBodyResponseMs = 1100;
 constexpr float kCuriousThreshold = 0.64f;
 constexpr float kBoredThreshold = 0.25f;
 constexpr float kDrowsySleepinessThreshold = 0.28f;
@@ -42,6 +43,8 @@ void BehaviorEngine::begin(uint32_t now_ms) {
   started_ms_ = now_ms;
   last_event_ms_ = now_ms;
   last_event_type_ = nerve::NeuronType::NONE;
+  wake_word_response_started_ms_ = 0;
+  wake_word_response_was_sleeping_ = false;
   autonomous_action_ = AutonomousAction::NONE;
   life_state_ = LifeState::AWAKE;
   awake_hold_until_ms_ = now_ms;
@@ -115,6 +118,12 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
       neuron.type == nerve::NeuronType::SHAKE ||
       neuron.type == nerve::NeuronType::WAKE_WORD_DETECTED;
   if (wake_stimulus) {
+    if (neuron.type == nerve::NeuronType::WAKE_WORD_DETECTED) {
+      wake_word_response_was_sleeping_ =
+          life_state_ == LifeState::SLEEPING ||
+          life_state_ == LifeState::DROWSY;
+      wake_word_response_started_ms_ = handled_ms;
+    }
     life_state_ = LifeState::AWAKE;
     awake_hold_until_ms_ = handled_ms + kWakeHoldMs;
   }
@@ -125,7 +134,8 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   //   autonomous decision underneath, so it can resume if time remains.
   if (neuron.type == nerve::NeuronType::TOUCH ||
       neuron.type == nerve::NeuronType::PICKED_UP ||
-      neuron.type == nerve::NeuronType::SHAKE) {
+      neuron.type == nerve::NeuronType::SHAKE ||
+      neuron.type == nerve::NeuronType::WAKE_WORD_DETECTED) {
     if (autonomous_action_ != AutonomousAction::NONE) {
       markAutonomousLifecycle(AutonomousLifecycle::CANCEL, handled_ms);
     }
@@ -393,6 +403,43 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
       micro_behavior_.left_shape.upper_lid = 0.05f + 0.08f * sip;
       micro_behavior_.right_shape.upper_lid =
           micro_behavior_.left_shape.upper_lid;
+    }
+  }
+
+  // Interpersonal wake-word response: "ん？"
+  // Hearing our own name briefly overrides the idle posture without becoming a
+  // canned face. Sleeping/drowsy starts a little slower and raises the head
+  // farther; awake state answers with a smaller attentive movement.
+  if (wake_word_response_started_ms_ != 0) {
+    const uint32_t wake_age = now_ms - wake_word_response_started_ms_;
+    if (wake_age < kWakeWordBodyResponseMs) {
+      const float p = clamp01(
+          static_cast<float>(wake_age) /
+          static_cast<float>(kWakeWordBodyResponseMs));
+      const float envelope = sinf(p * 3.14159265f);
+      const float sleepy_scale =
+          wake_word_response_was_sleeping_ ? 1.0f : 0.65f;
+
+      resting_openness = clamp01(
+          resting_openness + (0.12f + 0.10f * sleepy_scale) * envelope);
+      micro_behavior_.left_shape.width_scale += 0.05f * envelope;
+      micro_behavior_.right_shape.width_scale += 0.05f * envelope;
+      micro_behavior_.left_shape.height_scale += 0.07f * envelope;
+      micro_behavior_.right_shape.height_scale += 0.07f * envelope;
+
+      // Lift the head from sleepy posture and add a tiny questioning cant.
+      micro_behavior_.neck_pitch = clampSigned(
+          micro_behavior_.neck_pitch + (0.18f + 0.14f * sleepy_scale) * envelope);
+      micro_behavior_.neck_yaw = clampSigned(
+          micro_behavior_.neck_yaw +
+          sinf(p * 3.14159265f * 2.0f) * 0.08f * envelope);
+
+      // Eyes settle slightly upward as attention moves toward the caller.
+      micro_behavior_.gaze_y = clampSigned(
+          micro_behavior_.gaze_y - 0.05f * envelope);
+    } else {
+      wake_word_response_started_ms_ = 0;
+      wake_word_response_was_sleeping_ = false;
     }
   }
 
