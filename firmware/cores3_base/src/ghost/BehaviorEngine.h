@@ -32,6 +32,7 @@ struct MicroBehaviorFrame {
   face::EyeShape left_shape{}, right_shape{};
   float eye_spacing_scale = 1.0f;
   float jitter_x = 0.0f, jitter_y = 0.0f;
+  float mouth_open = 0.0f;
   bool blink_active = false;
   uint32_t generated_ms = 0;
 };
