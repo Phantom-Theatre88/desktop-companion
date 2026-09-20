@@ -19,7 +19,7 @@ constexpr uint32_t kCuriousLookMs = 1800;
 constexpr uint32_t kBoredScanMs = 2600;
 constexpr uint32_t kYawnMs = 3000;
 constexpr uint32_t kCoffeeBreakMs = 4200;
-constexpr uint32_t kWakeHoldMs = 60000;
+constexpr uint32_t kWakeHoldMs = 15000;
 constexpr float kCuriousThreshold = 0.64f;
 constexpr float kBoredThreshold = 0.25f;
 constexpr float kDrowsySleepinessThreshold = 0.28f;
@@ -131,6 +131,8 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   micro_behavior_.mouth_open = 0.0f;
   micro_behavior_.prop = face::VisualProp::NONE;
   micro_behavior_.prop_progress = 0.0f;
+  micro_behavior_.sleep_zzz = false;
+  micro_behavior_.sleep_zzz_phase = 0.0f;
   micro_behavior_.neck_yaw = 0.0f;
   micro_behavior_.neck_pitch = 0.0f;
 
@@ -340,6 +342,8 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     resting_openness = 0.0f;
     micro_behavior_.mouth_open = 0.0f;
     micro_behavior_.prop = face::VisualProp::NONE;
+    micro_behavior_.sleep_zzz = true;
+    micro_behavior_.sleep_zzz_phase = fmodf(t * 0.18f, 1.0f);
     micro_behavior_.neck_yaw = clampSigned(sinf(t * 0.22f) * 0.05f);
     micro_behavior_.neck_pitch =
         clampSigned(-0.55f + sinf(t * 0.36f) * 0.035f);
