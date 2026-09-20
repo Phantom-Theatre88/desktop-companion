@@ -1,6 +1,6 @@
 # M5Stack Desktop Companion 実装Step聖典 v0.3（2026-09-18改訂）
 
-更新日: 2026-09-18
+更新日: 2026-09-20
 
 ## 0. この文書の位置づけ
 
@@ -221,6 +221,28 @@ LOCK 53適用後の基本順は、
 Touch / IMUはLOCK 52のCoreS3単体DeskRobo工程で既に先行接続済みとして扱う。
 
 各感覚は生データ取得だけで完了にせず、意味化・反射・Heart・Memory・必要時Pi5・行動まで接続する。
+
+## Step 6-A｜聴覚先行実装（LOCK 59 / 60）
+
+LOCK 55のM5単独生命成立を優先するため、従来Step 6の外部感覚追加順を恒久的に破棄せず、対人反応に直結するCoreS3内蔵Micを先行実装する。
+
+基本経路：
+
+**CoreS3 Mic → Device Driver → Voice Activity / Wake Word → Semantic Neuron → Synapse → Reflex / Ghost / Heart / Behavior → Body Output**
+
+意味は少なくとも以下を分離する。
+
+- `LOUD_SOUND`
+- `VOICE_ACTIVITY`
+- `WAKE_WORD_DETECTED`
+
+正式ウェイクワードは **「kibi」**。
+
+2026-09-20、CoreS3実機で `wakeModel=READY`、`VOICE_ACTIVITY`、`WAKE_WORD_DETECTED word=kibi confidence=1.00`、`WAKE_WORD -> ACCEPT`、Heart反映を複数回確認し、この縦貫通を実機通過扱いとした。
+
+現段階の認識器はESP-SR MultiNet単一コマンドをWakeWordAdapter境界の内側で使用する。認識器の具体実装は交換可能とし、将来専用WakeNet等へ変更してもSemantic Neuron以降へ漏らさない。
+
+全文ASR・発話理解・LLMはPi5側の責務とする。
 
 ## Step 7｜反射・Heart・Behaviorの能力拡張
 
