@@ -206,12 +206,36 @@ void traceVisionDelivery(const deskbot::nerve::SemanticNeuron& neuron) {
                 behavior_ok ? "YES" : "NO");
 }
 
+const char* reflexCauseName(deskbot::nerve::NeuronType type) {
+  switch (type) {
+    case deskbot::nerve::NeuronType::TOUCH: return "TOUCH";
+    case deskbot::nerve::NeuronType::LIFT_STARTED: return "LIFT_STARTED";
+    case deskbot::nerve::NeuronType::SHAKE: return "SHAKE";
+    case deskbot::nerve::NeuronType::MOTION_DETECTED: return "MOTION";
+    case deskbot::nerve::NeuronType::BRIGHTER: return "BRIGHTER";
+    case deskbot::nerve::NeuronType::DARKER: return "DARKER";
+    default: return "OTHER";
+  }
+}
+
 void onReflexIntent(const deskbot::reflex::ReflexIntent& intent,
                     void* context) {
   auto* output = static_cast<deskbot::body::BodyOutputComposer*>(context);
-  if (output != nullptr) {
-    output->onReflexIntent(intent);
+  if (output == nullptr) {
+    return;
   }
+
+  const auto result = output->onReflexIntent(intent);
+  const char* decision =
+      result == deskbot::body::BodyOutputComposer::ArbitrationResult::ACCEPTED
+          ? "ACCEPT"
+          : (result == deskbot::body::BodyOutputComposer::ArbitrationResult::ACCEPTED_VISUAL
+                 ? "ACCEPT_VISUAL"
+                 : "IGNORE_LOWER");
+
+  Serial.printf("[BODY][ARBITER] %s -> %s\n",
+                reflexCauseName(intent.cause),
+                decision);
 }
 
 void renderLivingFace(uint32_t now_ms) {
