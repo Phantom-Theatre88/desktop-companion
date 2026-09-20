@@ -117,7 +117,8 @@ void HeartEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   const bool meaningful_interaction =
       neuron.type == nerve::NeuronType::TOUCH ||
       neuron.type == nerve::NeuronType::PICKED_UP ||
-      neuron.type == nerve::NeuronType::SHAKE;
+      neuron.type == nerve::NeuronType::SHAKE ||
+      neuron.type == nerve::NeuronType::WAKE_WORD_DETECTED;
 
   if (meaningful_interaction) {
     last_meaningful_stimulus_ms_ = neuron.timestamp_ms;
@@ -152,6 +153,18 @@ void HeartEngine::onNeuron(const nerve::SemanticNeuron& neuron,
                  +0.03f * strength * impact, neuron.timestamp_ms);
       break;
     }
+
+    case nerve::NeuronType::WAKE_WORD_DETECTED:
+      applyDelta(0.0f, 0.0f, +0.03f * impact,
+                 -0.03f * impact, -0.05f * impact,
+                 +0.10f * impact, neuron.timestamp_ms);
+      break;
+
+    case nerve::NeuronType::VOICE_ACTIVITY:
+      applyDelta(0.0f, 0.0f, +0.01f * impact,
+                 0.0f, 0.0f, +0.03f * impact,
+                 neuron.timestamp_ms);
+      break;
 
     case nerve::NeuronType::BRIGHTER:
     case nerve::NeuronType::DARKER: {
@@ -217,6 +230,9 @@ uint8_t HeartEngine::stimulusFamily(nerve::NeuronType type) {
     case nerve::NeuronType::BRIGHTER:
     case nerve::NeuronType::DARKER:
       return 3;  // low-level vision
+    case nerve::NeuronType::VOICE_ACTIVITY:
+    case nerve::NeuronType::WAKE_WORD_DETECTED:
+      return 4;  // auditory / call
     default:
       return 0;
   }
