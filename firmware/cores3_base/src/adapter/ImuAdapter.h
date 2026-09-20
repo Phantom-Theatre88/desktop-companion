@@ -13,6 +13,9 @@ class ImuAdapter {
   bool toNeuron(const device::ImuSample& sample,
                 nerve::SemanticNeuron& out_neuron);
 
+  const char* debugStateName() const;
+  uint8_t debugShakeReversalCount() const { return shake_reversal_count_; }
+
  private:
   enum class MotionState : uint8_t {
     SEEKING_REST = 0,
@@ -24,6 +27,7 @@ class ImuAdapter {
 
   static float magnitude(float x, float y, float z);
 
+  static const char* motionStateName(MotionState state);
   void resetRestDetection(uint32_t now_ms);
   void resetShakePattern();
   bool registerShakeImpulse(float dx, float dy, float dz, uint32_t now_ms);
