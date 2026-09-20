@@ -35,15 +35,14 @@ constexpr uint32_t kSetdownQuietConfirmMs = 700;
 constexpr uint32_t kSetdownCandidateTimeoutMs = 1800;
 
 // Efference-copy compensation:
-// A commanded pitch rotation changes the gravity vector seen by the head IMU
-// even when the robot itself has not been moved. Convert that known command
-// into a finite delta-g budget and subtract it from subsequent direction-change
-// observations. Yaw does not change gravity direction for an upright base.
-// Magnitude deviation is never cancelled, so real translational acceleration
-// can still trigger pickup/shake while the neck moves.
-constexpr uint32_t kSelfMotionBudgetLifetimeMs = 260;
-constexpr float kSelfMotionBudgetGain = 1.25f;
-constexpr float kSelfMotionBudgetMaxG = 0.22f;
+// Predict how the gravity vector should rotate in IMU coordinates from our own
+// commanded neck pitch, then subtract that VECTOR from the measured change.
+// This is intentionally not a scalar "ignore window" or delta-g budget.
+// The SCS command uses a short move time; model it over a slightly wider window
+// so two or three IMU samples can share the predicted rotation.
+constexpr uint32_t kSelfMotionModelMs = 60;
+constexpr float kSelfMotionMinLearnDeg = 0.35f;
+constexpr float kSelfMotionLearnMarginG = 0.0025f;
 
 }  // namespace
 
@@ -65,8 +64,10 @@ void ImuAdapter::begin(uint32_t now_ms) {
   resetShakePattern();
 
   last_self_motion_sequence_ = 0;
-  self_motion_budget_expire_ms_ = 0;
-  self_motion_delta_budget_g_ = 0.0f;
+  self_motion_command_ms_ = 0;
+  self_motion_pitch_delta_deg_ = 0.0f;
+  self_motion_last_progress_ = 1.0f;
+  pitch_gravity_sign_ = 0;
 }
 
 void ImuAdapter::setSelfMotionCommand(
@@ -77,22 +78,9 @@ void ImuAdapter::setSelfMotionCommand(
   }
 
   last_self_motion_sequence_ = command.sequence;
-
-  const float pitch_rad =
-      fabsf(command.pitch_delta_deg) * 3.14159265f / 180.0f;
-  const float expected_gravity_delta_g =
-      2.0f * sinf(pitch_rad * 0.5f);
-
-  float budget =
-      self_motion_delta_budget_g_ +
-      expected_gravity_delta_g * kSelfMotionBudgetGain;
-  if (budget > kSelfMotionBudgetMaxG) {
-    budget = kSelfMotionBudgetMaxG;
-  }
-
-  self_motion_delta_budget_g_ = budget;
-  self_motion_budget_expire_ms_ =
-      command.command_ms + kSelfMotionBudgetLifetimeMs;
+  self_motion_command_ms_ = command.command_ms;
+  self_motion_pitch_delta_deg_ = command.pitchDeltaDeg();
+  self_motion_last_progress_ = 0.0f;
 }
 
 bool ImuAdapter::toNeuron(const device::ImuSample& sample,
@@ -110,33 +98,94 @@ bool ImuAdapter::toNeuron(const device::ImuSample& sample,
     return false;
   }
 
-  const float dx = sample.ax - previous_ax_;
-  const float dy = sample.ay - previous_ay_;
-  const float dz = sample.az - previous_az_;
-  const float raw_delta_g = magnitude(dx, dy, dz);
+  const float raw_dx = sample.ax - previous_ax_;
+  const float raw_dy = sample.ay - previous_ay_;
+  const float raw_dz = sample.az - previous_az_;
+  const float raw_delta_g = magnitude(raw_dx, raw_dy, raw_dz);
   const float accel_g = magnitude(sample.ax, sample.ay, sample.az);
   const float magnitude_deviation_g = fabsf(accel_g - 1.0f);
+
+  float predicted_x = previous_ax_;
+  float predicted_y = previous_ay_;
+  float predicted_z = previous_az_;
+  float compensation_g = 0.0f;
+
+  // Convert this sample's fraction of our commanded pitch into an expected
+  // gravity-vector rotation. We learn the physical servo/IMU sign once from
+  // the first clear movement by comparing +pitch vs -pitch predictions.
+  if (self_motion_last_progress_ < 1.0f &&
+      self_motion_command_ms_ != 0) {
+    const uint32_t elapsed_ms = sample.timestamp_ms - self_motion_command_ms_;
+    float progress =
+        static_cast<float>(elapsed_ms) /
+        static_cast<float>(kSelfMotionModelMs);
+    if (progress < 0.0f) progress = 0.0f;
+    if (progress > 1.0f) progress = 1.0f;
+
+    const float progress_delta = progress - self_motion_last_progress_;
+    if (progress_delta > 0.0f) {
+      const float incremental_pitch_deg =
+          self_motion_pitch_delta_deg_ * progress_delta;
+      const float angle_rad =
+          incremental_pitch_deg * 3.14159265f / 180.0f;
+
+      float plus_x = previous_ax_;
+      float plus_y = previous_ay_;
+      float plus_z = previous_az_;
+      float minus_x = previous_ax_;
+      float minus_y = previous_ay_;
+      float minus_z = previous_az_;
+
+      rotateAroundX(previous_ax_, previous_ay_, previous_az_,
+                    angle_rad, plus_x, plus_y, plus_z);
+      rotateAroundX(previous_ax_, previous_ay_, previous_az_,
+                    -angle_rad, minus_x, minus_y, minus_z);
+
+      if (pitch_gravity_sign_ == 0 &&
+          fabsf(incremental_pitch_deg) >= kSelfMotionMinLearnDeg) {
+        const float plus_error =
+            magnitude(sample.ax - plus_x,
+                      sample.ay - plus_y,
+                      sample.az - plus_z);
+        const float minus_error =
+            magnitude(sample.ax - minus_x,
+                      sample.ay - minus_y,
+                      sample.az - minus_z);
+        if (fabsf(plus_error - minus_error) >= kSelfMotionLearnMarginG) {
+          pitch_gravity_sign_ = plus_error < minus_error ? 1 : -1;
+        }
+      }
+
+      const int8_t sign = pitch_gravity_sign_ == 0 ? 1 : pitch_gravity_sign_;
+      if (sign > 0) {
+        predicted_x = plus_x;
+        predicted_y = plus_y;
+        predicted_z = plus_z;
+      } else {
+        predicted_x = minus_x;
+        predicted_y = minus_y;
+        predicted_z = minus_z;
+      }
+
+      compensation_g =
+          magnitude(predicted_x - previous_ax_,
+                    predicted_y - previous_ay_,
+                    predicted_z - previous_az_);
+    }
+
+    self_motion_last_progress_ = progress;
+  }
+
+  // External-motion residual = measured acceleration vector minus the vector
+  // expected from our own neck rotation.
+  const float dx = sample.ax - predicted_x;
+  const float dy = sample.ay - predicted_y;
+  const float dz = sample.az - predicted_z;
+  const float delta_g = magnitude(dx, dy, dz);
 
   previous_ax_ = sample.ax;
   previous_ay_ = sample.ay;
   previous_az_ = sample.az;
-
-  if (self_motion_delta_budget_g_ > 0.0f &&
-      static_cast<int32_t>(
-          self_motion_budget_expire_ms_ - sample.timestamp_ms) <= 0) {
-    self_motion_delta_budget_g_ = 0.0f;
-  }
-
-  float cancelled_g = 0.0f;
-  if (self_motion_delta_budget_g_ > 0.0f) {
-    cancelled_g =
-        raw_delta_g < self_motion_delta_budget_g_
-            ? raw_delta_g
-            : self_motion_delta_budget_g_;
-    self_motion_delta_budget_g_ -= cancelled_g;
-  }
-
-  const float delta_g = raw_delta_g - cancelled_g;
 
   const float motion_strength =
       delta_g > magnitude_deviation_g ? delta_g : magnitude_deviation_g;
@@ -146,7 +195,7 @@ bool ImuAdapter::toNeuron(const device::ImuSample& sample,
       magnitude_deviation_g <= kRestMagnitudeDeviationG;
 
   debug_raw_delta_g_ = raw_delta_g;
-  debug_self_motion_compensation_g_ = cancelled_g;
+  debug_self_motion_compensation_g_ = compensation_g;
   debug_delta_g_ = delta_g;
   debug_magnitude_deviation_g_ = magnitude_deviation_g;
   debug_quiet_ = quiet;
@@ -389,6 +438,20 @@ const char* ImuAdapter::motionStateName(MotionState state) {
 
 const char* ImuAdapter::debugStateName() const {
   return motionStateName(motion_state_);
+}
+
+void ImuAdapter::rotateAroundX(float x,
+                               float y,
+                               float z,
+                               float angle_rad,
+                               float& out_x,
+                               float& out_y,
+                               float& out_z) {
+  const float c = cosf(angle_rad);
+  const float s = sinf(angle_rad);
+  out_x = x;
+  out_y = (y * c) - (z * s);
+  out_z = (y * s) + (z * c);
 }
 
 float ImuAdapter::magnitude(float x, float y, float z) {
