@@ -5,10 +5,16 @@
     (defined(ARDUINO_PARTITION_esp_sr_8) || \
      defined(ARDUINO_PARTITION_esp_sr_16) || \
      defined(ARDUINO_PARTITION_esp_sr_32)) && \
-    __has_include("esp32-hal-sr.h")
+    __has_include("esp32-hal-sr.h") && __has_include(<ESP_SR.h>)
 
 #define DESKBOT_HAS_ESP_SR_KIBI 1
 
+// Pull in Arduino-ESP32's ESP_SR library explicitly. Besides exposing the
+// speech-recognition wrapper, this is what makes the Arduino build hook copy
+// the bundled srmodels.bin into the sketch build directory for esp_sr_*
+// partition uploads. Without this dependency, compilation can succeed but
+// upload fails because srmodels.bin is missing.
+#include <ESP_SR.h>
 #include "esp32-hal-sr.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/stream_buffer.h"
