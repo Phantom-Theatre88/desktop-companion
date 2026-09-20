@@ -21,7 +21,7 @@ constexpr uint32_t kMotionAttackMs = 120;
 constexpr uint32_t kMotionHoldMs = 300;
 constexpr uint32_t kMotionReleaseMs =
     kVisualResponseMs - kMotionAttackMs - kMotionHoldMs;
-constexpr float kMotionDirectionDeadzone = 0.20f;
+constexpr float kMotionDirectionDeadzone = 0.12f;
 constexpr uint32_t kAutonomousDecisionIntervalMs = 15000;
 constexpr uint32_t kCuriousLookMs = 1800;
 constexpr uint32_t kBoredScanMs = 2600;
@@ -121,7 +121,7 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   // Ghost/Behavior rather than being decorative noise.
   const float t = static_cast<float>(now_ms - started_ms_) * 0.001f;
   const float gaze_energy = 0.05f + (heart.curiosity * 0.10f) + (heart.attention * 0.05f);
-  micro_behavior_.gaze_x = clampSigned(sinf(t * 0.47f) * gaze_energy);
+  micro_behavior_.gaze_x = 0.0f;
   micro_behavior_.gaze_y = clampSigned(sinf((t * 0.31f) + 1.2f) * gaze_energy * 0.45f);
 
   // LOCK 52: internal senses should become visible body responses through the
@@ -246,10 +246,10 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
       const float abs_x = visual_target_x_ < 0.0f
           ? -visual_target_x_ : visual_target_x_;
       if (abs_x >= kMotionDirectionDeadzone) {
-        const float normalized =
-            (abs_x - kMotionDirectionDeadzone) /
-            (1.0f - kMotionDirectionDeadzone);
-        const float emphasis = clamp01(normalized) * amount;
+        // Once the direction is trustworthy enough to cross the deadzone,
+        // show it clearly. Do not weaken the cue merely because the blob
+        // center is only moderately off-center.
+        const float emphasis = amount;
 
         auto emphasizeScreenLeft = [&]() {
           micro_behavior_.left_shape.height_scale =
@@ -302,8 +302,7 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
       const float p = clamp01(
           static_cast<float>(autonomous_age) / static_cast<float>(kCuriousLookMs));
       const float envelope = sinf(p * 3.14159265f);
-      micro_behavior_.gaze_x = clampSigned(
-          micro_behavior_.gaze_x + autonomous_direction_ * 0.38f * envelope);
+      micro_behavior_.gaze_x = 0.0f;
       micro_behavior_.gaze_y = clampSigned(
           micro_behavior_.gaze_y - 0.08f * envelope);
       micro_behavior_.left_shape.width_scale = 1.0f + 0.06f * envelope;
@@ -314,7 +313,7 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
           static_cast<float>(autonomous_age) / static_cast<float>(kBoredScanMs));
       const float phase = p * 6.28318531f;
       const float scan_amount = 0.32f + heart.boredom * 0.18f;
-      micro_behavior_.gaze_x = clampSigned(sinf(phase) * scan_amount);
+      micro_behavior_.gaze_x = 0.0f;
       micro_behavior_.gaze_y = clampSigned(cosf(phase) * 0.05f);
       micro_behavior_.left_shape.upper_lid = 0.05f + heart.boredom * 0.05f;
       micro_behavior_.right_shape.upper_lid = micro_behavior_.left_shape.upper_lid;
