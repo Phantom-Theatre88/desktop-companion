@@ -118,7 +118,7 @@ M5Stack側だけでも、感覚・反射・Heart・基本行動が継続し、�
 
 の順で独自構築する。
 
-`stack-chan-ko`、M5Stack/StackChan、Dotty StackChan、stackchan-local、M5Stack_RoboEyes、Xiaozhi、旧Yuki実装等は、初期基盤へ入れない。
+M5Stack/StackChan、Dotty StackChan、stackchan-local、M5Stack_RoboEyes、Xiaozhi、旧Yuki実装等は、初期基盤へ入れない。
 
 ## 15. 既存OSSは後段の参考・候補として扱う
 
