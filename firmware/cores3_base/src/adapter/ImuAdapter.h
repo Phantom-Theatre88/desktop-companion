@@ -10,6 +10,7 @@ namespace adapter {
 class ImuAdapter {
  public:
   void begin(uint32_t now_ms);
+  void setSelfMotionActive(bool active) { self_motion_active_ = active; }
   bool toNeuron(const device::ImuSample& sample,
                 nerve::SemanticNeuron& out_neuron);
 
@@ -60,6 +61,7 @@ class ImuAdapter {
   float debug_delta_g_ = 0.0f;
   float debug_magnitude_deviation_g_ = 0.0f;
   bool debug_quiet_ = false;
+  bool self_motion_active_ = false;
 };
 
 }  // namespace adapter
