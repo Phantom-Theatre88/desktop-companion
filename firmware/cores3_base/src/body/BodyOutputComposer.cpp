@@ -51,11 +51,13 @@ BodyOutputComposer::ArbitrationResult BodyOutputComposer::onReflexIntent(
   return ArbitrationResult::IGNORED_LOWER_PRIORITY;
 }
 
-face::ExpressionParams BodyOutputComposer::compose(
+BodyFrame BodyOutputComposer::compose(
     const ghost::MicroBehaviorFrame& behavior,
     uint32_t now_ms) const {
   // Heart/Behavior is the continuous base layer.
-  auto expression = face::FaceRenderer::neutral();
+  BodyFrame body;
+  auto& expression = body.face;
+  expression = face::FaceRenderer::neutral();
   static_cast<face::EyeShape&>(expression.left) = behavior.left_shape;
   static_cast<face::EyeShape&>(expression.right) = behavior.right_shape;
   expression.spacing_scale = behavior.eye_spacing_scale;
@@ -68,6 +70,8 @@ face::ExpressionParams BodyOutputComposer::compose(
       clamp01(behavior.eye_openness + behavior.right_eye_bias);
   expression.offset_x = clampSigned(behavior.gaze_x);
   expression.offset_y = clampSigned(behavior.gaze_y);
+  body.neck_yaw = clampSigned(behavior.neck_yaw);
+  body.neck_pitch = clampSigned(behavior.neck_pitch);
 
   // Strong/direct body reflexes have output priority over low-level visual
   // reflexes. The underlying Heart/Behavior frame continues to exist and is
@@ -90,24 +94,25 @@ face::ExpressionParams BodyOutputComposer::compose(
         break;
     }
     if (direct_active) {
-      applyDirectReflex(expression, direct_reflex_, now_ms);
+      applyDirectReflex(body, direct_reflex_, now_ms);
     }
   }
 
   if (!direct_active && have_visual_reflex_) {
     const uint32_t age = now_ms - visual_reflex_.created_ms;
     if (age < kVisualResponseMs) {
-      applyVisualReflex(expression, visual_reflex_, now_ms);
+      applyVisualReflex(body, visual_reflex_, now_ms);
     }
   }
 
-  return expression;
+  return body;
 }
 
 void BodyOutputComposer::applyDirectReflex(
-    face::ExpressionParams& expression,
+    BodyFrame& body,
     const reflex::ReflexIntent& intent,
     uint32_t now_ms) const {
+  auto& expression = body.face;
   const uint32_t age = now_ms - intent.created_ms;
 
   if (intent.type == reflex::ReflexIntentType::TOUCH_RESPONSE) {
@@ -126,6 +131,7 @@ void BodyOutputComposer::applyDirectReflex(
     expression.right.openness = clamp01(expression.right.openness + 0.10f);
     expression.offset_x *= 0.35f;
     expression.offset_y = clampSigned(expression.offset_y - 0.08f);
+    body.neck_pitch = clampSigned(body.neck_pitch - 0.10f * a);
     return;
   }
 
@@ -156,6 +162,7 @@ void BodyOutputComposer::applyDirectReflex(
           1.0f - static_cast<float>(age) /
                      static_cast<float>(kLiftStartMouthMs));
     }
+    body.neck_pitch = clampSigned(body.neck_pitch - 0.28f * a);
     return;
   }
 
@@ -178,13 +185,18 @@ void BodyOutputComposer::applyDirectReflex(
     const float shake_bias = sinf(static_cast<float>(age) * 0.045f) * 0.05f;
     expression.left.openness = clamp01(expression.left.openness + shake_bias);
     expression.right.openness = clamp01(expression.right.openness - shake_bias);
+    body.neck_yaw =
+        clampSigned(body.neck_yaw + sinf(phase) * 0.35f * a);
+    body.neck_pitch =
+        clampSigned(body.neck_pitch + sinf(phase * 0.7f) * 0.12f * a);
   }
 }
 
 void BodyOutputComposer::applyVisualReflex(
-    face::ExpressionParams& expression,
+    BodyFrame& body,
     const reflex::ReflexIntent& intent,
     uint32_t now_ms) const {
+  auto& expression = body.face;
   const uint32_t age = now_ms - intent.created_ms;
 
   if (intent.cause == nerve::NeuronType::MOTION_DETECTED) {
@@ -214,6 +226,10 @@ void BodyOutputComposer::applyVisualReflex(
 
     const float x =
         clampSigned(static_cast<float>(intent.payload.x) / 1000.0f);
+    const float y =
+        clampSigned(static_cast<float>(intent.payload.y) / 1000.0f);
+    body.neck_yaw = clampSigned(-x * 0.55f * amount);
+    body.neck_pitch = clampSigned(y * 0.28f * amount);
     const float abs_x = x < 0.0f ? -x : x;
     if (abs_x >= kMotionDirectionDeadzone) {
       const float emphasis = amount;
