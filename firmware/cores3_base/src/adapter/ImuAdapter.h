@@ -25,6 +25,8 @@ class ImuAdapter {
   static float magnitude(float x, float y, float z);
 
   void resetRestDetection(uint32_t now_ms);
+  void resetShakePattern();
+  bool registerShakeImpulse(float dx, float dy, float dz, uint32_t now_ms);
 
   bool has_previous_ = false;
   float previous_ax_ = 0.0f;
@@ -40,6 +42,13 @@ class ImuAdapter {
 
   uint32_t pickup_suppress_until_ms_ = 0;
   uint32_t last_shake_ms_ = 0;
+
+  bool have_shake_impulse_ = false;
+  float last_shake_dx_ = 0.0f;
+  float last_shake_dy_ = 0.0f;
+  float last_shake_dz_ = 0.0f;
+  uint32_t last_shake_impulse_ms_ = 0;
+  uint8_t shake_reversal_count_ = 0;
 };
 
 }  // namespace adapter
