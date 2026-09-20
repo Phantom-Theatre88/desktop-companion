@@ -97,6 +97,11 @@ class BehaviorEngine {
   uint32_t started_ms_ = 0;
   uint32_t last_event_ms_ = 0;
   nerve::NeuronType last_event_type_ = nerve::NeuronType::NONE;
+
+  // Short interpersonal body response after hearing our own name.
+  // This is Behavior state, not a fixed expression preset.
+  uint32_t wake_word_response_started_ms_ = 0;
+  bool wake_word_response_was_sleeping_ = false;
   AutonomousAction autonomous_action_ = AutonomousAction::NONE;
   LifeState life_state_ = LifeState::AWAKE;
   uint32_t awake_hold_until_ms_ = 0;
