@@ -62,8 +62,8 @@ void FaceRenderer::render(const ExpressionParams& target, uint32_t now_ms) {
           false,
           expression.eye_color);
 
-  // Mouth is intentionally absent in the neutral face. Behavior may request
-  // a short round "o" as a secondary cue for actions such as PICKED_UP.
+  // Mouth is intentionally absent in the neutral face. The composed body
+  // output may request a transient mouth from Reflex or Heart/Behavior.
   const float mouth_open = clamp01(expression.mouth_open);
   if (mouth_open > 0.04f) {
     const int16_t mouth_cx = w / 2;
