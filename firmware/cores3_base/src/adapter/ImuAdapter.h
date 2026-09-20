@@ -35,6 +35,13 @@ class ImuAdapter {
   };
 
   static float magnitude(float x, float y, float z);
+  static void rotateAroundX(float x,
+                            float y,
+                            float z,
+                            float angle_rad,
+                            float& out_x,
+                            float& out_y,
+                            float& out_z);
 
   static const char* motionStateName(MotionState state);
   void resetRestDetection(uint32_t now_ms);
@@ -70,8 +77,10 @@ class ImuAdapter {
   bool debug_quiet_ = false;
 
   uint32_t last_self_motion_sequence_ = 0;
-  uint32_t self_motion_budget_expire_ms_ = 0;
-  float self_motion_delta_budget_g_ = 0.0f;
+  uint32_t self_motion_command_ms_ = 0;
+  float self_motion_pitch_delta_deg_ = 0.0f;
+  float self_motion_last_progress_ = 1.0f;
+  int8_t pitch_gravity_sign_ = 0;  // learned from first clear self-motion: -1/+1
 };
 
 }  // namespace adapter
