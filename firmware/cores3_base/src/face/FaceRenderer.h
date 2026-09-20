@@ -21,6 +21,9 @@ struct ExpressionParams {
   float mouth_open = 0.0f;     // 0 hidden .. 1 fully open composed mouth
   VisualProp prop = VisualProp::NONE;
   float prop_progress = 0.0f;   // 0..1 animation progress supplied by Behavior
+  VisualEffect effect = VisualEffect::NONE;
+  float effect_progress = 0.0f; // 0..1 animation progress supplied by Behavior/Reflex
+  float effect_amount = 1.0f;   // 0..1 intensity, meaning decided upstream
   bool sleep_zzz = false;
   float sleep_zzz_phase = 0.0f; // 0..1 repeating drift phase from Behavior
   uint32_t eye_color = TFT_CYAN;
