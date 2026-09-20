@@ -102,6 +102,7 @@ class HeartEngine {
   uint32_t last_tick_ms_ = 0;
   uint32_t last_heart_change_ms_ = 0;
   uint32_t last_boredom_step_ms_ = 0;
+  uint32_t last_sleepiness_step_ms_ = 0;
   uint32_t last_recovery_ms_ = 0;
   uint32_t last_recovery_change_ms_ = 0;
   uint32_t last_stimulus_ms_ = 0;
