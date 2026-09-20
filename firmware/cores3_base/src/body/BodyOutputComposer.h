@@ -23,7 +23,15 @@ class BodyOutputComposer {
       uint32_t now_ms) const;
 
  private:
+  enum class ReflexPriority : uint8_t {
+    NONE = 0,
+    VISUAL = 1,
+    INTERPERSONAL = 2,
+    STRONG = 3,
+  };
+
   static bool isVisualCause(nerve::NeuronType type);
+  static ReflexPriority priorityOf(const reflex::ReflexIntent& intent);
   static float clamp01(float value);
   static float clampSigned(float value);
   static float larger(float a, float b);
