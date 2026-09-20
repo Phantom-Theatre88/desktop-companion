@@ -213,3 +213,30 @@ is large enough for the actually bundled model binary. Keep the IDE scheme on
 `ESP SR 16M`; the local CSV fixes geometry while the selected scheme keeps the
 ESP-SR packaging/upload hook active.
 
+### M5Stack Arduino core 3.3.9 upload-offset workaround
+
+The project-local `partitions.csv` moves the ESP-SR model partition to
+`0xC10000`, but M5Stack Arduino core 3.3.9 still passes `srmodels.bin` to
+esptool at `0xD10000` through the board's upload metadata. This is independent
+from the partition CSV, so the binary still fails the 16MB flash fit check.
+
+Run the repository helper once after installing/updating the M5Stack Arduino
+core:
+
+```sh
+cd ~/desktop-companion
+bash firmware/cores3_base/tools/patch_m5stack_esp_sr_upload_offset.sh
+```
+
+The helper:
+
+- locates the newest installed M5Stack ESP32 core,
+- backs up `boards.txt`,
+- changes only the `srmodels.bin` upload offset `0xD10000 -> 0xC10000`,
+- verifies the resulting line,
+- is safe to run again if already patched.
+
+Afterward, fully restart Arduino IDE, keep `Partition Scheme: ESP SR 16M`,
+and upload normally. Re-run the helper after an M5Stack board-package update if
+that update restores the old upload offset.
+
