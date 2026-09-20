@@ -23,7 +23,7 @@ constexpr float kShakeMagnitudeDeviationG = 0.55f;
 constexpr uint32_t kShakeCooldownMs = 900;
 constexpr uint32_t kPostShakePickupSuppressMs = 1200;
 constexpr uint32_t kShakeImpulseWindowMs = 450;
-constexpr uint8_t kShakeRequiredReversals = 2;
+constexpr uint8_t kShakeRequiredReversals = 1;
 
 // Once PICKED_UP has been emitted, IMU-only sensing cannot distinguish a
 // quietly-held device from one resting on the desk. Do not re-arm pickup just
