@@ -645,3 +645,39 @@ M5GFXで軽量に描ける図形・文字・簡易ベクター表現を基本と
 
 具体的な色、形、速度、持続時間、出現条件、組み合わせは実機で見ながら調整し、人格LOCKとして先行固定しない。
 
+## LOCK 59｜聴覚の第一段階とウェイクワード「kibi」
+
+M5Stack Desktop Companionの聴覚は、M5側へ全文音声認識を持ち込むことを目的にしない。
+
+役割分担は、
+
+**M5 = 耳・反射・身体 / Pi5 = 聞き取り・理解・思考**
+
+を維持する。
+
+M5側の第一段階は、
+
+**MIC Hardware → Device Driver → Voice Activity / Wake Word → Semantic Neuron → Synapse → Reflex / Ghost / Heart / Behavior → Body Output**
+
+とする。
+
+意味イベントは少なくとも以下を分離する。
+
+- `LOUD_SOUND`：大きな音。驚き等の低次反射対象
+- `VOICE_ACTIVITY`：誰かが話している可能性。注意を向ける低次聴覚
+- `WAKE_WORD_DETECTED`：自分が呼ばれたことを示す意味イベント
+
+正式ウェイクワードは **「kibi」** とする。
+
+`VOICE_ACTIVITY`だけでは「自分が呼ばれた」と断定しない。
+
+`WAKE_WORD_DETECTED` は、睡眠中でも一旦起床させ、Attentionを上げ、NOTICE等の対人反応へ接続できる意味イベントとする。
+
+全文ASR、発話内容理解、LLM応答はPi5側の責務とする。M5側はPi5停止時でも、音に気づく／呼ばれたことに反応する生命活動を維持する。
+
+ウェイクワード認識器の具体実装はDevice Driver / Adapter境界の外へ漏らさない。Espressif ESP-SR / WakeNet等を採用する場合も既存OSSを親構造にはせず、モデルやライブラリの都合でGhost / Semantic Neuronの構造を変えない。
+
+「kibi」の専用モデルがまだ存在しない段階で、`VOICE_ACTIVITY` を `WAKE_WORD_DETECTED` と偽装しない。専用モデルが成立するまでは、Mic / Voice Activityの本番経路とWake Word detector境界を先に成立させる。
+
+聴覚着手は、LOCK 55の「M5単独生命成立を優先」の延長として扱う。従来Step 6の感覚器官追加順を恒久的に廃棄するものではなく、現在の小ゴールである「存在感・対人反応」を優先するための先行実装とする。
+
