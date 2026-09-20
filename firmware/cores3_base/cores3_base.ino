@@ -494,7 +494,13 @@ void loop() {
   const uint32_t now_ms = millis();
   runtime.tick(now_ms);
   pollTouch(now_ms);
+
+  // The IMU sits in the moving CoreS3 head. Known neck rotation can change the
+  // gravity vector without the robot being picked up, so pass that self-motion
+  // context into the semantic adapter before classifying lift.
+  imu_adapter.setSelfMotionActive(neck_driver.motionRecently(now_ms));
   pollImu(now_ms);
+
   pollCamera(now_ms);
   // Capture is blocking; use fresh time so a newly delivered event is not
   // compared against a tick timestamp from before it occurred.
