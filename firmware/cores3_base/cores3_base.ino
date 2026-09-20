@@ -471,11 +471,6 @@ void setup() {
   Serial.printf("[SENSE][TOUCH] Device driver: %s\n",
                 M5.Touch.isEnabled() ? "READY" : "UNAVAILABLE");
 
-  imu_driver.begin();
-  imu_adapter.begin(millis());
-  Serial.printf("[SENSE][IMU] Device driver: %s\n",
-                imu_driver.available() ? "READY" : "UNAVAILABLE");
-
   face_renderer.begin(M5.Display);
 
   const bool neck_ready = neck_driver.begin(millis());
@@ -484,6 +479,17 @@ void setup() {
                 static_cast<unsigned>(neck_driver.servoPowerVersion()));
   Serial.printf("[BODY][NECK] Device driver: %s\n",
                 neck_ready ? "READY" : "ERROR");
+
+  // The neck driver moves to neutral during begin(). Do not arm the IMU pickup
+  // classifier until that self-generated startup motion has settled, otherwise
+  // the boot neutral move can be misclassified as LIFT_STARTED -> PICKED_UP and
+  // leave the state machine stuck in HELD.
+  delay(700);
+  M5.update();
+  imu_driver.begin();
+  imu_adapter.begin(millis());
+  Serial.printf("[SENSE][IMU] Device driver: %s (armed after neck settle)\n",
+                imu_driver.available() ? "READY" : "UNAVAILABLE");
 
   runtime.tick(millis());
   renderLivingFace(millis());
