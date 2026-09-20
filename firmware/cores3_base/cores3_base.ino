@@ -7,6 +7,7 @@
 #include "src/core/DesktopCompanionRuntime.h"
 #include "src/device/CoreS3CameraDriver.h"
 #include "src/device/CoreS3ImuDriver.h"
+#include "src/device/CoreS3NeckDriver.h"
 #include "src/device/CoreS3TouchDriver.h"
 #include "src/face/FaceRenderer.h"
 #include "src/vision/CameraVisionInput.h"
@@ -18,6 +19,7 @@ deskbot::device::CoreS3TouchDriver touch_driver;
 deskbot::adapter::TouchAdapter touch_adapter;
 deskbot::device::CoreS3ImuDriver imu_driver;
 deskbot::adapter::ImuAdapter imu_adapter;
+deskbot::device::CoreS3NeckDriver neck_driver;
 deskbot::device::CoreS3CameraDriver camera_driver;
 deskbot::vision::CameraVisionInput camera_vision;
 
@@ -246,8 +248,9 @@ void renderLivingFace(uint32_t now_ms) {
   last_face_render_ms = now_ms;
 
   const auto& micro = runtime.ghost().behaviorEngine().microBehavior();
-  const auto expression = body_output.compose(micro, now_ms);
-  face_renderer.render(expression, now_ms);
+  const auto body = body_output.compose(micro, now_ms);
+  face_renderer.render(body.face, now_ms);
+  neck_driver.tick(now_ms, body.neck_yaw, body.neck_pitch);
 }
 
 void pollTouch(uint32_t now_ms) {
@@ -439,9 +442,14 @@ void setup() {
                 imu_driver.available() ? "READY" : "UNAVAILABLE");
 
   face_renderer.begin(M5.Display);
+
+  const bool neck_ready = neck_driver.begin(millis());
+  Serial.printf("[BODY][NECK] Device driver: %s\n",
+                neck_ready ? "READY" : "ERROR");
+
   runtime.tick(millis());
   renderLivingFace(millis());
-  Serial.println("[DESKROBO] Reflex + Heart/Behavior -> BodyOutput -> Face loop started");
+  Serial.println("[DESKROBO] Reflex + Heart/Behavior -> BodyOutput -> Face/Neck loop started");
 }
 
 void loop() {
