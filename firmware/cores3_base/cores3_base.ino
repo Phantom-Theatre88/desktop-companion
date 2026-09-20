@@ -328,13 +328,13 @@ void captureCameraFrame(uint32_t now_ms, bool startup_probe) {
       traceHeartState(name);
       if (neuron.type == deskbot::nerve::NeuronType::MOTION_DETECTED) {
         traceVisionDiagnosis(vision);
-        Serial.printf("[NERVE][VISION] %s strength=%.3f dir=(%.2f,%.2f) -> Ghost/Heart/Memory/Behavior\n",
+        Serial.printf("[NERVE][VISION] %s strength=%.3f dir=(%.2f,%.2f) -> Reflex + Ghost/Heart/Memory/Behavior\n",
                       name,
                       neuron.payload.scalar,
                       static_cast<float>(neuron.payload.x) / 1000.0f,
                       static_cast<float>(neuron.payload.y) / 1000.0f);
       } else {
-        Serial.printf("[NERVE][VISION] %s strength=%.3f -> Ghost/Heart/Memory/Behavior\n",
+        Serial.printf("[NERVE][VISION] %s strength=%.3f -> Reflex + Ghost/Heart/Memory/Behavior\n",
                       name, neuron.payload.scalar);
       }
     }
@@ -416,7 +416,7 @@ void setup() {
   face_renderer.begin(M5.Display);
   runtime.tick(millis());
   renderLivingFace(millis());
-  Serial.println("[DESKROBO] Standalone Heart/Time -> Behavior -> Face life loop started");
+  Serial.println("[DESKROBO] Reflex + Heart/Behavior -> BodyOutput -> Face loop started");
 }
 
 void loop() {
