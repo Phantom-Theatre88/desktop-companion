@@ -9,10 +9,16 @@
 namespace deskbot {
 namespace body {
 
+struct BodyFrame {
+  face::ExpressionParams face{};
+  float neck_yaw = 0.0f;
+  float neck_pitch = 0.0f;
+};
+
 // Final body-output boundary.
 // Heart/Behavior supplies the continuous inner-state stream.
 // Reflex supplies immediate sensor-driven overlays.
-// FaceRenderer only draws the already-composed result.
+// Renderers/drivers only consume the already-composed result.
 class BodyOutputComposer {
  public:
   enum class ArbitrationResult : uint8_t {
@@ -24,7 +30,7 @@ class BodyOutputComposer {
   void begin(uint32_t now_ms);
   ArbitrationResult onReflexIntent(const reflex::ReflexIntent& intent);
 
-  face::ExpressionParams compose(
+  BodyFrame compose(
       const ghost::MicroBehaviorFrame& behavior,
       uint32_t now_ms) const;
 
@@ -44,10 +50,10 @@ class BodyOutputComposer {
   static float clampSigned(float value);
   static float larger(float a, float b);
 
-  void applyDirectReflex(face::ExpressionParams& expression,
+  void applyDirectReflex(BodyFrame& body,
                          const reflex::ReflexIntent& intent,
                          uint32_t now_ms) const;
-  void applyVisualReflex(face::ExpressionParams& expression,
+  void applyVisualReflex(BodyFrame& body,
                          const reflex::ReflexIntent& intent,
                          uint32_t now_ms) const;
 
