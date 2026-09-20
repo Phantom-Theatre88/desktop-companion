@@ -285,11 +285,13 @@ void renderLivingFace(uint32_t now_ms) {
   const auto body = body_output.compose(micro, now_ms);
   face_renderer.render(body.face, now_ms);
 
-  // Efference copy comes from the command BEFORE the Device Driver boundary.
-  // Keep the proven servo driver untouched. The IMU receives only the expected
-  // pitch change of our own commanded body motion.
+  // Preserve the exact proven servo path first.
+  neck_driver.tick(now_ms, body.neck_yaw, body.neck_pitch);
+
+  // Publish an efference copy separately, after the body command has been sent.
+  // This must never gate or alter the physical neck command path.
   constexpr float kPitchRangeDeg = 7.0f;
-  constexpr float kPitchCommandThresholdNorm = 0.09f;  // ~= 2 raw steps.
+  constexpr float kPitchCommandThresholdNorm = 0.09f;
   if (!neck_efference_initialized) {
     last_neck_pitch_norm = body.neck_pitch;
     neck_efference_initialized = true;
@@ -306,8 +308,6 @@ void renderLivingFace(uint32_t now_ms) {
       last_neck_pitch_norm = body.neck_pitch;
     }
   }
-
-  neck_driver.tick(now_ms, body.neck_yaw, body.neck_pitch);
 }
 
 void pollTouch(uint32_t now_ms) {
@@ -498,6 +498,11 @@ void setup() {
   Serial.printf("[SENSE][TOUCH] Device driver: %s\n",
                 M5.Touch.isEnabled() ? "READY" : "UNAVAILABLE");
 
+  imu_driver.begin();
+  imu_adapter.begin(millis());
+  Serial.printf("[SENSE][IMU] Device driver: %s\n",
+                imu_driver.available() ? "READY" : "UNAVAILABLE");
+
   face_renderer.begin(M5.Display);
 
   const bool neck_ready = neck_driver.begin(millis());
@@ -506,17 +511,6 @@ void setup() {
                 static_cast<unsigned>(neck_driver.servoPowerVersion()));
   Serial.printf("[BODY][NECK] Device driver: %s\n",
                 neck_ready ? "READY" : "ERROR");
-
-  // The neck driver moves to neutral during begin(). Do not arm the IMU pickup
-  // classifier until that self-generated startup motion has settled, otherwise
-  // the boot neutral move can be misclassified as LIFT_STARTED -> PICKED_UP and
-  // leave the state machine stuck in HELD.
-  delay(700);
-  M5.update();
-  imu_driver.begin();
-  imu_adapter.begin(millis());
-  Serial.printf("[SENSE][IMU] Device driver: %s (armed after neck settle)\n",
-                imu_driver.available() ? "READY" : "UNAVAILABLE");
 
   runtime.tick(millis());
   renderLivingFace(millis());
@@ -530,6 +524,10 @@ void loop() {
   runtime.tick(now_ms);
   pollTouch(now_ms);
 
+  // The IMU sits in the moving CoreS3 head. Known neck rotation can change the
+  // gravity vector without the robot being picked up, so pass that self-motion
+  // context into the semantic adapter before classifying lift.
+  imu_adapter.setSelfMotionActive(neck_driver.motionRecently(now_ms));
   pollImu(now_ms);
 
   pollCamera(now_ms);
