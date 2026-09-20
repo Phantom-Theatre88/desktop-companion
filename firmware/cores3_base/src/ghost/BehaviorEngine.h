@@ -12,6 +12,14 @@ enum class AutonomousAction : uint8_t {
   NONE = 0,
   CURIOUS_LOOK,
   BORED_SCAN,
+  YAWN,
+  COFFEE_BREAK,
+};
+
+enum class LifeState : uint8_t {
+  AWAKE = 0,
+  DROWSY,
+  SLEEPING,
 };
 
 enum class AutonomousLifecycle : uint8_t {
@@ -33,6 +41,8 @@ struct MicroBehaviorFrame {
   float eye_spacing_scale = 1.0f;
   float jitter_x = 0.0f, jitter_y = 0.0f;
   float mouth_open = 0.0f;
+  face::VisualProp prop = face::VisualProp::NONE;
+  float prop_progress = 0.0f;
 
   // Normalized neck intent. -1..+1; hardware mapping belongs to Device Driver.
   float neck_yaw = 0.0f;
@@ -55,6 +65,7 @@ class BehaviorEngine {
   nerve::NeuronType lastReceivedType() const { return last_received_type_; }
   uint32_t lastReceivedMs() const { return last_received_ms_; }
   AutonomousAction autonomousAction() const { return autonomous_action_; }
+  LifeState lifeState() const { return life_state_; }
   uint32_t lastAutonomousDecisionMs() const { return last_autonomous_decision_ms_; }
   uint32_t autonomousDecisionSeq() const { return autonomous_decision_seq_; }
   bool autonomousPaused() const { return autonomous_paused_; }
@@ -65,6 +76,7 @@ class BehaviorEngine {
   static float clamp01(float value);
   static float clampSigned(float value);
   void chooseAutonomousAction(uint32_t now_ms, const HeartState& heart);
+  void updateLifeState(uint32_t now_ms, const HeartState& heart);
   void markAutonomousLifecycle(AutonomousLifecycle lifecycle, uint32_t now_ms);
 
   nerve::NeuronType last_received_type_ = nerve::NeuronType::NONE;
@@ -77,6 +89,8 @@ class BehaviorEngine {
   uint32_t last_event_ms_ = 0;
   nerve::NeuronType last_event_type_ = nerve::NeuronType::NONE;
   AutonomousAction autonomous_action_ = AutonomousAction::NONE;
+  LifeState life_state_ = LifeState::AWAKE;
+  uint32_t awake_hold_until_ms_ = 0;
   uint32_t autonomous_action_started_ms_ = 0;
   uint32_t last_autonomous_decision_ms_ = 0;
   uint32_t autonomous_decision_seq_ = 0;
