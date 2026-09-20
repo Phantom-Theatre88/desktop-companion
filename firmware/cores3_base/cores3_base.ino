@@ -314,8 +314,10 @@ void pollImu(uint32_t now_ms) {
 
   if ((now_ms - last_imu_diag_ms) >= 1000) {
     last_imu_diag_ms = now_ms;
-    Serial.printf("[IMU][DIAG] state=%s delta=%.3f dev=%.3f quiet=%s reversals=%u\n",
+    Serial.printf("[IMU][DIAG] state=%s raw=%.3f comp=%.3f delta=%.3f dev=%.3f quiet=%s reversals=%u\n",
                   state_name,
+                  imu_adapter.debugRawDeltaG(),
+                  imu_adapter.debugSelfMotionCompensationG(),
                   imu_adapter.debugDeltaG(),
                   imu_adapter.debugMagnitudeDeviationG(),
                   imu_adapter.debugQuiet() ? "YES" : "NO",
@@ -495,10 +497,11 @@ void loop() {
   runtime.tick(now_ms);
   pollTouch(now_ms);
 
-  // The IMU sits in the moving CoreS3 head. Known neck rotation can change the
-  // gravity vector without the robot being picked up, so pass that self-motion
-  // context into the semantic adapter before classifying lift.
-  imu_adapter.setSelfMotionActive(neck_driver.motionRecently(now_ms));
+  // Efference copy: pass the actual neck command into the IMU classifier.
+  // The adapter subtracts only the gravity-vector change predicted by the
+  // commanded pitch motion instead of blindly ignoring all IMU direction
+  // changes while the neck is active.
+  imu_adapter.setSelfMotionCommand(neck_driver.lastMotionCommand());
   pollImu(now_ms);
 
   pollCamera(now_ms);
