@@ -20,6 +20,9 @@ constexpr uint32_t kBoredScanMs = 2600;
 constexpr uint32_t kYawnMs = 3000;
 constexpr uint32_t kCoffeeBreakMs = 4200;
 constexpr uint32_t kWakeHoldMs = 15000;
+constexpr uint32_t kSweatAfterShakeMs = 1800;
+constexpr uint32_t kNoticeEffectMs = 900;
+constexpr uint32_t kQuestionEffectMs = 1400;
 constexpr float kCuriousThreshold = 0.64f;
 constexpr float kBoredThreshold = 0.25f;
 constexpr float kDrowsySleepinessThreshold = 0.28f;
@@ -52,6 +55,10 @@ void BehaviorEngine::begin(uint32_t now_ms) {
   last_autonomous_lifecycle_ = AutonomousLifecycle::NONE;
   autonomous_lifecycle_seq_ = 0;
   autonomous_lifecycle_ms_ = now_ms;
+  transient_effect_ = face::VisualEffect::NONE;
+  transient_effect_started_ms_ = now_ms;
+  transient_effect_duration_ms_ = 0;
+  transient_effect_amount_ = 1.0f;
   micro_behavior_ = MicroBehaviorFrame{};
   micro_behavior_.generated_ms = now_ms;
 }
@@ -61,6 +68,41 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   const uint32_t handled_ms = event_context.captured_ms;
   last_received_type_ = neuron.type;
   last_received_ms_ = neuron.timestamp_ms;
+
+  // LOCK 58: symbolic effects are selected from semantic meaning + context,
+  // never from a raw Heart threshold alone.
+  switch (neuron.type) {
+    case nerve::NeuronType::SHAKE:
+      // Reflex owns the immediate body response; the sweat remains long enough
+      // to appear after that strong reflex finishes.
+      triggerEffect(face::VisualEffect::SWEAT,
+                    handled_ms,
+                    kSweatAfterShakeMs,
+                    clamp01(0.55f + neuron.confidence * 0.45f));
+      break;
+
+    case nerve::NeuronType::FACE_DETECTED:
+    case nerve::NeuronType::VOICE_ACTIVITY:
+    case nerve::NeuronType::ATTENTION_REQUEST:
+      triggerEffect(face::VisualEffect::NOTICE,
+                    handled_ms,
+                    kNoticeEffectMs,
+                    clamp01(0.55f + neuron.confidence * 0.45f));
+      break;
+
+    case nerve::NeuronType::FACE_LOST:
+      // "Where did you go?" is a contextual question, not a generic confusion
+      // meter. A future recognition/understanding-failure neuron may also use
+      // QUESTION without changing the renderer.
+      triggerEffect(face::VisualEffect::QUESTION,
+                    handled_ms,
+                    kQuestionEffectMs,
+                    clamp01(0.50f + neuron.confidence * 0.40f));
+      break;
+
+    default:
+      break;
+  }
 
   // Only interaction-level stimuli wake the continuing life state.
   // Low-level Vision may still affect attention/curiosity and Reflex, but an
@@ -135,6 +177,21 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   micro_behavior_.effect_progress = 0.0f;
   micro_behavior_.effect_amount = 1.0f;
   micro_behavior_.sleep_zzz = false;
+
+  if (transient_effect_ != face::VisualEffect::NONE &&
+      transient_effect_duration_ms_ > 0) {
+    const uint32_t effect_age = now_ms - transient_effect_started_ms_;
+    if (effect_age < transient_effect_duration_ms_) {
+      micro_behavior_.effect = transient_effect_;
+      micro_behavior_.effect_progress =
+          clamp01(static_cast<float>(effect_age) /
+                  static_cast<float>(transient_effect_duration_ms_));
+      micro_behavior_.effect_amount = transient_effect_amount_;
+    } else {
+      transient_effect_ = face::VisualEffect::NONE;
+      transient_effect_duration_ms_ = 0;
+    }
+  }
   micro_behavior_.sleep_zzz_phase = 0.0f;
   micro_behavior_.neck_yaw = 0.0f;
   micro_behavior_.neck_pitch = 0.0f;
@@ -286,6 +343,15 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
                       autonomous_direction_ * 0.55f * envelope);
       micro_behavior_.neck_pitch =
           clampSigned(micro_behavior_.neck_pitch - 0.18f * envelope);
+
+      // High-curiosity looking becomes an animated sparkle because the meaning
+      // here is "interested in something", not simply curiosity > threshold.
+      if (heart.curiosity >= kCuriousThreshold) {
+        micro_behavior_.effect = face::VisualEffect::SPARKLE;
+        micro_behavior_.effect_progress = p;
+        micro_behavior_.effect_amount =
+            clamp01(0.55f + (heart.curiosity - kCuriousThreshold) * 1.5f);
+      }
     } else if (autonomous_action_ == AutonomousAction::BORED_SCAN) {
       const float p = clamp01(
           static_cast<float>(autonomous_age) / static_cast<float>(kBoredScanMs));
@@ -345,6 +411,8 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     resting_openness = 0.0f;
     micro_behavior_.mouth_open = 0.0f;
     micro_behavior_.prop = face::VisualProp::NONE;
+    micro_behavior_.effect = face::VisualEffect::NONE;
+    micro_behavior_.effect_progress = 0.0f;
     micro_behavior_.sleep_zzz = true;
     micro_behavior_.sleep_zzz_phase = fmodf(t * 0.18f, 1.0f);
     micro_behavior_.neck_yaw = clampSigned(sinf(t * 0.22f) * 0.05f);
@@ -469,6 +537,16 @@ void BehaviorEngine::markAutonomousLifecycle(
   last_autonomous_lifecycle_ = lifecycle;
   autonomous_lifecycle_ms_ = now_ms;
   ++autonomous_lifecycle_seq_;
+}
+
+void BehaviorEngine::triggerEffect(face::VisualEffect effect,
+                                   uint32_t now_ms,
+                                   uint32_t duration_ms,
+                                   float amount) {
+  transient_effect_ = effect;
+  transient_effect_started_ms_ = now_ms;
+  transient_effect_duration_ms_ = duration_ms;
+  transient_effect_amount_ = clamp01(amount);
 }
 
 float BehaviorEngine::clamp01(float value) {
