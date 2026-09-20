@@ -26,6 +26,7 @@ uint32_t last_camera_capture_ms = 0;
 uint32_t last_body_motion_ms = 0;
 bool body_motion_seen = false;
 uint32_t last_recovery_trace_ms = 0;
+uint32_t last_imu_diag_ms = 0;
 const char* last_imu_state_name = nullptr;
 uint8_t last_imu_shake_reversals = 0;
 deskbot::ghost::AutonomousAction last_autonomous_trace_action =
@@ -253,6 +254,16 @@ void pollImu(uint32_t now_ms) {
                   static_cast<unsigned>(reversals));
     last_imu_state_name = state_name;
     last_imu_shake_reversals = reversals;
+  }
+
+  if ((now_ms - last_imu_diag_ms) >= 1000) {
+    last_imu_diag_ms = now_ms;
+    Serial.printf("[IMU][DIAG] state=%s delta=%.3f dev=%.3f quiet=%s reversals=%u\n",
+                  state_name,
+                  imu_adapter.debugDeltaG(),
+                  imu_adapter.debugMagnitudeDeviationG(),
+                  imu_adapter.debugQuiet() ? "YES" : "NO",
+                  static_cast<unsigned>(reversals));
   }
 
   if (!emitted) {
