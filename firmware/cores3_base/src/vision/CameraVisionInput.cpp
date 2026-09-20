@@ -5,7 +5,7 @@ namespace vision {
 namespace {
 // Perception tuning, not personality rules. About two seconds between captures.
 constexpr uint32_t kMaxFrameGapMs = 6500;
-constexpr uint32_t kEventCooldownMs = 3000;
+constexpr uint32_t kEventCooldownMs = 1000;
 constexpr int kBrightnessThreshold = 24;
 constexpr int kCellChangeThreshold = 20;
 constexpr size_t kCandidateBlobMinCells = 5;
@@ -124,28 +124,15 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
       }
     }
 
-    // Stage 2b: fill only very small gaps. Do not broadly dilate the mask:
-    // bridge a blank cell only when it lies between horizontal/vertical
-    // neighbours, or when three or more nearby supported cells surround it.
-    for (size_t row = 0; row < kRows; ++row) {
-      for (size_t col = 0; col < kColumns; ++col) {
-        const size_t i = row * kColumns + col;
-        if (supported_mask[i]) {
-          cleaned_mask[i] = true;
-          continue;
-        }
-
-        const bool left = col > 0 && supported_mask[i - 1];
-        const bool right = col + 1 < kColumns && supported_mask[i + 1];
-        const bool up = row > 0 && supported_mask[i - kColumns];
-        const bool down = row + 1 < kRows && supported_mask[i + kColumns];
-        const bool bridge = (left && right) || (up && down);
-        cleaned_mask[i] =
-            bridge || neighborCount8(supported_mask, row, col) >= 3;
-      }
+    // Stage 2b: do not invent motion cells. The 16x12 grid is coarse, so
+    // hole-filling can merge separate movements into one oversized blob.
+    // Keep only supported raw cells; diagonal continuity is handled by the
+    // 8-neighbour blob pass below.
+    for (size_t i = 0; i < kCells; ++i) {
+      cleaned_mask[i] = supported_mask[i];
     }
 
-    // Stage 3: 4-neighbour connected components. This turns spatial change
+    // Stage 3: 8-neighbour connected components. This preserves actual changed
     // into explicit candidate blobs instead of averaging every changed cell.
     bool visited[kCells]{};
     size_t queue[kCells]{};
@@ -186,32 +173,23 @@ void CameraVisionInput::onCameraFrame(const device::CameraFrameView& frame) {
         ++horizontal_changed[hregion];
         ++vertical_changed[vregion];
 
-        if (col > 0) {
-          const size_t n = index - 1;
-          if (cleaned_mask[n] && !visited[n]) {
-            visited[n] = true;
-            queue[tail++] = n;
-          }
-        }
-        if (col + 1 < kColumns) {
-          const size_t n = index + 1;
-          if (cleaned_mask[n] && !visited[n]) {
-            visited[n] = true;
-            queue[tail++] = n;
-          }
-        }
-        if (row > 0) {
-          const size_t n = index - kColumns;
-          if (cleaned_mask[n] && !visited[n]) {
-            visited[n] = true;
-            queue[tail++] = n;
-          }
-        }
-        if (row + 1 < kRows) {
-          const size_t n = index + kColumns;
-          if (cleaned_mask[n] && !visited[n]) {
-            visited[n] = true;
-            queue[tail++] = n;
+        for (int dy = -1; dy <= 1; ++dy) {
+          for (int dx = -1; dx <= 1; ++dx) {
+            if (dx == 0 && dy == 0) continue;
+            const int ny = static_cast<int>(row) + dy;
+            const int nx = static_cast<int>(col) + dx;
+            if (nx < 0 || ny < 0 ||
+                nx >= static_cast<int>(kColumns) ||
+                ny >= static_cast<int>(kRows)) {
+              continue;
+            }
+            const size_t n =
+                static_cast<size_t>(ny) * kColumns +
+                static_cast<size_t>(nx);
+            if (cleaned_mask[n] && !visited[n]) {
+              visited[n] = true;
+              queue[tail++] = n;
+            }
           }
         }
       }
