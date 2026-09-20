@@ -105,6 +105,9 @@ class HeartEngine {
   uint32_t last_sleepiness_step_ms_ = 0;
   uint32_t last_recovery_ms_ = 0;
   uint32_t last_recovery_change_ms_ = 0;
+  // Only interaction-level stimuli reset boredom/sleepiness idle clocks.
+  // Low-level Vision still affects Heart, but must not keep DeskRobo awake.
+  uint32_t last_meaningful_stimulus_ms_ = 0;
   uint32_t last_stimulus_ms_ = 0;
   uint8_t last_stimulus_family_ = 0;
   uint8_t repeated_stimulus_count_ = 0;
