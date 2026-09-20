@@ -55,6 +55,7 @@ void HeartEngine::begin(uint32_t now_ms) {
   last_sleepiness_step_ms_ = now_ms;
   last_recovery_ms_ = now_ms;
   last_recovery_change_ms_ = 0;
+  last_meaningful_stimulus_ms_ = now_ms;
   last_stimulus_ms_ = 0;
   last_stimulus_family_ = 0;
   repeated_stimulus_count_ = 0;
@@ -65,6 +66,8 @@ void HeartEngine::begin(uint32_t now_ms) {
 
 void HeartEngine::tick(uint32_t now_ms) {
   const uint32_t since_event = now_ms - last_event_ms_;
+  const uint32_t since_meaningful =
+      now_ms - last_meaningful_stimulus_ms_;
 
   // LOCK 20-26: temporary Heart values recover toward the current baseline.
   // baseline_ starts from LOCK 28 and is deliberately a separate object so
@@ -82,7 +85,7 @@ void HeartEngine::tick(uint32_t now_ms) {
   // With no meaningful stimulus, boredom rises slowly. Boredom is contextual,
   // not recovered toward baseline here.
   const uint32_t since_boredom_step = now_ms - last_boredom_step_ms_;
-  if (since_event >= kBoredomStepIntervalMs &&
+  if (since_meaningful >= kBoredomStepIntervalMs &&
       since_boredom_step >= kBoredomStepIntervalMs) {
     applyDelta(0.0f, 0.0f, 0.0f, kBoredomStep, 0.0f, 0.0f, now_ms);
     last_boredom_step_ms_ = now_ms;
@@ -93,7 +96,7 @@ void HeartEngine::tick(uint32_t now_ms) {
   // behavior is inactivity-driven fatigue. This is monotonic TimeEngine time,
   // not a random animation trigger.
   const uint32_t since_sleepiness_step = now_ms - last_sleepiness_step_ms_;
-  if (since_event >= kSleepinessIdleDelayMs &&
+  if (since_meaningful >= kSleepinessIdleDelayMs &&
       since_sleepiness_step >= kSleepinessStepIntervalMs) {
     applyDelta(0.0f, 0.0f, 0.0f, 0.0f, kSleepinessStep, 0.0f, now_ms);
     last_sleepiness_step_ms_ = now_ms;
@@ -110,8 +113,18 @@ void HeartEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   (void)event_context;
   last_event_type_ = neuron.type;
   last_event_ms_ = neuron.timestamp_ms;
-  last_boredom_step_ms_ = neuron.timestamp_ms;
-  last_sleepiness_step_ms_ = neuron.timestamp_ms;
+
+  const bool meaningful_interaction =
+      neuron.type == nerve::NeuronType::TOUCH ||
+      neuron.type == nerve::NeuronType::PICKED_UP ||
+      neuron.type == nerve::NeuronType::SHAKE;
+
+  if (meaningful_interaction) {
+    last_meaningful_stimulus_ms_ = neuron.timestamp_ms;
+    last_boredom_step_ms_ = neuron.timestamp_ms;
+    last_sleepiness_step_ms_ = neuron.timestamp_ms;
+  }
+
   const float impact = habituationScaleFor(neuron.type, neuron.timestamp_ms);
 
   switch (neuron.type) {
