@@ -63,14 +63,14 @@ face::ExpressionParams BodyOutputComposer::compose(
   bool direct_active = false;
   if (have_direct_reflex_) {
     const uint32_t age = now_ms - direct_reflex_.created_ms;
-    switch (direct_reflex_.cause) {
-      case nerve::NeuronType::TOUCH:
+    switch (direct_reflex_.type) {
+      case reflex::ReflexIntentType::TOUCH_RESPONSE:
         direct_active = age < kTouchResponseMs;
         break;
-      case nerve::NeuronType::LIFT_STARTED:
+      case reflex::ReflexIntentType::STARTLE:
         direct_active = age < kLiftStartResponseMs;
         break;
-      case nerve::NeuronType::SHAKE:
+      case reflex::ReflexIntentType::SHAKE_RESPONSE:
         direct_active = age < kShakeResponseMs;
         break;
       default:
@@ -98,7 +98,7 @@ void BodyOutputComposer::applyDirectReflex(
     uint32_t now_ms) const {
   const uint32_t age = now_ms - intent.created_ms;
 
-  if (intent.cause == nerve::NeuronType::TOUCH) {
+  if (intent.type == reflex::ReflexIntentType::TOUCH_RESPONSE) {
     const float amount =
         1.0f - static_cast<float>(age) /
                    static_cast<float>(kTouchResponseMs);
@@ -117,7 +117,7 @@ void BodyOutputComposer::applyDirectReflex(
     return;
   }
 
-  if (intent.cause == nerve::NeuronType::LIFT_STARTED) {
+  if (intent.type == reflex::ReflexIntentType::STARTLE) {
     const float amount =
         1.0f - static_cast<float>(age) /
                    static_cast<float>(kLiftStartResponseMs);
@@ -147,7 +147,7 @@ void BodyOutputComposer::applyDirectReflex(
     return;
   }
 
-  if (intent.cause == nerve::NeuronType::SHAKE) {
+  if (intent.type == reflex::ReflexIntentType::SHAKE_RESPONSE) {
     const float amount =
         1.0f - static_cast<float>(age) /
                    static_cast<float>(kShakeResponseMs);
