@@ -123,8 +123,9 @@ bool ImuAdapter::toNeuron(const device::ImuSample& sample,
       }
 
       if (lift_motion) {
-        // First movement from rest is always treated as a lift candidate.
-        // A single strong impulse must not immediately become SHAKE.
+        // First movement from rest immediately becomes a body/reflex cue.
+        // This is NOT the confirmed PICKED_UP state: Ghost/Heart only receives
+        // PICKED_UP after the existing lift-confirmation path succeeds.
         motion_state_ = MotionState::LIFT_CANDIDATE;
         lift_started_ms_ = sample.timestamp_ms;
         lift_quiet_started_ms_ = 0;
@@ -132,6 +133,16 @@ bool ImuAdapter::toNeuron(const device::ImuSample& sample,
         if (shake_candidate) {
           registerShakeImpulse(dx, dy, dz, sample.timestamp_ms);
         }
+
+        nerve::NeuronPayload payload;
+        payload.scalar = motion_strength;
+        out_neuron = nerve::makeNeuron(
+            nerve::NeuronType::LIFT_STARTED,
+            nerve::NeuronSource::IMU,
+            sample.timestamp_ms,
+            0.80f,
+            payload);
+        return true;
       }
       break;
 
