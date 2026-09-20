@@ -15,6 +15,7 @@ constexpr uint32_t kBlinkHoldMs = 45;
 constexpr uint32_t kBlinkOpenMs = 110;
 constexpr uint32_t kTouchResponseMs = 500;
 constexpr uint32_t kPickedUpResponseMs = 700;
+constexpr uint32_t kPickedUpMouthMs = 350;
 constexpr uint32_t kShakeResponseMs = 650;
 constexpr uint32_t kVisualResponseMs = 1500;
 constexpr uint32_t kMotionAttackMs = 120;
@@ -109,6 +110,7 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   micro_behavior_.right_shape = face::EyeShape{};
   micro_behavior_.eye_spacing_scale = 1.0f;
   micro_behavior_.jitter_x = micro_behavior_.jitter_y = 0.0f;
+  micro_behavior_.mouth_open = 0.0f;
 
   // A small Heart-influenced resting openness. Sleepiness closes the eyes a
   // little, while attention keeps them more awake. This is continuous output,
@@ -199,6 +201,15 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     resting_openness = clamp01(resting_openness + 0.18f);
     micro_behavior_.gaze_x *= 0.20f;
     micro_behavior_.gaze_y = clampSigned(micro_behavior_.gaze_y + 0.10f);
+
+    // First transient-mouth experiment: a short small "o" accompanies the
+    // immediate PICKED_UP surprise, then disappears while the eye response
+    // continues. Mouth is a Behavior accent, not a permanent face component.
+    if (event_age_ms < kPickedUpMouthMs) {
+      micro_behavior_.mouth_open =
+          1.0f - static_cast<float>(event_age_ms) /
+                     static_cast<float>(kPickedUpMouthMs);
+    }
   } else if (shake_response) {
     // A shake is a stronger body event. Keep the response procedural and
     // temporary; exact expression design remains a later Face task.
