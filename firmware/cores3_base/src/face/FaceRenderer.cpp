@@ -79,6 +79,8 @@ void FaceRenderer::render(const ExpressionParams& target, uint32_t now_ms) {
   }
 
   // Props are transient Behavior results, never part of the neutral face.
+  // Keep them visually distinct from the cyan eyes so they read as objects,
+  // not as extra facial parts.
   if (expression.prop == VisualProp::COFFEE_CUP) {
     const float p = clamp01(expression.prop_progress);
     const float approach = sinf(p * 3.14159265f);
@@ -88,44 +90,63 @@ void FaceRenderer::render(const ExpressionParams& target, uint32_t now_ms) {
         h * (0.79f - 0.08f * approach));
     const int16_t cup_w = static_cast<int16_t>(w * 0.105f);
     const int16_t cup_h = static_cast<int16_t>(h * 0.090f);
+    const uint32_t cup_color = TFT_WHITE;
+    const uint32_t coffee_color = 0xFD20;  // warm orange/brown accent
+    const uint32_t steam_color = 0xBDF7;   // soft light gray
 
-    canvas_->drawRoundRect(cup_x - cup_w / 2,
+    canvas_->fillRoundRect(cup_x - cup_w / 2,
                            cup_y - cup_h / 2,
                            cup_w,
                            cup_h,
                            5,
-                           expression.eye_color);
+                           cup_color);
+    canvas_->fillRoundRect(cup_x - cup_w / 2 + 3,
+                           cup_y - cup_h / 2 + 3,
+                           cup_w - 6,
+                           cup_h - 6,
+                           3,
+                           TFT_BLACK);
+    canvas_->fillRect(cup_x - cup_w / 2 + 4,
+                      cup_y - cup_h / 2 + 5,
+                      cup_w - 8,
+                      4,
+                      coffee_color);
     canvas_->drawCircle(cup_x + cup_w / 2 + 4,
                         cup_y,
                         static_cast<int16_t>(cup_h * 0.28f),
-                        expression.eye_color);
+                        cup_color);
 
     const int16_t steam_h = static_cast<int16_t>(h * 0.035f);
     canvas_->drawLine(cup_x - 6,
                       cup_y - cup_h / 2 - 4,
                       cup_x - 3,
                       cup_y - cup_h / 2 - steam_h,
-                      expression.eye_color);
+                      steam_color);
     canvas_->drawLine(cup_x + 5,
                       cup_y - cup_h / 2 - 3,
                       cup_x + 8,
                       cup_y - cup_h / 2 - steam_h + 2,
-                      expression.eye_color);
+                      steam_color);
   }
 
-  // Deep-sleep effect: a few Zs drift upward and fade by position.
-  // This is explanatory Behavior decoration, not the primary emotional face.
+  // Deep-sleep effect: staged Z -> Zz -> Zzz cadence, kept separate
+  // from the cyan eye language. The symbols live farther to the upper-right.
   if (expression.sleep_zzz) {
     const float phase = clamp01(expression.sleep_zzz_phase);
+    const uint32_t z_color = 0xBDF7;  // soft light gray
     canvas_->setTextDatum(middle_center);
-    for (int i = 0; i < 3; ++i) {
-      float p = phase + static_cast<float>(i) * 0.33f;
-      if (p >= 1.0f) p -= 1.0f;
-      const int16_t zx = static_cast<int16_t>(w * (0.73f + 0.08f * p));
-      const int16_t zy = static_cast<int16_t>(h * (0.63f - 0.30f * p));
+    canvas_->setTextColor(z_color, TFT_BLACK);
+
+    const int count =
+        phase < 0.25f ? 1 :
+        phase < 0.50f ? 2 :
+        phase < 0.75f ? 3 : 0;
+
+    for (int i = 0; i < count; ++i) {
+      const int16_t zx = static_cast<int16_t>(w * (0.79f + 0.065f * i));
+      const int16_t zy = static_cast<int16_t>(h * (0.58f - 0.12f * i));
       canvas_->setTextSize(i == 0 ? 2 : 1);
-      canvas_->setTextColor(expression.eye_color, TFT_BLACK);
-      canvas_->drawString("Z", zx, zy);
+      canvas_->drawString(i == 0 ? "Z" : "z", zx, zy);
     }
   }
 
