@@ -43,6 +43,9 @@ struct MicroBehaviorFrame {
   float mouth_open = 0.0f;
   face::VisualProp prop = face::VisualProp::NONE;
   float prop_progress = 0.0f;
+  face::VisualEffect effect = face::VisualEffect::NONE;
+  float effect_progress = 0.0f;
+  float effect_amount = 1.0f;
   bool sleep_zzz = false;
   float sleep_zzz_phase = 0.0f;
 
