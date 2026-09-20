@@ -130,18 +130,18 @@ void HeartEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   switch (neuron.type) {
     case nerve::NeuronType::TOUCH:
       applyDelta(+0.03f * impact, +0.02f * impact, 0.0f,
-                 -0.04f * impact, -0.04f * impact, +0.04f * impact,
+                 -0.04f * impact, -0.14f * impact, +0.04f * impact,
                  neuron.timestamp_ms);
       break;
 
     case nerve::NeuronType::PICKED_UP:
       applyDelta(0.0f, 0.0f, +0.03f * impact, -0.03f * impact,
-                 -0.08f * impact, +0.08f * impact, neuron.timestamp_ms);
+                 -0.20f * impact, +0.08f * impact, neuron.timestamp_ms);
       break;
 
     case nerve::NeuronType::SHAKE:
       applyDelta(-0.06f * impact, 0.0f, 0.0f, -0.02f * impact,
-                 -0.12f * impact, +0.10f * impact, neuron.timestamp_ms);
+                 -0.24f * impact, +0.10f * impact, neuron.timestamp_ms);
       break;
 
     case nerve::NeuronType::MOTION_DETECTED: {
