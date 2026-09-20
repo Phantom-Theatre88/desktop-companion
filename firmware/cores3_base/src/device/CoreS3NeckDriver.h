@@ -6,6 +6,13 @@
 namespace deskbot {
 namespace device {
 
+struct NeckMotionCommand {
+  uint32_t sequence = 0;
+  uint32_t command_ms = 0;
+  float yaw_delta_deg = 0.0f;
+  float pitch_delta_deg = 0.0f;
+};
+
 // Zero-base driver for the two serial-bus servos in the M5Stack Stack-chan body.
 // Hardware facts are adapted from the repository's official Stack-chan donor:
 // UART1 1Mbps, TX=6/RX=7, yaw ID=1, pitch ID=2.
@@ -19,6 +26,7 @@ class CoreS3NeckDriver {
   bool servoPowerReady() const { return servo_power_ready_; }
   uint8_t servoPowerVersion() const { return servo_power_version_; }
   bool motionRecently(uint32_t now_ms) const;
+  const NeckMotionCommand& lastMotionCommand() const { return last_motion_command_; }
 
  private:
   static float clampSigned(float value);
@@ -48,6 +56,7 @@ class CoreS3NeckDriver {
   uint32_t last_motion_command_ms_ = 0;
   int16_t last_yaw_raw_ = -32768;
   int16_t last_pitch_raw_ = -32768;
+  NeckMotionCommand last_motion_command_{};
 };
 
 }  // namespace device
