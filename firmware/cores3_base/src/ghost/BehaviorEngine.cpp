@@ -83,6 +83,7 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
 
     case nerve::NeuronType::FACE_DETECTED:
     case nerve::NeuronType::VOICE_ACTIVITY:
+    case nerve::NeuronType::WAKE_WORD_DETECTED:
     case nerve::NeuronType::ATTENTION_REQUEST:
       triggerEffect(face::VisualEffect::NOTICE,
                     handled_ms,
@@ -111,7 +112,8 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   const bool wake_stimulus =
       neuron.type == nerve::NeuronType::TOUCH ||
       neuron.type == nerve::NeuronType::PICKED_UP ||
-      neuron.type == nerve::NeuronType::SHAKE;
+      neuron.type == nerve::NeuronType::SHAKE ||
+      neuron.type == nerve::NeuronType::WAKE_WORD_DETECTED;
   if (wake_stimulus) {
     life_state_ = LifeState::AWAKE;
     awake_hold_until_ms_ = handled_ms + kWakeHoldMs;
