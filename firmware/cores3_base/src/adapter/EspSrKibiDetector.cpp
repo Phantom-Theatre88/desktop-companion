@@ -1,6 +1,7 @@
 #include "EspSrKibiDetector.h"
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3) && \
+    (defined(CONFIG_MODEL_IN_FLASH) || defined(CONFIG_MODEL_IN_SDCARD)) && \
     (defined(ARDUINO_PARTITION_esp_sr_8) || \
      defined(ARDUINO_PARTITION_esp_sr_16) || \
      defined(ARDUINO_PARTITION_esp_sr_32)) && \
