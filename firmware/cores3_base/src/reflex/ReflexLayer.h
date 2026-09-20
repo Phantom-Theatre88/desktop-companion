@@ -17,6 +17,8 @@ struct ReflexIntent {
   ReflexIntentType type = ReflexIntentType::NONE;
   uint32_t created_ms = 0;
   nerve::NeuronType cause = nerve::NeuronType::NONE;
+  nerve::NeuronPayload payload{};
+  float confidence = 1.0f;
 };
 
 enum class ReflexOutcome : uint8_t {
