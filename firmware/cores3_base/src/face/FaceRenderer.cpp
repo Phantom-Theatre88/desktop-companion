@@ -62,6 +62,22 @@ void FaceRenderer::render(const ExpressionParams& target, uint32_t now_ms) {
           false,
           expression.eye_color);
 
+  // Mouth is intentionally absent in the neutral face. Behavior may request
+  // a short round "o" as a secondary cue for actions such as PICKED_UP.
+  const float mouth_open = clamp01(expression.mouth_open);
+  if (mouth_open > 0.04f) {
+    const int16_t mouth_cx = w / 2;
+    const int16_t mouth_cy = static_cast<int16_t>(h * 0.72f);
+    const int16_t outer_rx = static_cast<int16_t>(w * 0.035f);
+    const int16_t outer_ry = static_cast<int16_t>(
+        h * (0.018f + 0.035f * mouth_open));
+    const int16_t inner_rx = outer_rx > 3 ? outer_rx - 3 : 1;
+    const int16_t inner_ry = outer_ry > 3 ? outer_ry - 3 : 1;
+    canvas_->fillEllipse(mouth_cx, mouth_cy, outer_rx, outer_ry,
+                         expression.eye_color);
+    canvas_->fillEllipse(mouth_cx, mouth_cy, inner_rx, inner_ry, TFT_BLACK);
+  }
+
   canvas_->pushSprite(0, 0);
 }
 
