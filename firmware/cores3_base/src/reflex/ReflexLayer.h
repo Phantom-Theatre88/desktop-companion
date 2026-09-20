@@ -10,6 +10,10 @@ enum class ReflexIntentType : uint8_t {
   NONE = 0,
   LOOK_TOWARD_SOURCE,
   WIDEN_EYES,
+  TOUCH_RESPONSE,
+  STARTLE,
+  SHAKE_RESPONSE,
+  LIGHT_ADAPT,
   HOLD_STILL,
 };
 
