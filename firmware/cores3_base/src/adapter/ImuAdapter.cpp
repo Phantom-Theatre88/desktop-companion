@@ -91,9 +91,14 @@ bool ImuAdapter::toNeuron(const device::ImuSample& sample,
   debug_magnitude_deviation_g_ = magnitude_deviation_g;
   debug_quiet_ = quiet;
 
+  // Rotating the CoreS3 head changes the gravity vector seen by the
+  // accelerometer even when the robot has not been picked up. During known
+  // neck self-motion, ignore the direction-change-only lift cue and require
+  // actual acceleration magnitude change. Strong shake detection remains
+  // independent below.
   const bool lift_motion =
-      delta_g >= kLiftDeltaG ||
-      magnitude_deviation_g >= kLiftMagnitudeDeviationG;
+      magnitude_deviation_g >= kLiftMagnitudeDeviationG ||
+      (!self_motion_active_ && delta_g >= kLiftDeltaG);
 
   const bool setdown_impact =
       delta_g >= kSetdownImpactDeltaG ||
