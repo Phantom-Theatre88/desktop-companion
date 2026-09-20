@@ -108,18 +108,24 @@ void CoreS3NeckDriver::tick(uint32_t now_ms,
     setTorque(true);
   }
 
-  const float yaw_delta_deg =
-      static_cast<float>(yaw_raw - last_yaw_raw_) / kRawPerDegree;
-  const float pitch_delta_deg =
-      static_cast<float>(pitch_raw - last_pitch_raw_) / kRawPerDegree;
+  const float previous_yaw_deg =
+      static_cast<float>(last_yaw_raw_ - kYawZeroRaw) / kRawPerDegree;
+  const float target_yaw_deg =
+      static_cast<float>(yaw_raw - kYawZeroRaw) / kRawPerDegree;
+  const float previous_pitch_deg =
+      static_cast<float>(last_pitch_raw_ - kPitchZeroRaw) / kRawPerDegree;
+  const float target_pitch_deg =
+      static_cast<float>(pitch_raw - kPitchZeroRaw) / kRawPerDegree;
 
   writePositions(yaw_raw, pitch_raw);
   last_motion_command_ms_ = now_ms;
 
   ++last_motion_command_.sequence;
   last_motion_command_.command_ms = now_ms;
-  last_motion_command_.yaw_delta_deg = yaw_delta_deg;
-  last_motion_command_.pitch_delta_deg = pitch_delta_deg;
+  last_motion_command_.previous_yaw_deg = previous_yaw_deg;
+  last_motion_command_.target_yaw_deg = target_yaw_deg;
+  last_motion_command_.previous_pitch_deg = previous_pitch_deg;
+  last_motion_command_.target_pitch_deg = target_pitch_deg;
 
   last_yaw_raw_ = yaw_raw;
   last_pitch_raw_ = pitch_raw;
