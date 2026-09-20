@@ -301,6 +301,21 @@ bool ImuAdapter::registerShakeImpulse(float dx, float dy, float dz,
   return shake_reversal_count_ >= kShakeRequiredReversals;
 }
 
+const char* ImuAdapter::motionStateName(MotionState state) {
+  switch (state) {
+    case MotionState::SEEKING_REST: return "SEEKING_REST";
+    case MotionState::REST_ARMED: return "REST_ARMED";
+    case MotionState::LIFT_CANDIDATE: return "LIFT_CANDIDATE";
+    case MotionState::HELD: return "HELD";
+    case MotionState::SETDOWN_CANDIDATE: return "SETDOWN_CANDIDATE";
+    default: return "UNKNOWN";
+  }
+}
+
+const char* ImuAdapter::debugStateName() const {
+  return motionStateName(motion_state_);
+}
+
 float ImuAdapter::magnitude(float x, float y, float z) {
   return sqrtf((x * x) + (y * y) + (z * z));
 }
