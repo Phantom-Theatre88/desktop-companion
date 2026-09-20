@@ -2,16 +2,26 @@
 
 #include <Arduino.h>
 #include "../device/CoreS3ImuDriver.h"
-#include "../device/CoreS3NeckDriver.h"
 #include "../nerve/NerveTypes.h"
 
 namespace deskbot {
 namespace adapter {
 
+struct NeckEfferenceCopy {
+  uint32_t sequence = 0;
+  uint32_t command_ms = 0;
+  float previous_pitch_deg = 0.0f;
+  float target_pitch_deg = 0.0f;
+
+  float pitchDeltaDeg() const {
+    return target_pitch_deg - previous_pitch_deg;
+  }
+};
+
 class ImuAdapter {
  public:
   void begin(uint32_t now_ms);
-  void setSelfMotionCommand(const device::NeckMotionCommand& command);
+  void setSelfMotionCommand(const NeckEfferenceCopy& command);
   bool toNeuron(const device::ImuSample& sample,
                 nerve::SemanticNeuron& out_neuron);
 
