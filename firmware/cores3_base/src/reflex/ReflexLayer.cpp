@@ -34,11 +34,20 @@ void ReflexLayer::onNeuron(const nerve::SemanticNeuron& neuron) {
       break;
 
     case nerve::NeuronType::TOUCH:
+      emit(ReflexIntentType::TOUCH_RESPONSE, neuron);
+      break;
+
     case nerve::NeuronType::LIFT_STARTED:
+      emit(ReflexIntentType::STARTLE, neuron);
+      break;
+
     case nerve::NeuronType::SHAKE:
+      emit(ReflexIntentType::SHAKE_RESPONSE, neuron);
+      break;
+
     case nerve::NeuronType::BRIGHTER:
     case nerve::NeuronType::DARKER:
-      emit(ReflexIntentType::WIDEN_EYES, neuron);
+      emit(ReflexIntentType::LIGHT_ADAPT, neuron);
       break;
 
     default:
