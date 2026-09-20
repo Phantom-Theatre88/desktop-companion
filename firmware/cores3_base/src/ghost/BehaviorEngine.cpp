@@ -180,6 +180,10 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     const float amount = 1.0f - static_cast<float>(event_age_ms) / kTouchResponseMs;
     micro_behavior_.left_shape.lower_lid = 0.22f * amount;
     micro_behavior_.left_shape.radius_scale = 1.0f + 0.20f * amount;
+    // TOUCH eyelid experiment: add a gentle mirrored upper-lid slope.
+    // Negative tilt uses the renderer's softer inner-edge direction, while
+    // lower-lid lift remains the primary "touched" cue.
+    micro_behavior_.left_shape.tilt = -0.45f * amount;
     micro_behavior_.right_shape = micro_behavior_.left_shape;
     resting_openness = clamp01(resting_openness + 0.10f);
     micro_behavior_.gaze_x *= 0.35f;
