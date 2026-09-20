@@ -22,6 +22,8 @@ constexpr float kShakeDeltaG = 0.70f;
 constexpr float kShakeMagnitudeDeviationG = 0.55f;
 constexpr uint32_t kShakeCooldownMs = 900;
 constexpr uint32_t kPostShakePickupSuppressMs = 1200;
+constexpr uint32_t kShakeImpulseWindowMs = 450;
+constexpr uint8_t kShakeRequiredReversals = 2;
 
 // Once PICKED_UP has been emitted, IMU-only sensing cannot distinguish a
 // quietly-held device from one resting on the desk. Do not re-arm pickup just
@@ -49,6 +51,7 @@ void ImuAdapter::begin(uint32_t now_ms) {
 
   pickup_suppress_until_ms_ = 0;
   last_shake_ms_ = now_ms - kShakeCooldownMs;
+  resetShakePattern();
 }
 
 bool ImuAdapter::toNeuron(const device::ImuSample& sample,
@@ -96,35 +99,6 @@ bool ImuAdapter::toNeuron(const device::ImuSample& sample,
       delta_g >= kShakeDeltaG ||
       magnitude_deviation_g >= kShakeMagnitudeDeviationG;
 
-  // Strong abrupt motion has semantic priority. Crucially, SHAKE no longer
-  // resets the pose state back to SEEKING_REST. If the device was already held,
-  // it stays held; this prevents a later quiet period from becoming a false
-  // second PICKED_UP for the same physical handling episode.
-  if (shake_candidate &&
-      (sample.timestamp_ms - last_shake_ms_) >= kShakeCooldownMs) {
-    last_shake_ms_ = sample.timestamp_ms;
-    pickup_suppress_until_ms_ = sample.timestamp_ms + kPostShakePickupSuppressMs;
-
-    if (motion_state_ == MotionState::REST_ARMED ||
-        motion_state_ == MotionState::LIFT_CANDIDATE ||
-        motion_state_ == MotionState::SEEKING_REST) {
-      motion_state_ = MotionState::HELD;
-      setdown_impact_seen_ = false;
-      setdown_quiet_started_ms_ = 0;
-    }
-
-    nerve::NeuronPayload payload;
-    payload.scalar = motion_strength;
-
-    out_neuron = nerve::makeNeuron(
-        nerve::NeuronType::SHAKE,
-        nerve::NeuronSource::IMU,
-        sample.timestamp_ms,
-        1.0f,
-        payload);
-    return true;
-  }
-
   switch (motion_state_) {
     case MotionState::SEEKING_REST:
       if (quiet) {
@@ -145,9 +119,15 @@ bool ImuAdapter::toNeuron(const device::ImuSample& sample,
       }
 
       if (lift_motion) {
+        // First movement from rest is always treated as a lift candidate.
+        // A single strong impulse must not immediately become SHAKE.
         motion_state_ = MotionState::LIFT_CANDIDATE;
         lift_started_ms_ = sample.timestamp_ms;
         lift_quiet_started_ms_ = 0;
+        resetShakePattern();
+        if (shake_candidate) {
+          registerShakeImpulse(dx, dy, dz, sample.timestamp_ms);
+        }
       }
       break;
 
@@ -155,6 +135,28 @@ bool ImuAdapter::toNeuron(const device::ImuSample& sample,
       if ((sample.timestamp_ms - lift_started_ms_) > kLiftCandidateTimeoutMs) {
         resetRestDetection(sample.timestamp_ms);
         break;
+      }
+
+      if (shake_candidate &&
+          registerShakeImpulse(dx, dy, dz, sample.timestamp_ms) &&
+          (sample.timestamp_ms - last_shake_ms_) >= kShakeCooldownMs) {
+        last_shake_ms_ = sample.timestamp_ms;
+        pickup_suppress_until_ms_ =
+            sample.timestamp_ms + kPostShakePickupSuppressMs;
+        motion_state_ = MotionState::HELD;
+        setdown_impact_seen_ = false;
+        setdown_quiet_started_ms_ = 0;
+
+        nerve::NeuronPayload payload;
+        payload.scalar = motion_strength;
+        out_neuron = nerve::makeNeuron(
+            nerve::NeuronType::SHAKE,
+            nerve::NeuronSource::IMU,
+            sample.timestamp_ms,
+            1.0f,
+            payload);
+        resetShakePattern();
+        return true;
       }
 
       if (lift_motion) {
@@ -192,6 +194,24 @@ bool ImuAdapter::toNeuron(const device::ImuSample& sample,
       break;
 
     case MotionState::HELD:
+      // While already held, SHAKE still requires repeated directional
+      // reversals. A single jolt or a set-down impact is not enough.
+      if (shake_candidate &&
+          registerShakeImpulse(dx, dy, dz, sample.timestamp_ms) &&
+          (sample.timestamp_ms - last_shake_ms_) >= kShakeCooldownMs) {
+        last_shake_ms_ = sample.timestamp_ms;
+        nerve::NeuronPayload payload;
+        payload.scalar = motion_strength;
+        out_neuron = nerve::makeNeuron(
+            nerve::NeuronType::SHAKE,
+            nerve::NeuronSource::IMU,
+            sample.timestamp_ms,
+            1.0f,
+            payload);
+        resetShakePattern();
+        return true;
+      }
+
       // Quiet while being held is not evidence that the robot is back on the
       // desk. A set-down must first show a placement-like impact.
       if (setdown_impact) {
@@ -242,6 +262,43 @@ void ImuAdapter::resetRestDetection(uint32_t now_ms) {
   lift_quiet_started_ms_ = 0;
   setdown_quiet_started_ms_ = 0;
   setdown_impact_seen_ = false;
+  resetShakePattern();
+}
+
+void ImuAdapter::resetShakePattern() {
+  have_shake_impulse_ = false;
+  last_shake_dx_ = 0.0f;
+  last_shake_dy_ = 0.0f;
+  last_shake_dz_ = 0.0f;
+  last_shake_impulse_ms_ = 0;
+  shake_reversal_count_ = 0;
+}
+
+bool ImuAdapter::registerShakeImpulse(float dx, float dy, float dz,
+                                      uint32_t now_ms) {
+  if (!have_shake_impulse_ ||
+      (now_ms - last_shake_impulse_ms_) > kShakeImpulseWindowMs) {
+    have_shake_impulse_ = true;
+    last_shake_dx_ = dx;
+    last_shake_dy_ = dy;
+    last_shake_dz_ = dz;
+    last_shake_impulse_ms_ = now_ms;
+    shake_reversal_count_ = 0;
+    return false;
+  }
+
+  const float dot =
+      dx * last_shake_dx_ + dy * last_shake_dy_ + dz * last_shake_dz_;
+  if (dot < 0.0f) {
+    ++shake_reversal_count_;
+  }
+
+  last_shake_dx_ = dx;
+  last_shake_dy_ = dy;
+  last_shake_dz_ = dz;
+  last_shake_impulse_ms_ = now_ms;
+
+  return shake_reversal_count_ >= kShakeRequiredReversals;
 }
 
 float ImuAdapter::magnitude(float x, float y, float z) {
