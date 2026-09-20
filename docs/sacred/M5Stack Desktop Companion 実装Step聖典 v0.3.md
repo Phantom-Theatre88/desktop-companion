@@ -54,7 +54,7 @@ LOCK 53により、CoreS3単体DeskRobo成立後は、**最初の外部感覚ToF
 
 親Repoは置かない。
 
-`stack-chan-ko`、M5Stack/StackChan、Dotty StackChan、stackchan-local、M5Stack_RoboEyes、Xiaozhi、旧Yuki実装等は初期基盤へ入れない。
+M5Stack/StackChan、Dotty StackChan、stackchan-local、M5Stack_RoboEyes、Xiaozhi、旧Yuki実装等は初期基盤へ入れない。
 
 ### 旧資産
 
