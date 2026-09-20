@@ -29,11 +29,15 @@ void ReflexLayer::onNeuron(const nerve::SemanticNeuron& neuron) {
     case nerve::NeuronType::PERSON_PRESENT:
     case nerve::NeuronType::FACE_DETECTED:
     case nerve::NeuronType::LOUD_SOUND:
+    case nerve::NeuronType::MOTION_DETECTED:
       emit(ReflexIntentType::LOOK_TOWARD_SOURCE, neuron);
       break;
 
-    case nerve::NeuronType::PICKED_UP:
+    case nerve::NeuronType::TOUCH:
+    case nerve::NeuronType::LIFT_STARTED:
     case nerve::NeuronType::SHAKE:
+    case nerve::NeuronType::BRIGHTER:
+    case nerve::NeuronType::DARKER:
       emit(ReflexIntentType::WIDEN_EYES, neuron);
       break;
 
@@ -58,6 +62,8 @@ void ReflexLayer::emit(ReflexIntentType type, const nerve::SemanticNeuron& cause
   intent.type = type;
   intent.created_ms = cause.timestamp_ms;
   intent.cause = cause.type;
+  intent.payload = cause.payload;
+  intent.confidence = cause.confidence;
   handler_(intent, handler_context_);
 }
 
