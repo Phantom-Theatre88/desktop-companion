@@ -83,6 +83,10 @@ class BehaviorEngine {
   void chooseAutonomousAction(uint32_t now_ms, const HeartState& heart);
   void updateLifeState(uint32_t now_ms, const HeartState& heart);
   void markAutonomousLifecycle(AutonomousLifecycle lifecycle, uint32_t now_ms);
+  void triggerEffect(face::VisualEffect effect,
+                     uint32_t now_ms,
+                     uint32_t duration_ms,
+                     float amount = 1.0f);
 
   nerve::NeuronType last_received_type_ = nerve::NeuronType::NONE;
   uint32_t last_received_ms_ = 0;
@@ -106,6 +110,14 @@ class BehaviorEngine {
   AutonomousLifecycle last_autonomous_lifecycle_ = AutonomousLifecycle::NONE;
   uint32_t autonomous_lifecycle_seq_ = 0;
   uint32_t autonomous_lifecycle_ms_ = 0;
+
+  // Short-lived symbolic expression selected by Behavior from semantic context.
+  // Renderer owns drawing only; meaning remains here.
+  face::VisualEffect transient_effect_ = face::VisualEffect::NONE;
+  uint32_t transient_effect_started_ms_ = 0;
+  uint32_t transient_effect_duration_ms_ = 0;
+  float transient_effect_amount_ = 1.0f;
+
   MicroBehaviorFrame micro_behavior_{};
 };
 
