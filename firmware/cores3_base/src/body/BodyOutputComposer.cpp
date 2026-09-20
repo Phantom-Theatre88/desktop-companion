@@ -64,6 +64,8 @@ BodyFrame BodyOutputComposer::compose(
   expression.jitter_x = behavior.jitter_x;
   expression.jitter_y = behavior.jitter_y;
   expression.mouth_open = behavior.mouth_open;
+  expression.prop = behavior.prop;
+  expression.prop_progress = behavior.prop_progress;
   expression.left.openness =
       clamp01(behavior.eye_openness + behavior.left_eye_bias);
   expression.right.openness =
@@ -94,6 +96,9 @@ BodyFrame BodyOutputComposer::compose(
         break;
     }
     if (direct_active) {
+      // Strong/direct Reflex owns the body momentarily; hide autonomous props.
+      body.face.prop = face::VisualProp::NONE;
+      body.face.prop_progress = 0.0f;
       applyDirectReflex(body, direct_reflex_, now_ms);
     }
   }
