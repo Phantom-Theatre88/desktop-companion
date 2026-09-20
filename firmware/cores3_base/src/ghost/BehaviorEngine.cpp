@@ -117,9 +117,8 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   micro_behavior_.gaze_x = 0.0f;
   micro_behavior_.gaze_y = clampSigned(sinf((t * 0.31f) + 1.2f) * gaze_energy * 0.45f);
 
-  // LOCK 52: internal senses should become visible body responses through the
-  // normal SemanticNeuron -> Ghost -> Behavior path. These amplitudes/times are
-  // implementation tuning values, not personality LOCK values.
+  // Vision events still participate in Behavior arbitration, but immediate
+  // sensor-driven body reactions are composed separately by Reflex -> Body Output.
   const uint32_t visual_age = now_ms - visual_event_ms_;
   const bool visual_response = visual_age < kVisualResponseMs;
 
