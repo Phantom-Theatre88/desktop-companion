@@ -62,9 +62,15 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   last_received_type_ = neuron.type;
   last_received_ms_ = neuron.timestamp_ms;
 
-  // Meaningful external input wakes the continuing inner-state layer.
-  // The immediate physical response still belongs to Reflex.
-  if (neuron.type != nerve::NeuronType::NONE) {
+  // Only interaction-level stimuli wake the continuing life state.
+  // Low-level Vision may still affect attention/curiosity and Reflex, but an
+  // ambient MOTION/BRIGHTER/DARKER event must not repeatedly wake a sleeping
+  // DeskRobo. Future voice/person-recognition neurons can join this set.
+  const bool wake_stimulus =
+      neuron.type == nerve::NeuronType::TOUCH ||
+      neuron.type == nerve::NeuronType::PICKED_UP ||
+      neuron.type == nerve::NeuronType::SHAKE;
+  if (wake_stimulus) {
     life_state_ = LifeState::AWAKE;
     awake_hold_until_ms_ = handled_ms + kWakeHoldMs;
   }
