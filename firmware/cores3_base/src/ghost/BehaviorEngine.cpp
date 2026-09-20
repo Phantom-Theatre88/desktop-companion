@@ -96,26 +96,71 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
 
 void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   const HeartState& heart = heart_context.state;
-  // Rebuild transient geometry each tick; expired events cannot latch a face.
+  const HeartState& baseline = heart_context.baseline;
+
+  // Rebuild the Heart/Behavior body frame every tick. Reflex is composed later
+  // in BodyOutputComposer and must not be baked into this stream.
   micro_behavior_.left_shape = face::EyeShape{};
   micro_behavior_.right_shape = face::EyeShape{};
   micro_behavior_.eye_spacing_scale = 1.0f;
   micro_behavior_.jitter_x = micro_behavior_.jitter_y = 0.0f;
   micro_behavior_.mouth_open = 0.0f;
 
-  // A small Heart-influenced resting openness. Sleepiness closes the eyes a
-  // little, while attention keeps them more awake. This is continuous output,
-  // not a fixed expression preset.
-  float resting_openness = clamp01(
-      0.78f + (heart.attention * 0.16f) - (heart.sleepiness * 0.28f));
+  // Heart -> body is expressed as deviation from the current dynamic baseline,
+  // not as fixed "happy/sad" presets. This keeps long-term personality shifts
+  // compatible with LOCK 21-26 while letting temporary state continuously
+  // appear in the body.
+  const float mood_delta = heart.mood - baseline.mood;
+  const float curiosity_delta = heart.curiosity - baseline.curiosity;
+  const float boredom_delta = heart.boredom - baseline.boredom;
+  const float sleepiness_delta = heart.sleepiness - baseline.sleepiness;
+  const float attention_delta = heart.attention - baseline.attention;
 
-  // Deterministic micro gaze. We intentionally avoid pure random motion: the
-  // amplitude is shaped by curiosity and attention so the motion belongs to
-  // Ghost/Behavior rather than being decorative noise.
+  float resting_openness = clamp01(
+      0.88f +
+      (attention_delta * 0.26f) -
+      (sleepiness_delta * 0.42f) -
+      (boredom_delta * 0.10f) +
+      (mood_delta * 0.08f));
+
+  // Subtle continuous geometry. These are implementation tuning values, not
+  // personality LOCKs. Affection remains a long-term relationship state and is
+  // intentionally not rendered as a permanent facial parameter.
+  const float mood_height = mood_delta * 0.10f;
+  const float curiosity_width = curiosity_delta * 0.08f;
+  const float tired_lid =
+      sleepiness_delta > 0.0f ? sleepiness_delta * 0.22f : 0.0f;
+  const float bored_lid =
+      boredom_delta > 0.0f ? boredom_delta * 0.16f : 0.0f;
+
+  micro_behavior_.left_shape.height_scale =
+      1.0f + mood_height;
+  micro_behavior_.right_shape.height_scale =
+      1.0f + mood_height;
+  micro_behavior_.left_shape.width_scale =
+      1.0f + curiosity_width;
+  micro_behavior_.right_shape.width_scale =
+      1.0f + curiosity_width;
+  micro_behavior_.left_shape.upper_lid =
+      clamp01(tired_lid + bored_lid);
+  micro_behavior_.right_shape.upper_lid =
+      micro_behavior_.left_shape.upper_lid;
+
+  // Deterministic micro gaze. Curiosity and attention raise scanning energy;
+  // boredom and sleepiness reduce it. This remains continuous Ghost behavior.
   const float t = static_cast<float>(now_ms - started_ms_) * 0.001f;
-  const float gaze_energy = 0.05f + (heart.curiosity * 0.10f) + (heart.attention * 0.05f);
+  float gaze_energy =
+      0.10f +
+      (curiosity_delta * 0.18f) +
+      (attention_delta * 0.10f) -
+      (boredom_delta * 0.10f) -
+      (sleepiness_delta * 0.12f);
+  if (gaze_energy < 0.02f) gaze_energy = 0.02f;
+  if (gaze_energy > 0.18f) gaze_energy = 0.18f;
+
   micro_behavior_.gaze_x = 0.0f;
-  micro_behavior_.gaze_y = clampSigned(sinf((t * 0.31f) + 1.2f) * gaze_energy * 0.45f);
+  micro_behavior_.gaze_y =
+      clampSigned(sinf((t * 0.31f) + 1.2f) * gaze_energy * 0.45f);
 
   // Vision events still participate in Behavior arbitration, but immediate
   // sensor-driven body reactions are composed separately by Reflex -> Body Output.
