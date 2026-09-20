@@ -19,6 +19,7 @@ struct HeartState {
 
 struct HeartContext {
   HeartState state{};
+  HeartState baseline{};
   uint32_t captured_ms = 0;
 };
 
