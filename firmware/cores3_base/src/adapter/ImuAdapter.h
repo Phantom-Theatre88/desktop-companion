@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include "../device/CoreS3ImuDriver.h"
+#include "../device/CoreS3NeckDriver.h"
 #include "../nerve/NerveTypes.h"
 
 namespace deskbot {
@@ -10,13 +11,17 @@ namespace adapter {
 class ImuAdapter {
  public:
   void begin(uint32_t now_ms);
-  void setSelfMotionActive(bool active) { self_motion_active_ = active; }
+  void setSelfMotionCommand(const device::NeckMotionCommand& command);
   bool toNeuron(const device::ImuSample& sample,
                 nerve::SemanticNeuron& out_neuron);
 
   const char* debugStateName() const;
   uint8_t debugShakeReversalCount() const { return shake_reversal_count_; }
   float debugDeltaG() const { return debug_delta_g_; }
+  float debugRawDeltaG() const { return debug_raw_delta_g_; }
+  float debugSelfMotionCompensationG() const {
+    return debug_self_motion_compensation_g_;
+  }
   float debugMagnitudeDeviationG() const { return debug_magnitude_deviation_g_; }
   bool debugQuiet() const { return debug_quiet_; }
 
@@ -59,9 +64,14 @@ class ImuAdapter {
   uint8_t shake_reversal_count_ = 0;
 
   float debug_delta_g_ = 0.0f;
+  float debug_raw_delta_g_ = 0.0f;
+  float debug_self_motion_compensation_g_ = 0.0f;
   float debug_magnitude_deviation_g_ = 0.0f;
   bool debug_quiet_ = false;
-  bool self_motion_active_ = false;
+
+  uint32_t last_self_motion_sequence_ = 0;
+  uint32_t self_motion_budget_expire_ms_ = 0;
+  float self_motion_delta_budget_g_ = 0.0f;
 };
 
 }  // namespace adapter
