@@ -71,7 +71,7 @@ void ImuAdapter::begin(uint32_t now_ms) {
 }
 
 void ImuAdapter::setSelfMotionCommand(
-    const device::NeckMotionCommand& command) {
+    const NeckEfferenceCopy& command) {
   if (command.sequence == 0 ||
       command.sequence == last_self_motion_sequence_) {
     return;
