@@ -32,7 +32,7 @@ uint32_t last_autonomous_trace_decision_ms = 0;
 uint32_t last_autonomous_trace_decision_seq = 0;
 uint32_t last_autonomous_lifecycle_seq = 0;
 constexpr uint32_t kFaceRenderIntervalMs = 40;
-constexpr uint32_t kCameraCaptureIntervalMs = 2000;
+constexpr uint32_t kCameraCaptureIntervalMs = 1000;
 
 const char* autonomousActionName(deskbot::ghost::AutonomousAction action) {
   switch (action) {
