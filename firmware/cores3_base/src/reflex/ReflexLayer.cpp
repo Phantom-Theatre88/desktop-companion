@@ -29,6 +29,7 @@ void ReflexLayer::onNeuron(const nerve::SemanticNeuron& neuron) {
     case nerve::NeuronType::PERSON_PRESENT:
     case nerve::NeuronType::FACE_DETECTED:
     case nerve::NeuronType::LOUD_SOUND:
+    case nerve::NeuronType::WAKE_WORD_DETECTED:
     case nerve::NeuronType::MOTION_DETECTED:
       emit(ReflexIntentType::LOOK_TOWARD_SOURCE, neuron);
       break;
