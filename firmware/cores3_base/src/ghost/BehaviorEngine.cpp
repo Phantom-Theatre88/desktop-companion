@@ -105,6 +105,8 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   micro_behavior_.eye_spacing_scale = 1.0f;
   micro_behavior_.jitter_x = micro_behavior_.jitter_y = 0.0f;
   micro_behavior_.mouth_open = 0.0f;
+  micro_behavior_.neck_yaw = 0.0f;
+  micro_behavior_.neck_pitch = 0.0f;
 
   // Heart -> body is expressed as deviation from the current dynamic baseline,
   // not as fixed "happy/sad" presets. This keeps long-term personality shifts
@@ -161,6 +163,23 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   micro_behavior_.gaze_x = 0.0f;
   micro_behavior_.gaze_y =
       clampSigned(sinf((t * 0.31f) + 1.2f) * gaze_energy * 0.45f);
+
+  // Heart continuously appears in posture as well as in the face. Keep this
+  // small: it is a living posture, not an autonomous gesture.
+  const float neck_energy =
+      0.10f +
+      (curiosity_delta * 0.16f) +
+      (attention_delta * 0.10f) -
+      (sleepiness_delta * 0.10f) -
+      (boredom_delta * 0.08f);
+  micro_behavior_.neck_yaw =
+      clampSigned(sinf((t * 0.115f) + 0.7f) * neck_energy);
+  micro_behavior_.neck_pitch =
+      clampSigned(
+          (-sleepiness_delta * 0.20f) +
+          (attention_delta * 0.08f) +
+          (mood_delta * 0.05f) +
+          sinf((t * 0.083f) + 2.1f) * 0.025f);
 
   // Vision events still participate in Behavior arbitration, but immediate
   // sensor-driven body reactions are composed separately by Reflex -> Body Output.
@@ -221,6 +240,11 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
       micro_behavior_.left_shape.width_scale = 1.0f + 0.06f * envelope;
       micro_behavior_.right_shape.width_scale = 1.0f + 0.06f * envelope;
       resting_openness = clamp01(resting_openness + 0.05f * envelope);
+      micro_behavior_.neck_yaw =
+          clampSigned(micro_behavior_.neck_yaw +
+                      autonomous_direction_ * 0.55f * envelope);
+      micro_behavior_.neck_pitch =
+          clampSigned(micro_behavior_.neck_pitch - 0.18f * envelope);
     } else if (autonomous_action_ == AutonomousAction::BORED_SCAN) {
       const float p = clamp01(
           static_cast<float>(autonomous_age) / static_cast<float>(kBoredScanMs));
@@ -230,6 +254,11 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
       micro_behavior_.gaze_y = clampSigned(cosf(phase) * 0.05f);
       micro_behavior_.left_shape.upper_lid = 0.05f + heart.boredom * 0.05f;
       micro_behavior_.right_shape.upper_lid = micro_behavior_.left_shape.upper_lid;
+      micro_behavior_.neck_yaw =
+          clampSigned(micro_behavior_.neck_yaw +
+                      sinf(phase) * scan_amount * 0.55f);
+      micro_behavior_.neck_pitch =
+          clampSigned(micro_behavior_.neck_pitch + 0.12f);
     }
   }
 
