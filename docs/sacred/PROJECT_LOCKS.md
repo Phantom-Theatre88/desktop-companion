@@ -185,7 +185,6 @@ Pi5側高次視覚カメラは Raspberry Pi Camera Module 3 Wide を採用LOCK�
 
 以下の旧方針は正式に失効する。
 
-- `stack-chan-ko` を親Repoとする
 - 旧Yuki／StackChanファームを現行実装の土台とする
 - ESP-IDF 5.5.4旧Yuki構成を現行の必須基盤とする
 - ToF4M縦貫通実装をCoreS3素体確認より先に進める
