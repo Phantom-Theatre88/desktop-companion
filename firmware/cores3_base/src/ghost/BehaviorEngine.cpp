@@ -17,6 +17,10 @@ constexpr uint32_t kTouchResponseMs = 500;
 constexpr uint32_t kPickedUpResponseMs = 700;
 constexpr uint32_t kShakeResponseMs = 650;
 constexpr uint32_t kVisualResponseMs = 1500;
+constexpr uint32_t kMotionAttackMs = 120;
+constexpr uint32_t kMotionHoldMs = 300;
+constexpr uint32_t kMotionReleaseMs =
+    kVisualResponseMs - kMotionAttackMs - kMotionHoldMs;
 constexpr float kMotionDirectionDeadzone = 0.20f;
 constexpr uint32_t kAutonomousDecisionIntervalMs = 15000;
 constexpr uint32_t kCuriousLookMs = 1800;
@@ -203,28 +207,43 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
     micro_behavior_.right_shape.height_scale = 1.0f + 0.12f * amount;
   }
 
-  // Minimal nerve-to-body connection using existing openness only. No new
-  // expression animation and no assumption about who/what caused the change.
+  // Low-level Vision body response. Directional motion is intentionally
+  // "fast in, slow out": make the direction obvious first, hold it briefly,
+  // then let the face relax back to neutral.
   if (!touch_response && !picked_up_response && !shake_response &&
       visual_age < kVisualResponseMs) {
-    const float amount = 1.0f -
-        static_cast<float>(visual_age) / static_cast<float>(kVisualResponseMs);
+    float amount = 0.0f;
+    if (visual_age < kMotionAttackMs) {
+      amount = static_cast<float>(visual_age) /
+               static_cast<float>(kMotionAttackMs);
+    } else if (visual_age < kMotionAttackMs + kMotionHoldMs) {
+      amount = 1.0f;
+    } else {
+      const uint32_t release_age =
+          visual_age - kMotionAttackMs - kMotionHoldMs;
+      amount = 1.0f -
+          static_cast<float>(release_age) /
+          static_cast<float>(kMotionReleaseMs);
+    }
+    amount = clamp01(amount);
+
     if (visual_event_type_ == nerve::NeuronType::MOTION_DETECTED) {
       resting_openness = clamp01(resting_openness + 0.10f * amount);
-      // Look toward the normalized semantic motion direction. Blend rather than
-      // snap so the existing micro-gaze remains alive underneath the response.
-      const float gaze_weight = 0.72f * amount;
-      micro_behavior_.gaze_x = clampSigned(
-          micro_behavior_.gaze_x * (1.0f - gaze_weight) +
-          visual_target_x_ * gaze_weight);
-      micro_behavior_.gaze_y = clampSigned(
-          micro_behavior_.gaze_y * (1.0f - gaze_weight) +
-          visual_target_y_ * gaze_weight * 0.55f);
 
-      // Make directional attention deliberately readable on the physical
-      // eye-only face. Keep width unchanged. Ignore small center noise, then
-      // remap the remaining horizontal direction to a strong vertical contrast:
-      // attended side grows up to 1.25, opposite side shrinks to 0.78.
+      // Position is now only a tiny supporting cue. The physical face has no
+      // pupils and only a short travel distance, so direction is communicated
+      // primarily by left/right shape contrast rather than slow translation.
+      micro_behavior_.gaze_x = clampSigned(
+          micro_behavior_.gaze_x * (1.0f - 0.85f * amount) +
+          visual_target_x_ * 0.10f * amount);
+      micro_behavior_.gaze_y = clampSigned(
+          micro_behavior_.gaze_y * (1.0f - 0.65f * amount) +
+          visual_target_y_ * 0.08f * amount);
+
+      // Deliberately use the full current EyeShape height range for this
+      // experiment. The attended side becomes clearly tall (1.25), while the
+      // opposite eye clearly squashes (0.60). This is perception/body tuning,
+      // not a personality LOCK.
       const float abs_x = visual_target_x_ < 0.0f
           ? -visual_target_x_ : visual_target_x_;
       if (abs_x >= kMotionDirectionDeadzone) {
@@ -236,18 +255,26 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
           micro_behavior_.right_shape.height_scale =
               1.0f + 0.25f * emphasis;
           micro_behavior_.left_shape.height_scale =
-              1.0f - 0.22f * emphasis;
+              1.0f - 0.40f * emphasis;
         } else {
           micro_behavior_.left_shape.height_scale =
               1.0f + 0.25f * emphasis;
           micro_behavior_.right_shape.height_scale =
-              1.0f - 0.22f * emphasis;
+              1.0f - 0.40f * emphasis;
         }
       }
     } else if (visual_event_type_ == nerve::NeuronType::BRIGHTER) {
-      resting_openness = clamp01(resting_openness - 0.10f * amount);
+      const float legacy_amount = 1.0f -
+          static_cast<float>(visual_age) /
+          static_cast<float>(kVisualResponseMs);
+      resting_openness =
+          clamp01(resting_openness - 0.10f * legacy_amount);
     } else if (visual_event_type_ == nerve::NeuronType::DARKER) {
-      resting_openness = clamp01(resting_openness + 0.06f * amount);
+      const float legacy_amount = 1.0f -
+          static_cast<float>(visual_age) /
+          static_cast<float>(kVisualResponseMs);
+      resting_openness =
+          clamp01(resting_openness + 0.06f * legacy_amount);
     }
   }
 
