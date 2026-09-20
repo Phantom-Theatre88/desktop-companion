@@ -67,6 +67,8 @@ class ImuAdapter {
   uint32_t rest_started_ms_ = 0;
   uint32_t lift_started_ms_ = 0;
   uint32_t lift_quiet_started_ms_ = 0;
+  uint32_t lift_last_motion_ms_ = 0;
+  uint8_t lift_motion_samples_ = 0;
   uint32_t setdown_quiet_started_ms_ = 0;
   bool setdown_impact_seen_ = false;
 
