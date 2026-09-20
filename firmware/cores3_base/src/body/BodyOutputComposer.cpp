@@ -40,6 +40,7 @@ void BodyOutputComposer::onReflexIntent(const reflex::ReflexIntent& intent) {
   // do not let a later low-priority body event overwrite a still-relevant
   // stronger reflex. Strong/safety reflex > interpersonal response.
   if (!have_direct_reflex_ ||
+      !directIntentActiveAt(direct_reflex_, intent.created_ms) ||
       priorityOf(intent) >= priorityOf(direct_reflex_)) {
     direct_reflex_ = intent;
     have_direct_reflex_ = true;
@@ -262,6 +263,22 @@ BodyOutputComposer::ReflexPriority BodyOutputComposer::priorityOf(
 
     default:
       return ReflexPriority::NONE;
+  }
+}
+
+bool BodyOutputComposer::directIntentActiveAt(
+    const reflex::ReflexIntent& intent,
+    uint32_t now_ms) {
+  const uint32_t age = now_ms - intent.created_ms;
+  switch (intent.type) {
+    case reflex::ReflexIntentType::TOUCH_RESPONSE:
+      return age < kTouchResponseMs;
+    case reflex::ReflexIntentType::STARTLE:
+      return age < kLiftStartResponseMs;
+    case reflex::ReflexIntentType::SHAKE_RESPONSE:
+      return age < kShakeResponseMs;
+    default:
+      return false;
   }
 }
 
