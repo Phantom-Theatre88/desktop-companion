@@ -30,6 +30,13 @@ bool body_motion_seen = false;
 uint32_t last_recovery_trace_ms = 0;
 uint32_t last_imu_diag_ms = 0;
 const char* last_imu_state_name = nullptr;
+
+// Temporary on-screen arbitration diagnostics.
+// Keep this outside Face/Behavior responsibility: it is developer UI only.
+char body_arbiter_line1[32] = "";
+char body_arbiter_line2[32] = "";
+uint32_t body_arbiter_overlay_until_ms = 0;
+char last_accepted_direct_cause[20] = "";
 uint8_t last_imu_shake_reversals = 0;
 deskbot::ghost::AutonomousAction last_autonomous_trace_action =
     deskbot::ghost::AutonomousAction::NONE;
@@ -226,6 +233,7 @@ void onReflexIntent(const deskbot::reflex::ReflexIntent& intent,
   }
 
   const auto result = output->onReflexIntent(intent);
+  const char* cause = reflexCauseName(intent.cause);
   const char* decision =
       result == deskbot::body::BodyOutputComposer::ArbitrationResult::ACCEPTED
           ? "ACCEPT"
@@ -233,9 +241,29 @@ void onReflexIntent(const deskbot::reflex::ReflexIntent& intent,
                  ? "ACCEPT_VISUAL"
                  : "IGNORE_LOWER");
 
-  Serial.printf("[BODY][ARBITER] %s -> %s\n",
-                reflexCauseName(intent.cause),
-                decision);
+  Serial.printf("[BODY][ARBITER] %s -> %s\n", cause, decision);
+
+  if (result == deskbot::body::BodyOutputComposer::ArbitrationResult::ACCEPTED) {
+    snprintf(last_accepted_direct_cause,
+             sizeof(last_accepted_direct_cause),
+             "%s",
+             cause);
+    snprintf(body_arbiter_line1, sizeof(body_arbiter_line1), "BODY: %s", cause);
+    snprintf(body_arbiter_line2, sizeof(body_arbiter_line2), "ACCEPT");
+  } else if (result ==
+             deskbot::body::BodyOutputComposer::ArbitrationResult::IGNORED_LOWER_PRIORITY) {
+    snprintf(body_arbiter_line1,
+             sizeof(body_arbiter_line1),
+             "%s > %s",
+             last_accepted_direct_cause[0] ? last_accepted_direct_cause : "BODY",
+             cause);
+    snprintf(body_arbiter_line2, sizeof(body_arbiter_line2), "IGNORE LOWER");
+  } else {
+    snprintf(body_arbiter_line1, sizeof(body_arbiter_line1), "VISION: %s", cause);
+    snprintf(body_arbiter_line2, sizeof(body_arbiter_line2), "ACCEPT");
+  }
+
+  body_arbiter_overlay_until_ms = millis() + 1200;
 }
 
 void renderLivingFace(uint32_t now_ms) {
@@ -247,6 +275,15 @@ void renderLivingFace(uint32_t now_ms) {
   const auto& micro = runtime.ghost().behaviorEngine().microBehavior();
   const auto expression = body_output.compose(micro, now_ms);
   face_renderer.render(expression, now_ms);
+
+  if (static_cast<int32_t>(body_arbiter_overlay_until_ms - now_ms) > 0) {
+    M5.Display.setTextDatum(top_left);
+    M5.Display.setTextSize(1);
+    M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+    M5.Display.fillRect(4, 4, 150, 28, TFT_BLACK);
+    M5.Display.drawString(body_arbiter_line1, 6, 6);
+    M5.Display.drawString(body_arbiter_line2, 6, 18);
+  }
 }
 
 void pollTouch(uint32_t now_ms) {
