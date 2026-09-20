@@ -1,0 +1,13 @@
+# M5Stack Desktop Companion custom ESP-SR 16MB partition table
+# Based on Espressif Arduino-ESP32 esp_sr_16 layout.
+# Keeps 3MB OTA app slots and expands the model partition so the bundled
+# srmodels.bin used by Arduino core 3.3.9 fits on 16MB CoreS3 flash.
+#
+# Name,   Type, SubType, Offset,  Size, Flags
+nvs,      data, nvs,       0x9000,   0x5000,
+otadata,  data, ota,       0xe000,   0x2000,
+app0,     app,  ota_0,    0x10000, 0x300000,
+app1,     app,  ota_1,   0x310000, 0x300000,
+spiffs,   data, spiffs,  0x610000, 0x600000,
+model,    data, spiffs,  0xC10000, 0x3E0000,
+coredump, data, coredump,0xFF0000,  0x10000,
