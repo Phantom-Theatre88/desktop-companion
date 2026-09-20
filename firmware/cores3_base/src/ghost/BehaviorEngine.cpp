@@ -364,10 +364,15 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   micro_behavior_.blink_active = blink_active;
   micro_behavior_.eye_openness = clamp01(resting_openness * blink_scale);
 
-  // Tiny left/right asymmetry prevents the face from looking mechanically
-  // mirrored while keeping the output subtle and continuous.
-  micro_behavior_.left_eye_bias = sinf((t * 0.23f) + 0.4f) * 0.025f;
-  micro_behavior_.right_eye_bias = sinf((t * 0.19f) + 2.0f) * 0.025f;
+  // Tiny left/right asymmetry prevents the awake face from looking
+  // mechanically mirrored. Sleeping eyes stay fully closed.
+  if (life_state_ == LifeState::SLEEPING) {
+    micro_behavior_.left_eye_bias = 0.0f;
+    micro_behavior_.right_eye_bias = 0.0f;
+  } else {
+    micro_behavior_.left_eye_bias = sinf((t * 0.23f) + 0.4f) * 0.025f;
+    micro_behavior_.right_eye_bias = sinf((t * 0.19f) + 2.0f) * 0.025f;
+  }
 
   micro_behavior_.generated_ms = now_ms;
 }
