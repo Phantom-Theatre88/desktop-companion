@@ -3,6 +3,7 @@
 
 #include "src/adapter/ImuAdapter.h"
 #include "src/adapter/TouchAdapter.h"
+#include "src/body/BodyOutputComposer.h"
 #include "src/core/DesktopCompanionRuntime.h"
 #include "src/device/CoreS3CameraDriver.h"
 #include "src/device/CoreS3ImuDriver.h"
@@ -11,6 +12,7 @@
 #include "src/vision/CameraVisionInput.h"
 
 deskbot::core::DesktopCompanionRuntime runtime;
+deskbot::body::BodyOutputComposer body_output;
 deskbot::face::FaceRenderer face_renderer;
 deskbot::device::CoreS3TouchDriver touch_driver;
 deskbot::adapter::TouchAdapter touch_adapter;
@@ -204,6 +206,14 @@ void traceVisionDelivery(const deskbot::nerve::SemanticNeuron& neuron) {
                 behavior_ok ? "YES" : "NO");
 }
 
+void onReflexIntent(const deskbot::reflex::ReflexIntent& intent,
+                    void* context) {
+  auto* output = static_cast<deskbot::body::BodyOutputComposer*>(context);
+  if (output != nullptr) {
+    output->onReflexIntent(intent);
+  }
+}
+
 void renderLivingFace(uint32_t now_ms) {
   if ((now_ms - last_face_render_ms) < kFaceRenderIntervalMs) {
     return;
@@ -211,19 +221,7 @@ void renderLivingFace(uint32_t now_ms) {
   last_face_render_ms = now_ms;
 
   const auto& micro = runtime.ghost().behaviorEngine().microBehavior();
-  auto expression = deskbot::face::FaceRenderer::neutral();
-
-  static_cast<deskbot::face::EyeShape&>(expression.left) = micro.left_shape;
-  static_cast<deskbot::face::EyeShape&>(expression.right) = micro.right_shape;
-  expression.spacing_scale = micro.eye_spacing_scale;
-  expression.jitter_x = micro.jitter_x;
-  expression.jitter_y = micro.jitter_y;
-  expression.mouth_open = micro.mouth_open;
-  expression.left.openness = micro.eye_openness + micro.left_eye_bias;
-  expression.right.openness = micro.eye_openness + micro.right_eye_bias;
-  expression.offset_x = micro.gaze_x;
-  expression.offset_y = micro.gaze_y;
-
+  const auto expression = body_output.compose(micro, now_ms);
   face_renderer.render(expression, now_ms);
 }
 
@@ -271,14 +269,18 @@ void pollImu(uint32_t now_ms) {
   }
 
   runtime.emit(neuron);
-  if (neuron.type == deskbot::nerve::NeuronType::PICKED_UP ||
+  if (neuron.type == deskbot::nerve::NeuronType::LIFT_STARTED ||
+      neuron.type == deskbot::nerve::NeuronType::PICKED_UP ||
       neuron.type == deskbot::nerve::NeuronType::SHAKE) {
     last_body_motion_ms = now_ms;
     body_motion_seen = true;
     camera_vision.reset();
   }
 
-  if (neuron.type == deskbot::nerve::NeuronType::PICKED_UP) {
+  if (neuron.type == deskbot::nerve::NeuronType::LIFT_STARTED) {
+    Serial.printf("[REFLEX][IMU] LIFT_STARTED motion=%.3f\n",
+                  neuron.payload.scalar);
+  } else if (neuron.type == deskbot::nerve::NeuronType::PICKED_UP) {
     traceHeartState("PICKED_UP");
     Serial.printf("[SENSE][IMU] PICKED_UP motion=%.3f\n", neuron.payload.scalar);
   } else if (neuron.type == deskbot::nerve::NeuronType::SHAKE) {
@@ -373,6 +375,8 @@ void setup() {
   Serial.println("[BASE] No Stack-chan / AI_StackChan_Ex / stack-chan-ko / RoboEyes");
 
   const bool nerve_ready = runtime.begin(millis());
+  body_output.begin(millis());
+  runtime.reflex().setIntentHandler(onReflexIntent, &body_output);
   Serial.printf("[NERVE] Synapse bindings: %u\n", static_cast<unsigned>(runtime.synapse().bindingCount()));
   Serial.printf("[NERVE] Runtime: %s\n", nerve_ready ? "READY" : "ERROR");
 
