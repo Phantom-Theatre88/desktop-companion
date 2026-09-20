@@ -131,6 +131,9 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   micro_behavior_.mouth_open = 0.0f;
   micro_behavior_.prop = face::VisualProp::NONE;
   micro_behavior_.prop_progress = 0.0f;
+  micro_behavior_.effect = face::VisualEffect::NONE;
+  micro_behavior_.effect_progress = 0.0f;
+  micro_behavior_.effect_amount = 1.0f;
   micro_behavior_.sleep_zzz = false;
   micro_behavior_.sleep_zzz_phase = 0.0f;
   micro_behavior_.neck_yaw = 0.0f;
