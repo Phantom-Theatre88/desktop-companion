@@ -48,6 +48,10 @@ const char* autonomousActionName(deskbot::ghost::AutonomousAction action) {
       return "CURIOUS_LOOK";
     case deskbot::ghost::AutonomousAction::BORED_SCAN:
       return "BORED_SCAN";
+    case deskbot::ghost::AutonomousAction::YAWN:
+      return "YAWN";
+    case deskbot::ghost::AutonomousAction::COFFEE_BREAK:
+      return "COFFEE_BREAK";
     case deskbot::ghost::AutonomousAction::NONE:
     default:
       return "NONE";
