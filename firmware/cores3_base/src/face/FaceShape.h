@@ -6,6 +6,11 @@
 namespace deskbot {
 namespace face {
 
+enum class VisualProp : uint8_t {
+  NONE = 0,
+  COFFEE_CUP,
+};
+
 // Body geometry only; no moods, random motion, or event selection.
 struct EyeShape {
   float width_scale = 1.0f;        // 0.65..1.20 of existing neutral width
