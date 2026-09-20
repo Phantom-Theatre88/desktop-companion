@@ -18,6 +18,12 @@ constexpr float kLiftMagnitudeDeviationG = 0.14f;
 constexpr uint32_t kLiftConfirmQuietMs = 180;
 constexpr uint32_t kLiftCandidateTimeoutMs = 1200;
 
+// A single residual impulse (for example, imperfect neck self-motion
+// cancellation) must never become PICKED_UP merely because it is followed by
+// quiet. Require repeated external-motion evidence before quiet confirmation.
+constexpr uint8_t kLiftRequiredMotionSamples = 2;
+constexpr uint32_t kLiftMinEvidenceSpanMs = 35;
+
 constexpr float kShakeDeltaG = 0.70f;
 constexpr float kShakeMagnitudeDeviationG = 0.55f;
 constexpr uint32_t kShakeCooldownMs = 900;
@@ -56,6 +62,8 @@ void ImuAdapter::begin(uint32_t now_ms) {
   rest_started_ms_ = now_ms;
   lift_started_ms_ = 0;
   lift_quiet_started_ms_ = 0;
+  lift_last_motion_ms_ = 0;
+  lift_motion_samples_ = 0;
   setdown_quiet_started_ms_ = 0;
   setdown_impact_seen_ = false;
 
@@ -238,6 +246,8 @@ bool ImuAdapter::toNeuron(const device::ImuSample& sample,
         motion_state_ = MotionState::LIFT_CANDIDATE;
         lift_started_ms_ = sample.timestamp_ms;
         lift_quiet_started_ms_ = 0;
+        lift_last_motion_ms_ = sample.timestamp_ms;
+        lift_motion_samples_ = 1;
         resetShakePattern();
         if (shake_candidate) {
           registerShakeImpulse(dx, dy, dz, sample.timestamp_ms);
@@ -285,6 +295,10 @@ bool ImuAdapter::toNeuron(const device::ImuSample& sample,
 
       if (lift_motion) {
         lift_quiet_started_ms_ = 0;
+        lift_last_motion_ms_ = sample.timestamp_ms;
+        if (lift_motion_samples_ < 255) {
+          ++lift_motion_samples_;
+        }
         break;
       }
 
@@ -293,13 +307,20 @@ bool ImuAdapter::toNeuron(const device::ImuSample& sample,
           lift_quiet_started_ms_ = sample.timestamp_ms;
         }
 
+        const bool enough_motion_evidence =
+            lift_motion_samples_ >= kLiftRequiredMotionSamples &&
+            (lift_last_motion_ms_ - lift_started_ms_) >= kLiftMinEvidenceSpanMs;
+
         if ((sample.timestamp_ms - lift_quiet_started_ms_) >=
-            kLiftConfirmQuietMs) {
+                kLiftConfirmQuietMs &&
+            enough_motion_evidence) {
           motion_state_ = MotionState::HELD;
           setdown_impact_seen_ = false;
           setdown_quiet_started_ms_ = 0;
           lift_started_ms_ = 0;
           lift_quiet_started_ms_ = 0;
+          lift_last_motion_ms_ = 0;
+          lift_motion_samples_ = 0;
 
           nerve::NeuronPayload payload;
           payload.scalar = motion_strength;
@@ -384,6 +405,8 @@ void ImuAdapter::resetRestDetection(uint32_t now_ms) {
   rest_started_ms_ = now_ms;
   lift_started_ms_ = 0;
   lift_quiet_started_ms_ = 0;
+  lift_last_motion_ms_ = 0;
+  lift_motion_samples_ = 0;
   setdown_quiet_started_ms_ = 0;
   setdown_impact_seen_ = false;
   resetShakePattern();
