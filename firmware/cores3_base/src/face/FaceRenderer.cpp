@@ -129,6 +129,108 @@ void FaceRenderer::render(const ExpressionParams& target, uint32_t now_ms) {
                       steam_color);
   }
 
+  // LOCK 58 visual-effect vocabulary. Upstream Heart/Context/Behavior decides
+  // meaning and timing; the renderer only turns the requested symbol into a
+  // lightweight anime-style cue that stays visually distinct from the cyan eyes.
+  if (expression.effect != VisualEffect::NONE) {
+    const float p = clamp01(expression.effect_progress);
+    const float amount = clamp01(expression.effect_amount);
+    const float pulse = 0.65f + 0.35f * sinf(p * 6.28318531f);
+    const int16_t left_x = static_cast<int16_t>(w * 0.24f);
+    const int16_t right_x = static_cast<int16_t>(w * 0.76f);
+    const int16_t eye_y = static_cast<int16_t>(h * 0.47f);
+    const uint32_t white = TFT_WHITE;
+    const uint32_t soft = 0xBDF7;
+    const uint32_t warm = 0xFBCF;
+    const uint32_t blush = 0xF81F;
+
+    switch (expression.effect) {
+      case VisualEffect::TEAR: {
+        const int16_t x = left_x - static_cast<int16_t>(w * 0.07f);
+        const int16_t y0 = eye_y + static_cast<int16_t>(h * 0.07f);
+        const int16_t drift = static_cast<int16_t>(h * 0.18f * p);
+        const int16_t r = static_cast<int16_t>(3 + 4 * amount);
+        canvas_->fillCircle(x, y0 + drift, r, 0x7DFF);
+        canvas_->fillTriangle(x - r,
+                              y0 + drift,
+                              x + r,
+                              y0 + drift,
+                              x,
+                              y0 + drift - r * 2,
+                              0x7DFF);
+        break;
+      }
+      case VisualEffect::SWEAT: {
+        const int16_t x = right_x + static_cast<int16_t>(w * 0.09f);
+        const int16_t y = eye_y - static_cast<int16_t>(h * (0.10f - 0.08f * p));
+        const int16_t r = static_cast<int16_t>(4 + 4 * amount);
+        canvas_->fillCircle(x, y, r, 0x7DFF);
+        canvas_->fillTriangle(x - r,
+                              y,
+                              x + r,
+                              y,
+                              x,
+                              y - r * 2,
+                              0x7DFF);
+        break;
+      }
+      case VisualEffect::BLUSH: {
+        const int16_t y = static_cast<int16_t>(h * 0.66f);
+        const int16_t dx = static_cast<int16_t>(w * 0.025f);
+        for (int i = 0; i < 3; ++i) {
+          const int16_t shift = (i - 1) * dx;
+          canvas_->drawLine(left_x - 12 + shift, y + 5,
+                            left_x - 2 + shift, y - 5, blush);
+          canvas_->drawLine(right_x - 12 + shift, y + 5,
+                            right_x - 2 + shift, y - 5, blush);
+        }
+        break;
+      }
+      case VisualEffect::QUESTION:
+      case VisualEffect::NOTICE: {
+        canvas_->setTextDatum(middle_center);
+        canvas_->setTextSize(2);
+        canvas_->setTextColor(
+            expression.effect == VisualEffect::QUESTION ? soft : warm,
+            TFT_BLACK);
+        const int16_t bob = static_cast<int16_t>(sinf(p * 6.28318531f) * 4.0f);
+        canvas_->drawString(
+            expression.effect == VisualEffect::QUESTION ? "?" : "!",
+            static_cast<int16_t>(w * 0.84f),
+            static_cast<int16_t>(h * 0.24f) + bob);
+        break;
+      }
+      case VisualEffect::SPARKLE: {
+        const int16_t cx = static_cast<int16_t>(w * 0.83f);
+        const int16_t cy = static_cast<int16_t>(h * 0.26f);
+        const int16_t r = static_cast<int16_t>(5 + 7 * pulse * amount);
+        canvas_->drawLine(cx - r, cy, cx + r, cy, warm);
+        canvas_->drawLine(cx, cy - r, cx, cy + r, warm);
+        canvas_->drawLine(cx - r / 2, cy - r / 2,
+                          cx + r / 2, cy + r / 2, warm);
+        canvas_->drawLine(cx - r / 2, cy + r / 2,
+                          cx + r / 2, cy - r / 2, warm);
+        break;
+      }
+      case VisualEffect::ANGER: {
+        const int16_t cx = static_cast<int16_t>(w * 0.84f);
+        const int16_t cy = static_cast<int16_t>(h * 0.25f);
+        const int16_t s = static_cast<int16_t>(9 + 4 * amount);
+        const uint32_t anger = TFT_RED;
+        canvas_->drawLine(cx - s, cy, cx - 2, cy, anger);
+        canvas_->drawLine(cx + 2, cy, cx + s, cy, anger);
+        canvas_->drawLine(cx, cy - s, cx, cy - 2, anger);
+        canvas_->drawLine(cx, cy + 2, cx, cy + s, anger);
+        canvas_->drawLine(cx - s, cy, cx - s / 2, cy - s / 2, anger);
+        canvas_->drawLine(cx + s, cy, cx + s / 2, cy + s / 2, anger);
+        break;
+      }
+      case VisualEffect::NONE:
+      default:
+        break;
+    }
+  }
+
   // Deep-sleep effect: staged Z -> Zz -> Zzz cadence, kept separate
   // from the cyan eye language. The symbols live farther to the upper-right.
   if (expression.sleep_zzz) {
