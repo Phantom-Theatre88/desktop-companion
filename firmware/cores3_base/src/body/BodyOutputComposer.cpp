@@ -66,6 +66,9 @@ BodyFrame BodyOutputComposer::compose(
   expression.mouth_open = behavior.mouth_open;
   expression.prop = behavior.prop;
   expression.prop_progress = behavior.prop_progress;
+  expression.effect = behavior.effect;
+  expression.effect_progress = behavior.effect_progress;
+  expression.effect_amount = behavior.effect_amount;
   expression.sleep_zzz = behavior.sleep_zzz;
   expression.sleep_zzz_phase = behavior.sleep_zzz_phase;
   expression.left.openness =
@@ -101,6 +104,8 @@ BodyFrame BodyOutputComposer::compose(
       // Strong/direct Reflex owns the body momentarily; hide autonomous props.
       body.face.prop = face::VisualProp::NONE;
       body.face.prop_progress = 0.0f;
+      body.face.effect = face::VisualEffect::NONE;
+      body.face.effect_progress = 0.0f;
       applyDirectReflex(body, direct_reflex_, now_ms);
     }
   }
