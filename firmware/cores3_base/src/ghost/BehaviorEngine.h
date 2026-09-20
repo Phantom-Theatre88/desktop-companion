@@ -33,6 +33,11 @@ struct MicroBehaviorFrame {
   float eye_spacing_scale = 1.0f;
   float jitter_x = 0.0f, jitter_y = 0.0f;
   float mouth_open = 0.0f;
+
+  // Normalized neck intent. -1..+1; hardware mapping belongs to Device Driver.
+  float neck_yaw = 0.0f;
+  float neck_pitch = 0.0f;
+
   bool blink_active = false;
   uint32_t generated_ms = 0;
 };
