@@ -188,3 +188,28 @@ expressive head shaking is a separate Behavior action.
 
 Hardware reference: https://docs.m5stack.com/en/StackChan
 Pixel format reference: https://github.com/espressif/esp32-camera/blob/master/conversions/to_bmp.c
+
+## ESP-SR / wake word flash layout (2026-09-20)
+
+Wake-word work uses Arduino IDE `Partition Scheme: ESP SR 16M` so the board
+package enables its ESP-SR model upload hook. The sketch directory also carries
+its own `partitions.csv`; Arduino gives that local table precedence.
+
+Reason: M5Stack Arduino core 3.3.9's bundled `esp_sr_16` table places the model
+partition at `0xD10000` with size `0x2E0000` (~2.9 MiB), while the bundled
+`srmodels.bin` observed on the CoreS3 development environment is 3,340,296
+bytes. That combination compiles but cannot be flashed.
+
+The project-local table follows Espressif's 16MB ESP-SR layout instead:
+
+- app0: 3 MiB
+- app1: 3 MiB
+- SPIFFS: 6 MiB
+- model: `0xC10000` / `0x3E0000` (~3.875 MiB)
+- coredump: final 64 KiB
+
+Do not change back to the M5Stack default ESP-SR table unless its model region
+is large enough for the actually bundled model binary. Keep the IDE scheme on
+`ESP SR 16M`; the local CSV fixes geometry while the selected scheme keeps the
+ESP-SR packaging/upload hook active.
+
