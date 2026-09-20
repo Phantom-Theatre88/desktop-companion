@@ -19,6 +19,8 @@ struct ExpressionParams {
   float jitter_x = 0.0f;      // -1..1, composed body displacement
   float jitter_y = 0.0f;
   float mouth_open = 0.0f;     // 0 hidden .. 1 fully open composed mouth
+  VisualProp prop = VisualProp::NONE;
+  float prop_progress = 0.0f;   // 0..1 animation progress supplied by Behavior
   uint32_t eye_color = TFT_CYAN;
 };
 
