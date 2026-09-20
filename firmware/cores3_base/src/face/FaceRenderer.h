@@ -16,9 +16,9 @@ struct ExpressionParams {
   float offset_x = 0.0f;      // -1.0 .. +1.0, whole-face horizontal shift
   float offset_y = 0.0f;      // -1.0 .. +1.0, whole-face vertical shift
   float spacing_scale = 1.0f; // center separation relative to the neutral face
-  float jitter_x = 0.0f;      // -1..1, immediate displacement supplied by Behavior
+  float jitter_x = 0.0f;      // -1..1, composed body displacement
   float jitter_y = 0.0f;
-  float mouth_open = 0.0f;     // 0 hidden .. 1 fully open transient mouth
+  float mouth_open = 0.0f;     // 0 hidden .. 1 fully open composed mouth
   uint32_t eye_color = TFT_CYAN;
 };
 
