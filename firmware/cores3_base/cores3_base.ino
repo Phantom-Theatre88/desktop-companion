@@ -549,15 +549,6 @@ void setup() {
   Serial.printf("[SENSE][TOUCH] Device driver: %s\n",
                 M5.Touch.isEnabled() ? "READY" : "UNAVAILABLE");
 
-  voice_activity_adapter.begin(millis());
-  wake_word_adapter.begin("kibi");
-  const bool mic_ready = mic_driver.begin(millis());
-  Serial.printf("[SENSE][MIC] Device driver: %s sampleRate=16000\n",
-                mic_ready ? "READY" : "ERROR");
-  Serial.printf("[SENSE][MIC] Wake word target: %s detector=%s\n",
-                wake_word_adapter.targetWord(),
-                wake_word_adapter.available() ? "READY" : "MODEL_REQUIRED");
-
   imu_driver.begin();
   imu_adapter.begin(millis());
   Serial.printf("[SENSE][IMU] Device driver: %s\n",
@@ -594,6 +585,18 @@ void setup() {
     body_motion_seen = false;
     camera_vision.reset();
   }
+
+  // Start hearing only after the deliberate neck boot sweep. This prevents
+  // servo noise from being learned as room speech or emitted as a startup
+  // LOUD_SOUND / VOICE_ACTIVITY event.
+  voice_activity_adapter.begin(millis());
+  wake_word_adapter.begin("kibi");
+  const bool mic_ready = mic_driver.begin(millis());
+  Serial.printf("[SENSE][MIC] Device driver: %s sampleRate=16000\n",
+                mic_ready ? "READY" : "ERROR");
+  Serial.printf("[SENSE][MIC] Wake word target: %s detector=%s\n",
+                wake_word_adapter.targetWord(),
+                wake_word_adapter.available() ? "READY" : "MODEL_REQUIRED");
 
   runtime.tick(millis());
   renderLivingFace(millis());
