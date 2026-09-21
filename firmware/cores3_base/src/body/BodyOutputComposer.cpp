@@ -9,7 +9,6 @@ namespace {
 // Existing response timings are preserved during the architecture repair.
 // They remain implementation tuning values, not personality LOCK values.
 constexpr uint32_t kTouchResponseMs = 500;
-constexpr uint32_t kWakeWordResponseMs = 950;
 constexpr uint32_t kLiftStartResponseMs = 700;
 constexpr uint32_t kLiftStartMouthMs = 350;
 constexpr uint32_t kShakeResponseMs = 650;
@@ -91,9 +90,6 @@ BodyFrame BodyOutputComposer::compose(
       case reflex::ReflexIntentType::TOUCH_RESPONSE:
         direct_active = age < kTouchResponseMs;
         break;
-      case reflex::ReflexIntentType::WAKE_WORD_RESPONSE:
-        direct_active = age < kWakeWordResponseMs;
-        break;
       case reflex::ReflexIntentType::STARTLE:
         direct_active = age < kLiftStartResponseMs;
         break;
@@ -105,20 +101,22 @@ BodyFrame BodyOutputComposer::compose(
         break;
     }
     if (direct_active) {
-      // Safety/direct physical reflexes hide decorative output. Wake-word is
-      // interpersonal, so keep Behavior's NOTICE cue visible while the body
-      // acknowledges the caller.
+      // Strong/direct Reflex owns the body momentarily. Safety/physical
+      // responses remain above Heart/Behavior in LOCK 15 priority.
       body.face.prop = face::VisualProp::NONE;
       body.face.prop_progress = 0.0f;
-      if (direct_reflex_.type != reflex::ReflexIntentType::WAKE_WORD_RESPONSE) {
-        body.face.effect = face::VisualEffect::NONE;
-        body.face.effect_progress = 0.0f;
-      }
+      body.face.effect = face::VisualEffect::NONE;
+      body.face.effect_progress = 0.0f;
       applyDirectReflex(body, direct_reflex_, now_ms);
     }
   }
 
-  if (!direct_active && have_visual_reflex_) {
+  // Meaningful interpersonal Behavior outranks ambient low-level Vision.
+  // This is the key boundary: Vision cannot visually bury "I was called",
+  // but safety/direct Reflex can still interrupt it.
+  if (!direct_active &&
+      !behavior.interpersonal_priority &&
+      have_visual_reflex_) {
     const uint32_t age = now_ms - visual_reflex_.created_ms;
     if (age < kVisualResponseMs) {
       applyVisualReflex(body, visual_reflex_, now_ms);
@@ -152,38 +150,6 @@ void BodyOutputComposer::applyDirectReflex(
     expression.offset_x *= 0.35f;
     expression.offset_y = clampSigned(expression.offset_y - 0.08f);
     body.neck_pitch = clampSigned(body.neck_pitch - 0.10f * a);
-    return;
-  }
-
-  if (intent.type == reflex::ReflexIntentType::WAKE_WORD_RESPONSE) {
-    const float p = clamp01(
-        static_cast<float>(age) / static_cast<float>(kWakeWordResponseMs));
-    const float envelope = sinf(p * 3.14159265f);
-
-    // Deliberately readable but not exaggerated: eyes open, head lifts,
-    // then a tiny "ん?" cant. This overlays low-level Vision for under a second.
-    expression.left.openness =
-        clamp01(expression.left.openness + 0.20f * envelope);
-    expression.right.openness =
-        clamp01(expression.right.openness + 0.20f * envelope);
-    expression.left.height_scale =
-        larger(expression.left.height_scale, 1.0f + 0.10f * envelope);
-    expression.right.height_scale =
-        larger(expression.right.height_scale, 1.0f + 0.10f * envelope);
-    expression.left.width_scale =
-        larger(expression.left.width_scale, 1.0f + 0.06f * envelope);
-    expression.right.width_scale =
-        larger(expression.right.width_scale, 1.0f + 0.06f * envelope);
-
-    // Keep the NOTICE symbol from Behavior visible during the direct response.
-    // Unlike strong safety reflexes, this interpersonal reflex does not hide it.
-    body.neck_pitch =
-        clampSigned(body.neck_pitch + 0.34f * envelope);
-    body.neck_yaw =
-        clampSigned(body.neck_yaw +
-                    sinf(p * 6.28318531f) * 0.10f * envelope);
-    expression.offset_y =
-        clampSigned(expression.offset_y - 0.07f * envelope);
     return;
   }
 
@@ -327,7 +293,6 @@ BodyOutputComposer::ReflexPriority BodyOutputComposer::priorityOf(
       return ReflexPriority::STRONG;
 
     case reflex::ReflexIntentType::TOUCH_RESPONSE:
-    case reflex::ReflexIntentType::WAKE_WORD_RESPONSE:
       return ReflexPriority::INTERPERSONAL;
 
     case reflex::ReflexIntentType::LOOK_TOWARD_SOURCE:
@@ -346,8 +311,6 @@ bool BodyOutputComposer::directIntentActiveAt(
   switch (intent.type) {
     case reflex::ReflexIntentType::TOUCH_RESPONSE:
       return age < kTouchResponseMs;
-    case reflex::ReflexIntentType::WAKE_WORD_RESPONSE:
-      return age < kWakeWordResponseMs;
     case reflex::ReflexIntentType::STARTLE:
       return age < kLiftStartResponseMs;
     case reflex::ReflexIntentType::SHAKE_RESPONSE:
