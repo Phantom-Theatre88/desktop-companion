@@ -364,13 +364,14 @@ void pollMic(uint32_t now_ms) {
 
     const auto sr_diag = kibi_detector.diagnostics();
     Serial.printf(
-        "[ESP-SR][DIAG] inFrames=%lu inBytes=%lu drop=%lu fillCalls=%lu fillBytes=%lu fillTimeouts=%lu events=%lu commands=%lu timeouts=%lu consumed=%lu lastEvent=%d lastCmd=%d lastPhrase=%d\n",
+        "[ESP-SR][FEED] in=%lu drop=%lu fillCalls=%lu fillBytes=%lu fillTO=%lu\n",
         static_cast<unsigned long>(sr_diag.input_frames),
-        static_cast<unsigned long>(sr_diag.input_bytes),
         static_cast<unsigned long>(sr_diag.dropped_frames),
         static_cast<unsigned long>(sr_diag.fill_calls),
         static_cast<unsigned long>(sr_diag.fill_bytes),
-        static_cast<unsigned long>(sr_diag.fill_timeouts),
+        static_cast<unsigned long>(sr_diag.fill_timeouts));
+    Serial.printf(
+        "[ESP-SR][EVENT] events=%lu commands=%lu timeouts=%lu consumed=%lu lastEvent=%d lastCmd=%d lastPhrase=%d\n",
         static_cast<unsigned long>(sr_diag.sr_events),
         static_cast<unsigned long>(sr_diag.command_events),
         static_cast<unsigned long>(sr_diag.timeout_events),
