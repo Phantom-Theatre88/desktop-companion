@@ -85,13 +85,18 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
       break;
 
     case nerve::NeuronType::FACE_DETECTED:
-    case nerve::NeuronType::VOICE_ACTIVITY:
     case nerve::NeuronType::WAKE_WORD_DETECTED:
     case nerve::NeuronType::ATTENTION_REQUEST:
       triggerEffect(face::VisualEffect::NOTICE,
                     handled_ms,
                     kNoticeEffectMs,
                     clamp01(0.55f + neuron.confidence * 0.45f));
+      break;
+
+    case nerve::NeuronType::VOICE_ACTIVITY:
+      // Someone speaking nearby may influence Heart attention/curiosity, but
+      // it does not mean "I was called". Keep that distinction visible by
+      // reserving NOTICE for semantic attention events such as kibi.
       break;
 
     case nerve::NeuronType::FACE_LOST:
