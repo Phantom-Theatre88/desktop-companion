@@ -8,6 +8,7 @@
 #include "src/adapter/VoiceActivityAdapter.h"
 #include "src/adapter/WakeWordAdapter.h"
 #include "src/body/BodyOutputComposer.h"
+#include "src/config/WakeWordModelConfig.h"
 #include "src/core/DesktopCompanionRuntime.h"
 #include "src/device/CoreS3CameraDriver.h"
 #include "src/device/CoreS3ImuDriver.h"
@@ -27,7 +28,7 @@ deskbot::adapter::ImuAdapter imu_adapter;
 deskbot::device::CoreS3MicDriver mic_driver;
 deskbot::adapter::VoiceActivityAdapter voice_activity_adapter;
 deskbot::adapter::WakeWordAdapter wake_word_adapter;
-deskbot::adapter::EspSrWakeNetDetector kibi_detector;
+deskbot::adapter::EspSrWakeNetDetector wake_net_detector;
 deskbot::device::CoreS3NeckDriver neck_driver;
 deskbot::device::CoreS3CameraDriver camera_driver;
 deskbot::vision::CameraVisionInput camera_vision;
@@ -59,10 +60,9 @@ bool life_trace_initialized = false;
 constexpr uint32_t kFaceRenderIntervalMs = 40;
 constexpr uint32_t kCameraCaptureIntervalMs = 1000;
 
-// Production path is WakeNet. Keep semantic delivery disabled until the model
-// partition is explicitly replaced with a custom "kibi" WakeNet model.
-// A bundled/default WakeNet event must never masquerade as kibi.
-constexpr bool kKibiWakeNetModelInstalled = false;
+// Production path is WakeNet. The current validation target is configured in
+// WakeWordModelConfig.h. Semantic delivery stays disabled until the matching
+// model installer has written the local model marker.
 
 const char* autonomousActionName(deskbot::ghost::AutonomousAction action) {
   switch (action) {
@@ -367,7 +367,7 @@ void pollMic(uint32_t now_ms) {
                   voice_activity_adapter.voiceActive() ? "YES" : "NO",
                   wake_word_adapter.available() ? "READY" : "PENDING");
 
-    const auto sr_diag = kibi_detector.diagnostics();
+    const auto sr_diag = wake_net_detector.diagnostics();
     Serial.printf(
         "[WAKENET][FEED] in=%lu drop=%lu fillCalls=%lu fillBytes=%lu fillTO=%lu\n",
         static_cast<unsigned long>(sr_diag.input_frames),
@@ -381,7 +381,7 @@ void pollMic(uint32_t now_ms) {
         static_cast<unsigned long>(sr_diag.wake_events),
         static_cast<unsigned long>(sr_diag.detections_consumed),
         sr_diag.last_event,
-        kibi_detector.semanticReady() ? "READY" : "WAITING_KIBI_MODEL");
+        wake_net_detector.semanticReady() ? "READY" : "WAITING_KIBI_MODEL");
   }
 }
 
@@ -614,28 +614,29 @@ void setup() {
   // servo noise from being learned as room speech or emitted as a startup
   // LOUD_SOUND / VOICE_ACTIVITY event.
   voice_activity_adapter.begin(millis());
-  wake_word_adapter.begin("kibi");
+  wake_word_adapter.begin(DESKBOT_WAKE_WORD_TARGET);
   const bool mic_ready = mic_driver.begin(millis());
 
-  const bool kibi_ready =
-      kibi_detector.begin(kKibiWakeNetModelInstalled);
-  if (kibi_ready) {
+  const bool wake_net_ready = wake_net_detector.begin(
+      DESKBOT_WAKENET_MODEL_INSTALLED != 0);
+  if (wake_net_ready) {
     wake_word_adapter.setDetector(
         deskbot::adapter::EspSrWakeNetDetector::handler,
-        &kibi_detector);
+        &wake_net_detector);
   }
 
   Serial.printf("[SENSE][MIC] Device driver: %s sampleRate=16000\n",
                 mic_ready ? "READY" : "ERROR");
   Serial.printf(
-      "[SENSE][MIC] Wake word target: %s detector=%s semantic=%s backend=%s\n",
+      "[SENSE][MIC] Wake word target: %s model=%s detector=%s semantic=%s backend=%s\n",
       wake_word_adapter.targetWord(),
-      kibi_ready ? "READY" : "UNAVAILABLE",
-      kibi_detector.semanticReady() ? "READY" : "WAITING_KIBI_MODEL",
-      kibi_detector.backendName());
-  if (!kibi_detector.semanticReady()) {
+      DESKBOT_EXPECTED_WAKENET_MODEL,
+      wake_net_ready ? "READY" : "UNAVAILABLE",
+      wake_net_detector.semanticReady() ? "READY" : "WAITING_MODEL",
+      wake_net_detector.backendName());
+  if (!wake_net_detector.semanticReady()) {
     Serial.printf("[SENSE][MIC] WakeNet note: %s\n",
-                  kibi_detector.unavailableReason());
+                  wake_net_detector.unavailableReason());
   }
 
   runtime.tick(millis());
