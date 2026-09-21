@@ -24,12 +24,13 @@ namespace {
 constexpr int kKibiCommandId = 1;
 constexpr size_t kPcmStreamBytes = 16 * 1024;
 
-// MultiNet accepts user-defined English command strings. Keeping the literal
-// project wake word here lets Espressif's bundled G2P resolve the pronunciation.
-// If real-device recognition proves the grapheme pronunciation unsuitable, the
-// implementation may use a phonetic alias without changing the semantic word.
+// MultiNet's command strings are converted by an English G2P model.
+// The semantic wake word remains "kibi", but the recognizer-facing spelling
+// uses an English phonetic alias so spoken Japanese "キビ" is closer to the
+// model's expected pronunciation. This detail stays behind WakeWordAdapter and
+// never leaks into SemanticNeuron / Ghost / Heart.
 static const sr_cmd_t kCommands[] = {
-    {kKibiCommandId, "kibi"},
+    {kKibiCommandId, "kibby"},
 };
 
 struct EspSrState {
