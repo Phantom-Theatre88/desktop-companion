@@ -67,21 +67,27 @@ fi
 echo "[3/5] Locating M5Stack Arduino ESP-SR SDK model..."
 MODEL_BINS=()
 while IFS= read -r model_bin; do
-  MODEL_BINS+=("${model_bin}")
+  [[ -n "${model_bin}" ]] && MODEL_BINS+=("${model_bin}")
 done < <(
-  find "${ARDUINO_ROOT}/tools" -type f \
-    -path '*/esp32s3/esp_sr/srmodels.bin' 2>/dev/null | sort
+  find "${ARDUINO_ROOT}" \
+    \( -type f -o -type l \) \
+    -name 'srmodels.bin' 2>/dev/null | sort
 )
 
 if (( ${#MODEL_BINS[@]} == 0 )); then
-  echo "[ERROR] Could not find the installed M5Stack esp32s3/esp_sr/srmodels.bin." >&2
+  echo "[ERROR] Could not find any installed M5Stack srmodels.bin under:" >&2
+  echo "        ${ARDUINO_ROOT}" >&2
+  echo "[INFO] Directory hints:" >&2
+  find "${ARDUINO_ROOT}" -maxdepth 5 -type d \
+    \( -name 'esp_sr' -o -name 'esp32s3' -o -name 'sdk' \) \
+    2>/dev/null | head -n 80 >&2 || true
   exit 5
 fi
 
 if (( ${#MODEL_BINS[@]} > 1 )); then
   echo "[INFO] Multiple ESP-SR SDK model binaries found:"
   printf '       %s\n' "${MODEL_BINS[@]}"
-  echo "[INFO] Installing into all detected ESP32-S3 SDK copies so Arduino's selected package cannot silently use the old model."
+  echo "[INFO] Installing into all detected M5Stack SDK model copies so Arduino's selected package cannot silently use the old model."
 fi
 
 echo "[4/5] Backing up and installing Computer model..."
