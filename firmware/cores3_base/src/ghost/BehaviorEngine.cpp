@@ -189,6 +189,7 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   micro_behavior_.effect_progress = 0.0f;
   micro_behavior_.effect_amount = 1.0f;
   micro_behavior_.sleep_zzz = false;
+  micro_behavior_.interpersonal_priority = false;
 
   if (transient_effect_ != face::VisualEffect::NONE &&
       transient_effect_duration_ms_ > 0) {
@@ -420,23 +421,41 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
       const float sleepy_scale =
           wake_word_response_was_sleeping_ ? 1.0f : 0.65f;
 
-      resting_openness = clamp01(
-          resting_openness + (0.12f + 0.10f * sleepy_scale) * envelope);
-      micro_behavior_.left_shape.width_scale += 0.05f * envelope;
-      micro_behavior_.right_shape.width_scale += 0.05f * envelope;
-      micro_behavior_.left_shape.height_scale += 0.07f * envelope;
-      micro_behavior_.right_shape.height_scale += 0.07f * envelope;
+      // The event only says "I was called". The visible strength comes from
+      // current Heart after HeartEngine has processed WAKE_WORD_DETECTED.
+      const float attention_drive =
+          clamp01(0.55f + (heart.attention - baseline.attention) * 1.8f);
+      const float curiosity_drive =
+          clamp01(0.55f + (heart.curiosity - baseline.curiosity) * 1.4f);
+      const float heart_drive =
+          clamp01((attention_drive * 0.65f) + (curiosity_drive * 0.35f));
 
-      // Lift the head from sleepy posture and add a tiny questioning cant.
+      micro_behavior_.interpersonal_priority = true;
+      resting_openness = clamp01(
+          resting_openness +
+          (0.10f + 0.12f * sleepy_scale) * heart_drive * envelope);
+      micro_behavior_.left_shape.width_scale +=
+          0.05f * heart_drive * envelope;
+      micro_behavior_.right_shape.width_scale +=
+          0.05f * heart_drive * envelope;
+      micro_behavior_.left_shape.height_scale +=
+          0.07f * heart_drive * envelope;
+      micro_behavior_.right_shape.height_scale +=
+          0.07f * heart_drive * envelope;
+
+      // Heart-derived attention lifts the head; a tiny questioning cant keeps
+      // the acknowledgement readable without turning it into a canned pose.
       micro_behavior_.neck_pitch = clampSigned(
-          micro_behavior_.neck_pitch + (0.18f + 0.14f * sleepy_scale) * envelope);
+          micro_behavior_.neck_pitch +
+          (0.16f + 0.16f * sleepy_scale) * heart_drive * envelope);
       micro_behavior_.neck_yaw = clampSigned(
           micro_behavior_.neck_yaw +
-          sinf(p * 3.14159265f * 2.0f) * 0.08f * envelope);
+          sinf(p * 3.14159265f * 2.0f) *
+              0.08f * heart_drive * envelope);
 
-      // Eyes settle slightly upward as attention moves toward the caller.
+      // Eyes settle slightly upward as Heart attention moves toward the caller.
       micro_behavior_.gaze_y = clampSigned(
-          micro_behavior_.gaze_y - 0.05f * envelope);
+          micro_behavior_.gaze_y - 0.05f * heart_drive * envelope);
     } else {
       wake_word_response_started_ms_ = 0;
       wake_word_response_was_sleeping_ = false;
