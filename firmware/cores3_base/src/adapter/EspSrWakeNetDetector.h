@@ -16,7 +16,7 @@ namespace adapter {
 // - WakeNet model identity lives in the ESP-SR model partition.
 // - Until a custom model trained for "kibi" is installed, detections are
 //   diagnostic only and MUST NOT become WAKE_WORD_DETECTED(kibi).
-// - Once the model partition is confirmed to contain the custom kibi WakeNet
+// - Once the model partition is confirmed to contain the expected WakeNet
 //   model, begin(true) enables semantic delivery without changing Ghost,
 //   Synapse, Heart or Behavior.
 struct EspSrWakeNetDiagnostics {
@@ -34,12 +34,12 @@ struct EspSrWakeNetDiagnostics {
 
 class EspSrWakeNetDetector {
  public:
-  bool begin(bool kibi_model_installed);
+  bool begin(bool expected_model_installed);
   void end();
 
   bool available() const { return available_; }
   bool semanticReady() const {
-    return available_ && kibi_model_installed_;
+    return available_ && expected_model_installed_;
   }
   const char* backendName() const;
   const char* unavailableReason() const { return unavailable_reason_; }
@@ -58,7 +58,7 @@ class EspSrWakeNetDetector {
                float& out_confidence);
 
   bool available_ = false;
-  bool kibi_model_installed_ = false;
+  bool expected_model_installed_ = false;
   const char* unavailable_reason_ = "not initialized";
 };
 
