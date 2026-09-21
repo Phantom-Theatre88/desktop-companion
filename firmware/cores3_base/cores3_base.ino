@@ -618,6 +618,7 @@ void setup() {
   const bool mic_ready = mic_driver.begin(millis());
 
   const bool wake_net_ready = wake_net_detector.begin(
+      DESKBOT_EXPECTED_WAKENET_MODEL,
       DESKBOT_WAKENET_MODEL_INSTALLED != 0);
   if (wake_net_ready) {
     wake_word_adapter.setDetector(
@@ -634,6 +635,10 @@ void setup() {
       wake_net_ready ? "READY" : "UNAVAILABLE",
       wake_net_detector.semanticReady() ? "READY" : "WAITING_MODEL",
       wake_net_detector.backendName());
+  Serial.printf(
+      "[SENSE][MIC] WakeNet partition model=%s present=%s\n",
+      wake_net_detector.expectedModelName(),
+      wake_net_detector.partitionHasExpectedModel() ? "YES" : "NO");
   if (!wake_net_detector.semanticReady()) {
     Serial.printf("[SENSE][MIC] WakeNet note: %s\n",
                   wake_net_detector.unavailableReason());
