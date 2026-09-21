@@ -65,7 +65,10 @@ if (( SIZE > MAX_SIZE )); then
 fi
 
 echo "[3/5] Locating M5Stack Arduino ESP-SR SDK model..."
-mapfile -t MODEL_BINS < <(
+MODEL_BINS=()
+while IFS= read -r model_bin; do
+  MODEL_BINS+=("${model_bin}")
+done < <(
   find "${ARDUINO_ROOT}/tools" -type f \
     -path '*/esp32s3/esp_sr/srmodels.bin' 2>/dev/null | sort
 )
