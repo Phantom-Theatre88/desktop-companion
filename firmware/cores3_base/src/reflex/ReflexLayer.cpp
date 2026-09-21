@@ -34,10 +34,10 @@ void ReflexLayer::onNeuron(const nerve::SemanticNeuron& neuron) {
       break;
 
     case nerve::NeuronType::WAKE_WORD_DETECTED:
-      // Hearing our own name is interpersonal, not merely "some sound over
-      // there". Give it a dedicated body response so ambient Vision cannot
-      // visually bury the acknowledgement.
-      emit(ReflexIntentType::WAKE_WORD_RESPONSE, neuron);
+      // The semantic event still reaches Reflex through Synapse, but hearing
+      // our own name is not a body reflex. Heart/Ghost receives the meaning,
+      // and Behavior expresses the resulting internal state. This keeps
+      // "called -> inner state changes -> body responds" as the production path.
       break;
 
     case nerve::NeuronType::TOUCH:
