@@ -361,6 +361,23 @@ void pollMic(uint32_t now_ms) {
                   voice_activity_adapter.debugNoiseFloor(),
                   voice_activity_adapter.voiceActive() ? "YES" : "NO",
                   wake_word_adapter.available() ? "READY" : "PENDING");
+
+    const auto sr_diag = kibi_detector.diagnostics();
+    Serial.printf(
+        "[ESP-SR][DIAG] inFrames=%lu inBytes=%lu drop=%lu fillCalls=%lu fillBytes=%lu fillTimeouts=%lu events=%lu commands=%lu timeouts=%lu consumed=%lu lastEvent=%d lastCmd=%d lastPhrase=%d\n",
+        static_cast<unsigned long>(sr_diag.input_frames),
+        static_cast<unsigned long>(sr_diag.input_bytes),
+        static_cast<unsigned long>(sr_diag.dropped_frames),
+        static_cast<unsigned long>(sr_diag.fill_calls),
+        static_cast<unsigned long>(sr_diag.fill_bytes),
+        static_cast<unsigned long>(sr_diag.fill_timeouts),
+        static_cast<unsigned long>(sr_diag.sr_events),
+        static_cast<unsigned long>(sr_diag.command_events),
+        static_cast<unsigned long>(sr_diag.timeout_events),
+        static_cast<unsigned long>(sr_diag.detections_consumed),
+        sr_diag.last_event,
+        sr_diag.last_command_id,
+        sr_diag.last_phrase_id);
   }
 }
 
