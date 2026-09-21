@@ -14,6 +14,22 @@ namespace adapter {
 // user-defined spoken phrase without pretending that a custom WakeNet model
 // already exists. The implementation stays behind WakeWordAdapter, so a true
 // custom WakeNet model can replace it later without touching Ghost/Synapse.
+struct EspSrKibiDiagnostics {
+  uint32_t input_frames = 0;
+  uint32_t input_bytes = 0;
+  uint32_t dropped_frames = 0;
+  uint32_t fill_calls = 0;
+  uint32_t fill_bytes = 0;
+  uint32_t fill_timeouts = 0;
+  uint32_t sr_events = 0;
+  uint32_t command_events = 0;
+  uint32_t timeout_events = 0;
+  uint32_t detections_consumed = 0;
+  int last_event = -1;
+  int last_command_id = -1;
+  int last_phrase_id = -1;
+};
+
 class EspSrKibiDetector {
  public:
   bool begin();
@@ -22,6 +38,7 @@ class EspSrKibiDetector {
   bool available() const { return available_; }
   const char* backendName() const;
   const char* unavailableReason() const { return unavailable_reason_; }
+  EspSrKibiDiagnostics diagnostics() const;
 
   static bool handler(const int16_t* pcm,
                       size_t sample_count,
