@@ -2,7 +2,7 @@
 #include <ESP_SR.h>
 #include <M5GFX.h>
 
-#include "src/adapter/EspSrKibiDetector.h"
+#include "src/adapter/EspSrWakeNetDetector.h"
 #include "src/adapter/ImuAdapter.h"
 #include "src/adapter/TouchAdapter.h"
 #include "src/adapter/VoiceActivityAdapter.h"
@@ -27,7 +27,7 @@ deskbot::adapter::ImuAdapter imu_adapter;
 deskbot::device::CoreS3MicDriver mic_driver;
 deskbot::adapter::VoiceActivityAdapter voice_activity_adapter;
 deskbot::adapter::WakeWordAdapter wake_word_adapter;
-deskbot::adapter::EspSrKibiDetector kibi_detector;
+deskbot::adapter::EspSrWakeNetDetector kibi_detector;
 deskbot::device::CoreS3NeckDriver neck_driver;
 deskbot::device::CoreS3CameraDriver camera_driver;
 deskbot::vision::CameraVisionInput camera_vision;
@@ -58,6 +58,11 @@ deskbot::ghost::LifeState last_life_trace_state =
 bool life_trace_initialized = false;
 constexpr uint32_t kFaceRenderIntervalMs = 40;
 constexpr uint32_t kCameraCaptureIntervalMs = 1000;
+
+// Production path is WakeNet. Keep semantic delivery disabled until the model
+// partition is explicitly replaced with a custom "kibi" WakeNet model.
+// A bundled/default WakeNet event must never masquerade as kibi.
+constexpr bool kKibiWakeNetModelInstalled = false;
 
 const char* autonomousActionName(deskbot::ghost::AutonomousAction action) {
   switch (action) {
@@ -364,21 +369,19 @@ void pollMic(uint32_t now_ms) {
 
     const auto sr_diag = kibi_detector.diagnostics();
     Serial.printf(
-        "[ESP-SR][FEED] in=%lu drop=%lu fillCalls=%lu fillBytes=%lu fillTO=%lu\n",
+        "[WAKENET][FEED] in=%lu drop=%lu fillCalls=%lu fillBytes=%lu fillTO=%lu\n",
         static_cast<unsigned long>(sr_diag.input_frames),
         static_cast<unsigned long>(sr_diag.dropped_frames),
         static_cast<unsigned long>(sr_diag.fill_calls),
         static_cast<unsigned long>(sr_diag.fill_bytes),
         static_cast<unsigned long>(sr_diag.fill_timeouts));
     Serial.printf(
-        "[ESP-SR][EVENT] events=%lu commands=%lu timeouts=%lu consumed=%lu lastEvent=%d lastCmd=%d lastPhrase=%d\n",
+        "[WAKENET][EVENT] events=%lu wakes=%lu consumed=%lu lastEvent=%d semantic=%s\n",
         static_cast<unsigned long>(sr_diag.sr_events),
-        static_cast<unsigned long>(sr_diag.command_events),
-        static_cast<unsigned long>(sr_diag.timeout_events),
+        static_cast<unsigned long>(sr_diag.wake_events),
         static_cast<unsigned long>(sr_diag.detections_consumed),
         sr_diag.last_event,
-        sr_diag.last_command_id,
-        sr_diag.last_phrase_id);
+        kibi_detector.semanticReady() ? "READY" : "WAITING_KIBI_MODEL");
   }
 }
 
@@ -614,21 +617,24 @@ void setup() {
   wake_word_adapter.begin("kibi");
   const bool mic_ready = mic_driver.begin(millis());
 
-  const bool kibi_ready = kibi_detector.begin();
+  const bool kibi_ready =
+      kibi_detector.begin(kKibiWakeNetModelInstalled);
   if (kibi_ready) {
     wake_word_adapter.setDetector(
-        deskbot::adapter::EspSrKibiDetector::handler,
+        deskbot::adapter::EspSrWakeNetDetector::handler,
         &kibi_detector);
   }
 
   Serial.printf("[SENSE][MIC] Device driver: %s sampleRate=16000\n",
                 mic_ready ? "READY" : "ERROR");
-  Serial.printf("[SENSE][MIC] Wake word target: %s detector=%s backend=%s\n",
-                wake_word_adapter.targetWord(),
-                wake_word_adapter.available() ? "READY" : "UNAVAILABLE",
-                kibi_detector.backendName());
-  if (!kibi_ready) {
-    Serial.printf("[SENSE][MIC] Wake detector unavailable: %s\n",
+  Serial.printf(
+      "[SENSE][MIC] Wake word target: %s detector=%s semantic=%s backend=%s\n",
+      wake_word_adapter.targetWord(),
+      kibi_ready ? "READY" : "UNAVAILABLE",
+      kibi_detector.semanticReady() ? "READY" : "WAITING_KIBI_MODEL",
+      kibi_detector.backendName());
+  if (!kibi_detector.semanticReady()) {
+    Serial.printf("[SENSE][MIC] WakeNet note: %s\n",
                   kibi_detector.unavailableReason());
   }
 
