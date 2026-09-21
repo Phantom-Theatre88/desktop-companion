@@ -106,9 +106,9 @@ void onSrEvent(void* arg,
 namespace deskbot {
 namespace adapter {
 
-bool EspSrWakeNetDetector::begin(bool kibi_model_installed) {
+bool EspSrWakeNetDetector::begin(bool expected_model_installed) {
   available_ = false;
-  kibi_model_installed_ = kibi_model_installed;
+  expected_model_installed_ = expected_model_installed;
 
 #if DESKBOT_HAS_ESP_SR_WAKENET
   if (g_wakenet.pcm_stream == nullptr) {
@@ -153,9 +153,9 @@ bool EspSrWakeNetDetector::begin(bool kibi_model_installed) {
 
   available_ = true;
   unavailable_reason_ =
-      kibi_model_installed_
+      expected_model_installed_
           ? ""
-          : "WakeNet running in diagnostic-only mode: custom kibi model not installed";
+          : "WakeNet running in diagnostic-only mode: expected wake-word model not installed";
   return true;
 #else
   unavailable_reason_ =
@@ -175,7 +175,7 @@ void EspSrWakeNetDetector::end() {
   }
 #endif
   available_ = false;
-  kibi_model_installed_ = false;
+  expected_model_installed_ = false;
 }
 
 const char* EspSrWakeNetDetector::backendName() const {
@@ -253,10 +253,10 @@ bool EspSrWakeNetDetector::process(
 
   g_wakenet.detected = false;
 
-  // Never claim that a bundled/default WakeNet phrase means "kibi".
+  // Never claim that a bundled/default WakeNet phrase means the configured target.
   // Semantic delivery is enabled only after the installed model partition is
-  // explicitly confirmed as the custom kibi model.
-  if (!kibi_model_installed_) {
+  // explicitly confirmed as the expected model.
+  if (!expected_model_installed_) {
     return false;
   }
 
