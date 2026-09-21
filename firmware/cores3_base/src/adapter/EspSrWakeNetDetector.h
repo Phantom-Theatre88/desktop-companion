@@ -34,7 +34,8 @@ struct EspSrWakeNetDiagnostics {
 
 class EspSrWakeNetDetector {
  public:
-  bool begin(bool expected_model_installed);
+  bool begin(const char* expected_model_name,
+             bool expected_model_installed);
   void end();
 
   bool available() const { return available_; }
@@ -42,6 +43,10 @@ class EspSrWakeNetDetector {
     return available_ && expected_model_installed_;
   }
   const char* backendName() const;
+  const char* expectedModelName() const { return expected_model_name_; }
+  bool partitionHasExpectedModel() const {
+    return partition_has_expected_model_;
+  }
   const char* unavailableReason() const { return unavailable_reason_; }
   EspSrWakeNetDiagnostics diagnostics() const;
 
@@ -58,6 +63,8 @@ class EspSrWakeNetDetector {
                float& out_confidence);
 
   bool available_ = false;
+  bool partition_has_expected_model_ = false;
+  char expected_model_name_[64] = {0};
   bool expected_model_installed_ = false;
   const char* unavailable_reason_ = "not initialized";
 };
