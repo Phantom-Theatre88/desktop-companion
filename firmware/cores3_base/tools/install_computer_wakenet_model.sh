@@ -39,10 +39,14 @@ if [[ ! -f "${MODEL_DIR}/_MODEL_INFO_" ]]; then
   exit 2
 fi
 
-echo "[2/5] Building srmodels.bin with only ${MODEL_NAME}..."
+echo "[2/5] Building srmodels.bin with ${MODEL_NAME} + required English MultiNet..."
 cat > "${SDKCONFIG}" <<'EOF'
 CONFIG_IDF_TARGET="esp32s3"
 CONFIG_SR_WN_WN9_COMPUTER_TTS=y
+# Arduino-ESP32's ESP_SR wrapper initializes an English MultiNet model even
+# when started in SR_MODE_WAKEWORD. Omitting it makes sr_start() dereference a
+# missing MultiNet handle and can panic with LoadProhibited.
+CONFIG_SR_MN_EN_MULTINET7_QUANT=y
 EOF
 
 python3 "${ESP_SR_DIR}/model/movemodel.py" \
@@ -114,7 +118,8 @@ EOF
 echo
 echo "[OK] WakeNet test model installed:"
 echo "     Wake word : Computer"
-echo "     Model     : ${MODEL_NAME}"
+echo "     WakeNet   : ${MODEL_NAME}"
+echo "     MultiNet  : mn7_en + fst (required by Arduino ESP_SR wrapper)"
 echo "     Semantic  : word=computer"
 echo
 echo "[NEXT] Completely restart Arduino IDE."
