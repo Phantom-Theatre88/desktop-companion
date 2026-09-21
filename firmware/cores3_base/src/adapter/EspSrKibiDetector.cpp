@@ -35,6 +35,23 @@ static const sr_cmd_t kCommands[] = {
 struct EspSrState {
   StreamBufferHandle_t pcm_stream = nullptr;
   volatile bool detected = false;
+
+  // Read-only diagnostics exported through EspSrKibiDetector::diagnostics().
+  // These counters let us distinguish Mic feed, ESP-SR consumption, callback
+  // activity and final command delivery without changing recognition behavior.
+  volatile uint32_t input_frames = 0;
+  volatile uint32_t input_bytes = 0;
+  volatile uint32_t dropped_frames = 0;
+  volatile uint32_t fill_calls = 0;
+  volatile uint32_t fill_bytes = 0;
+  volatile uint32_t fill_timeouts = 0;
+  volatile uint32_t sr_events = 0;
+  volatile uint32_t command_events = 0;
+  volatile uint32_t timeout_events = 0;
+  volatile uint32_t detections_consumed = 0;
+  volatile int last_event = -1;
+  volatile int last_command_id = -1;
+  volatile int last_phrase_id = -1;
 };
 
 EspSrState g_state;
@@ -50,6 +67,7 @@ esp_err_t fillPcm(void* arg,
     return ESP_ERR_INVALID_ARG;
   }
 
+  ++state->fill_calls;
   uint8_t* dst = static_cast<uint8_t*>(out);
   size_t total = 0;
   const TickType_t wait =
@@ -65,12 +83,15 @@ esp_err_t fillPcm(void* arg,
         wait);
     if (got == 0) {
       *bytes_read = total;
+      state->fill_bytes += total;
+      ++state->fill_timeouts;
       return ESP_ERR_TIMEOUT;
     }
     total += got;
   }
 
   *bytes_read = total;
+  state->fill_bytes += total;
   return ESP_OK;
 }
 
@@ -84,11 +105,20 @@ void onSrEvent(void* arg,
     return;
   }
 
-  if (event == SR_EVENT_COMMAND && command_id == kKibiCommandId) {
-    state->detected = true;
+  ++state->sr_events;
+  state->last_event = static_cast<int>(event);
+  state->last_command_id = command_id;
+  state->last_phrase_id = phrase_id;
+
+  if (event == SR_EVENT_COMMAND) {
+    ++state->command_events;
+    if (command_id == kKibiCommandId) {
+      state->detected = true;
+    }
     // Keep continuous single-command listening.
     sr_set_mode(SR_MODE_COMMAND);
   } else if (event == SR_EVENT_TIMEOUT) {
+    ++state->timeout_events;
     sr_set_mode(SR_MODE_COMMAND);
   }
 }
@@ -120,6 +150,19 @@ bool EspSrKibiDetector::begin() {
   }
 
   g_state.detected = false;
+  g_state.input_frames = 0;
+  g_state.input_bytes = 0;
+  g_state.dropped_frames = 0;
+  g_state.fill_calls = 0;
+  g_state.fill_bytes = 0;
+  g_state.fill_timeouts = 0;
+  g_state.sr_events = 0;
+  g_state.command_events = 0;
+  g_state.timeout_events = 0;
+  g_state.detections_consumed = 0;
+  g_state.last_event = -1;
+  g_state.last_command_id = -1;
+  g_state.last_phrase_id = -1;
 
   const esp_err_t err = sr_start(
       fillPcm,
@@ -168,6 +211,27 @@ const char* EspSrKibiDetector::backendName() const {
 #endif
 }
 
+
+EspSrKibiDiagnostics EspSrKibiDetector::diagnostics() const {
+  EspSrKibiDiagnostics out;
+#if DESKBOT_HAS_ESP_SR_KIBI
+  out.input_frames = g_state.input_frames;
+  out.input_bytes = g_state.input_bytes;
+  out.dropped_frames = g_state.dropped_frames;
+  out.fill_calls = g_state.fill_calls;
+  out.fill_bytes = g_state.fill_bytes;
+  out.fill_timeouts = g_state.fill_timeouts;
+  out.sr_events = g_state.sr_events;
+  out.command_events = g_state.command_events;
+  out.timeout_events = g_state.timeout_events;
+  out.detections_consumed = g_state.detections_consumed;
+  out.last_event = g_state.last_event;
+  out.last_command_id = g_state.last_command_id;
+  out.last_phrase_id = g_state.last_phrase_id;
+#endif
+  return out;
+}
+
 bool EspSrKibiDetector::handler(
     const int16_t* pcm,
     size_t sample_count,
@@ -198,6 +262,8 @@ bool EspSrKibiDetector::process(
   }
 
   const size_t bytes = sample_count * sizeof(int16_t);
+  ++g_state.input_frames;
+  g_state.input_bytes += bytes;
   const size_t sent = xStreamBufferSend(
       g_state.pcm_stream,
       pcm,
@@ -207,6 +273,7 @@ bool EspSrKibiDetector::process(
   // Never turn a buffer-overflow condition into a semantic detection.
   // Audio may be dropped, but "kibi" is emitted only by ESP-SR.
   if (sent != bytes) {
+    ++g_state.dropped_frames;
     return false;
   }
 
@@ -215,6 +282,7 @@ bool EspSrKibiDetector::process(
   }
 
   g_state.detected = false;
+  ++g_state.detections_consumed;
   // Arduino's sr_event callback exposes command identity but not the internal
   // MultiNet probability. Treat a confirmed command event as full detector
   // confidence rather than fabricating a numeric model score.
