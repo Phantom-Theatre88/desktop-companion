@@ -29,9 +29,15 @@ void ReflexLayer::onNeuron(const nerve::SemanticNeuron& neuron) {
     case nerve::NeuronType::PERSON_PRESENT:
     case nerve::NeuronType::FACE_DETECTED:
     case nerve::NeuronType::LOUD_SOUND:
-    case nerve::NeuronType::WAKE_WORD_DETECTED:
     case nerve::NeuronType::MOTION_DETECTED:
       emit(ReflexIntentType::LOOK_TOWARD_SOURCE, neuron);
+      break;
+
+    case nerve::NeuronType::WAKE_WORD_DETECTED:
+      // Hearing our own name is interpersonal, not merely "some sound over
+      // there". Give it a dedicated body response so ambient Vision cannot
+      // visually bury the acknowledgement.
+      emit(ReflexIntentType::WAKE_WORD_RESPONSE, neuron);
       break;
 
     case nerve::NeuronType::TOUCH:
