@@ -53,6 +53,10 @@ struct MicroBehaviorFrame {
   float neck_yaw = 0.0f;
   float neck_pitch = 0.0f;
 
+  // True only while Ghost/Heart-derived interpersonal behavior should
+  // outrank ambient low-level visual overlays. Safety/direct Reflex still wins.
+  bool interpersonal_priority = false;
+
   bool blink_active = false;
   uint32_t generated_ms = 0;
 };
