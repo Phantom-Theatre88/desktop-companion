@@ -240,6 +240,47 @@ Afterward, fully restart Arduino IDE, keep `Partition Scheme: ESP SR 16M`,
 and upload normally. Re-run the helper after an M5Stack board-package update if
 that update restores the old upload offset.
 
+## WakeNet hardware test word: Computer (2026-09-22)
+
+Before the final Japanese wake phrase is decided, hardware validation uses the
+official ESP-SR WakeNet9 model:
+
+- spoken wake word: `Computer`
+- ESP-SR model: `wn9_computer_tts`
+- semantic target during this test: `computer`
+
+This is deliberately not mapped to `kibi`. A successful Computer detection
+proves the real WakeNet path without pretending that another acoustic model
+means the companion's final name.
+
+Install the official test model with:
+
+```sh
+cd ~/desktop-companion
+bash firmware/cores3_base/tools/install_computer_wakenet_model.sh
+```
+
+The installer generates `srmodels.bin` from Espressif's official
+`wn9_computer_tts` model, backs up the installed M5Stack Arduino SDK model
+binary, installs the generated binary, and writes a gitignored local marker that
+allows semantic wake events only after installation.
+
+Then fully restart Arduino IDE, keep `Partition Scheme: ESP SR 16M`, and
+upload `cores3_base.ino`.
+
+Expected boot state:
+
+```text
+Wake word target: computer model=wn9_computer_tts ... semantic=READY
+```
+
+Expected successful detection:
+
+```text
+[WAKENET][EVENT] ... wakes=1 ... consumed=1 ... semantic=READY
+[NERVE][MIC] WAKE_WORD_DETECTED word=computer ...
+```
+
 ## WakeNet production path for kibi (2026-09-22)
 
 The production wake-word path is now **ESP-SR WakeNet**, not MultiNet command
