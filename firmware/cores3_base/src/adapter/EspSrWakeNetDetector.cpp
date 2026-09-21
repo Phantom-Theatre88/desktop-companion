@@ -11,6 +11,7 @@
 
 #include <ESP_SR.h>
 #include "esp32-hal-sr.h"
+#include "model_path.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/stream_buffer.h"
 
@@ -106,11 +107,43 @@ void onSrEvent(void* arg,
 namespace deskbot {
 namespace adapter {
 
-bool EspSrWakeNetDetector::begin(bool expected_model_installed) {
+bool EspSrWakeNetDetector::begin(
+    const char* expected_model_name,
+    bool expected_model_installed) {
   available_ = false;
+  partition_has_expected_model_ = false;
   expected_model_installed_ = expected_model_installed;
+  expected_model_name_[0] = '\0';
+  if (expected_model_name != nullptr) {
+    snprintf(expected_model_name_,
+             sizeof(expected_model_name_),
+             "%s",
+             expected_model_name);
+  }
 
 #if DESKBOT_HAS_ESP_SR_WAKENET
+  // Verify the model partition itself before starting Arduino ESP_SR.
+  // This separates "local install marker says READY" from "the flashed model
+  // partition actually contains the requested WakeNet model".
+  srmodel_list_t* models = esp_srmodel_init("model");
+  if (models == nullptr) {
+    unavailable_reason_ = "ESP-SR model partition could not be opened";
+    return false;
+  }
+
+  if (expected_model_name_[0] != '\0') {
+    partition_has_expected_model_ =
+        esp_srmodel_exists(models, expected_model_name_) >= 0;
+  }
+
+  esp_srmodel_deinit(models);
+
+  if (expected_model_installed_ && !partition_has_expected_model_) {
+    unavailable_reason_ =
+        "expected WakeNet model is not present in flashed model partition";
+    return false;
+  }
+
   if (g_wakenet.pcm_stream == nullptr) {
     g_wakenet.pcm_stream =
         xStreamBufferCreate(kPcmStreamBytes, sizeof(int16_t));
