@@ -240,3 +240,52 @@ Afterward, fully restart Arduino IDE, keep `Partition Scheme: ESP SR 16M`,
 and upload normally. Re-run the helper after an M5Stack board-package update if
 that update restores the old upload offset.
 
+## WakeNet production path for kibi (2026-09-22)
+
+The production wake-word path is now **ESP-SR WakeNet**, not MultiNet command
+recognition.
+
+Why:
+- MultiNet successfully received PCM and produced command callbacks, but natural
+  Japanese `キビ` did not match its English G2P command pronunciation reliably.
+- The wake word is part of the companion's identity, so pronunciation hacks must
+  not leak into SemanticNeuron / Ghost / Heart.
+- Espressif's WakeNet is the dedicated always-listening wake-word engine for
+  ESP32-S3.
+
+Current runtime state:
+- `EspSrWakeNetDetector` runs `SR_MODE_WAKEWORD`.
+- PCM feed and WakeNet events have their own diagnostics:
+  - `[WAKENET][FEED] ...`
+  - `[WAKENET][EVENT] ...`
+- Semantic output is intentionally **disabled** until the model partition is
+  explicitly confirmed to contain a custom WakeNet model trained for `kibi`.
+- A bundled/default WakeNet phrase is never allowed to masquerade as
+  `WAKE_WORD_DETECTED word=kibi`.
+
+The switch controlling semantic delivery is:
+
+```cpp
+constexpr bool kKibiWakeNetModelInstalled = false;
+```
+
+Do **not** change it to `true` merely to make the pipeline appear complete.
+Change it only after installing and verifying the actual custom kibi WakeNet
+model.
+
+### External model dependency
+
+A true custom `kibi` WakeNet model is an external model artifact; it cannot be
+created by changing this repository alone. Espressif currently documents
+WakeNet customization and also accepts community TTS-trained wake-word requests.
+Japanese is listed among the languages supported by the community TTS pipeline.
+
+The project should request/train a Japanese WakeNet model whose spoken wake
+phrase is decided explicitly for this robot. The preferred identity remains
+`kibi`; if Espressif recommends a longer phrase for reliable WakeNet training,
+that phrase should remain an acoustic trigger only and still map to semantic
+`WAKE_WORD_DETECTED word=kibi`.
+
+The previous `EspSrKibiDetector` MultiNet implementation is retained only as a
+diagnostic/history reference and is no longer the production wake-word backend.
+
