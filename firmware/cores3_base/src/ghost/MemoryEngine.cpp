@@ -16,17 +16,27 @@ void MemoryEngine::begin(uint32_t now_ms) {
 
 void MemoryEngine::onNeuron(const nerve::SemanticNeuron& neuron,
                             const HeartContext& event_context) {
-  short_memory_.last_type = neuron.type;
-  short_memory_.last_source = neuron.source;
-  short_memory_.last_event_ms = neuron.timestamp_ms;
-  ++short_memory_.event_count;
-
+  const bool had_similar_prior_event =
+      short_memory_.event_count > 0 && short_memory_.last_type == neuron.type;
   MemoryRecord record;
+  record.similar_prior_event = had_similar_prior_event;
   record.kind = MemoryRecordKind::SEMANTIC_EVENT;
   record.neuron = neuron;
   record.heart_context = event_context;
   record.occurred_ms = neuron.timestamp_ms;
   last_candidate_ = record;
+  short_memory_.last_type = neuron.type;
+  short_memory_.last_source = neuron.source;
+  short_memory_.last_event_ms = neuron.timestamp_ms;
+  ++short_memory_.event_count;
+
+}
+
+void MemoryEngine::recordNeuronOutcome(const HeartContext& outcome_context) {
+  if (last_candidate_.kind != MemoryRecordKind::SEMANTIC_EVENT ||
+      last_candidate_.has_outcome) return;
+  last_candidate_.outcome_context = outcome_context;
+  last_candidate_.has_outcome = true;
 }
 
 void MemoryEngine::onReflexResult(const reflex::ReflexResult& result,
