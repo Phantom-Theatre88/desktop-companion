@@ -25,6 +25,9 @@ void GhostCore::onNeuron(const nerve::SemanticNeuron& neuron) {
 
   heart_.onNeuron(neuron, event_context);
   memory_.onNeuron(neuron, event_context);
+  // Record the post-stimulus Heart state separately, preserving the shared
+  // pre-stimulus snapshot required by LOCK 35.
+  memory_.recordNeuronOutcome(heart_.snapshot(time_.lastTickMs()));
   relationship_.onNeuron(neuron, event_context);
   behavior_.onNeuron(neuron, event_context);
 }
