@@ -1,3 +1,4 @@
+#include "../../firmware/cores3_base/src/body/BodyOutputComposer.h"
 #include <cassert>
 #include <vector>
 #include <iostream>
@@ -5,6 +6,7 @@
 #include "../../firmware/cores3_base/src/core/DesktopCompanionRuntime.h"
 // Persistence is not under test; use an empty first-boot store on the host.
 namespace deskbot { namespace ghost {
+bool HeartPersistence::hasPrimarySnapshot() { return false; }
 bool HeartPersistence::loadPrimary(HeartState&) { return false; }
 bool HeartPersistence::savePrimary(const HeartState&) { return true; }
 void HeartPersistence::setMicroSdBackupHandlers(HeartBackupSaveHandler, HeartBackupLoadHandler, void*) {}
@@ -12,6 +14,8 @@ bool HeartPersistence::microSdBackupAvailable() const { return false; }
 bool HeartPersistence::loadBackup(HeartState&) const { return false; }
 bool HeartPersistence::saveBackup(const HeartState&) const { return false; }
 }}
+std::vector<DrawCall> M5Canvas::rects;
+int M5Canvas::pushes = 0;
 using namespace deskbot;
 int main() {
   std::vector<uint8_t> pixels(320*240*2,0);
@@ -26,7 +30,8 @@ int main() {
   assert(v.takeNeuron(n) && n.type==nerve::NeuronType::BRIGHTER);
   assert(!v.takeNeuron(n) && v.lastSummary().motion_score==0);
   std::fill(pixels.begin(),pixels.end(),0);
-  f.timestamp_ms=6000; v.onCameraFrame(f); assert(!v.takeNeuron(n));
+  // 999 ms is inside the current 1000 ms cooldown.
+  f.timestamp_ms=5999; v.onCameraFrame(f); assert(!v.takeNeuron(n));
   f.timestamp_ms=9000; std::fill(pixels.begin(),pixels.end(),255); v.onCameraFrame(f);
   assert(v.takeNeuron(n));
   f.timestamp_ms=13000; std::fill(pixels.begin(),pixels.end(),0); v.onCameraFrame(f);
@@ -99,10 +104,15 @@ int main() {
   n = nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
                         nerve::NeuronSource::CAMERA_M5,17000);
   n.payload.scalar = 0.25f;
-  // Full route: Vision -> Runtime/Synapse -> Ghost/Memory/Behavior -> existing eye output.
+  // Full route: Runtime/Synapse -> Ghost and Reflex -> composed body output.
   core::DesktopCompanionRuntime runtime; assert(runtime.begin(0));
-  assert(runtime.synapse().bindingCount()==23);
-  runtime.tick(17300); const float resting=runtime.ghost().behaviorEngine().microBehavior().eye_openness;
+  body::BodyOutputComposer composer;
+  composer.begin(0);
+  runtime.reflex().setIntentHandler([](const reflex::ReflexIntent& intent, void* ctx) {
+    static_cast<body::BodyOutputComposer*>(ctx)->onReflexIntent(intent);
+  }, &composer);
+  assert(runtime.synapse().bindingCount()==29); // 17 Ghost + 12 Reflex inputs.
+  runtime.tick(17300);
   const auto heartBeforeMotion = runtime.ghost().heart();
   runtime.emit(n);
   const auto heartAfterMotion = runtime.ghost().heart();
@@ -131,7 +141,9 @@ int main() {
   runtime.tick(18300);
   assert(runtime.ghost().memory().last_type==nerve::NeuronType::MOTION_DETECTED);
   assert(runtime.ghost().memory().event_count==2);
-  assert(runtime.ghost().behaviorEngine().microBehavior().eye_openness>resting);
+  const auto baseFrame = runtime.ghost().behaviorEngine().microBehavior();
+  const auto composed = composer.compose(baseFrame, 18300);
+  assert(composed.face.left.openness > baseFrame.eye_openness);
   const auto heartBeforeTouch = runtime.ghost().heart();
   runtime.emit(nerve::makeNeuron(nerve::NeuronType::TOUCH,nerve::NeuronSource::TOUCH,18400));
   const auto heartAfterTouch = runtime.ghost().heart();
@@ -152,7 +164,9 @@ int main() {
   assert(heartAfterRecovery.sleepiness == heartBeforeRecovery.sleepiness);
 
   n.timestamp_ms=38410; runtime.emit(n); runtime.tick(38420);
-  assert(runtime.ghost().behaviorEngine().microBehavior().left_shape.lower_lid>0);
+  // The old Touch has expired: a new visual event must not resurrect it.
+  assert(composer.compose(runtime.ghost().behaviorEngine().microBehavior(),
+                          38420).face.left.lower_lid == 0);
   // Invalid/missing frames and long gaps cannot produce stale comparisons.
   f.bytes=1; f.timestamp_ms=19000; v.onCameraFrame(f); assert(!v.takeNeuron(n));
   assert(!v.lastSummary().valid);

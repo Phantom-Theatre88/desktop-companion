@@ -20,9 +20,15 @@ Darwin arm64, Apple clang 21.0.0. Executed successfully:
 
 Step 3 checks: unbound/empty Memory, unknown identity, separate people, pending exclusion, double commit, positive/negative/mixed evidence, immutable original reception, eight-slot eviction, Memory reset, real Ghost→Heart→Memory integration and Ghost restart.
 
-## Existing full-suite failure (not a Step 3 pass)
+## Full host regression repaired and passed
 
-`bash tests/run_host_tests.sh` cannot compile at the base: FaceRenderer uses drawing APIs missing from the old M5GFX host shim. A temporary shim alignment exposed an unused local and then an outdated assertion at face_test.cpp:59 expecting Touch lower-lid changes from Behavior. Current Behavior deliberately delegates immediate sensor expression to Reflex→Body Output. Root cause is test drift across that responsibility transfer, not the Relationship integration. Exploratory unrelated modifications were reverted. Full face/vision suite remains unverified/failing; correcting it needs tests of the current BodyOutput composition rather than restoring the obsolete Behavior ownership.
+The unmodified Step 2 base `a437c55` was extracted into an isolated temporary directory. Its original suite reproduced the missing drawing-API compilation failure. Investigation confirmed test drift: immediate expression moved from Behavior to Reflex→BodyOutputComposer, directed motion uses eye silhouettes/neck rather than gaze translation, bindings grew to 29, and Vision cooldown is 1000 ms.
+
+Updated tests now exercise actual Reflex→Body composition, direct response expiry, directional silhouette/neck response, interpersonal priority and safety-over-Touch/Vision arbitration. Autonomous tests inspect the current shape/neck output. The vision test uses 999 ms for the within-cooldown case and checks composed body output. Host shims now cover the auxiliary drawing APIs and the current HeartPersistence boundary. One unused FaceRenderer local was removed to satisfy warnings-as-errors; runtime behavior is unchanged.
+
+The repaired face/body and vision regression tests passed against BOTH the Step 2 base and the Step 3 implementation (same test changes and unused-local cleanup). Then `bash tests/run_host_tests.sh` passed on Step 3, including face/body, vision/runtime, Memory Step 2 and sanitizer-enabled Relationship Step 3. Auxiliary rendering shims do not validate actual pixels of mouth/props/effects.
+
+**Learning A Step 3 is complete within the agreed Mac host scope.** Hardware verification remains separate. This is not completion of Learning A as a whole.
 
 ## Hardware-only / not verified
 
@@ -30,4 +36,4 @@ No CoreS3 build/upload or hardware execution this task (arduino-cli unavailable)
 
 ## Remaining work
 
-Step 3's minimal Memory→person-specific Relationship evaluation is host-tested. Learning A and the overall robot are incomplete. Memory is still the existing volatile eight-record working history; evaluation loses evidence on eviction/restart. Persistent learning, retention/forgetting, identity correction, trust calibration, Heart/Behavior integration and elapsed-time recovery remain future work. This does not supersede the sacred LOCKs or the separate documentation repository's hardware status.
+Step 3's minimal Memory→person-specific Relationship evaluation and host regressions have passed. Learning A and the overall robot are incomplete. Memory is still the existing volatile eight-record working history; evaluation loses evidence on eviction/restart. Persistent learning, retention/forgetting, identity correction, trust calibration, Heart/Behavior integration and elapsed-time recovery remain future work. This does not supersede the sacred LOCKs or the separate documentation repository's hardware status.

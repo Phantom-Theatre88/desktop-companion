@@ -139,7 +139,6 @@ void FaceRenderer::render(const ExpressionParams& target, uint32_t now_ms) {
     const int16_t left_x = static_cast<int16_t>(w * 0.24f);
     const int16_t right_x = static_cast<int16_t>(w * 0.76f);
     const int16_t eye_y = static_cast<int16_t>(h * 0.47f);
-    const uint32_t white = TFT_WHITE;
     const uint32_t soft = 0xBDF7;
     const uint32_t warm = 0xFBCF;
     const uint32_t blush = 0xF81F;

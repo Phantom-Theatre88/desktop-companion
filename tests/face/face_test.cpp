@@ -1,3 +1,4 @@
+#include "../../firmware/cores3_base/src/body/BodyOutputComposer.h"
 #include <cassert>
 #include <cmath>
 #include <limits>
@@ -50,81 +51,67 @@ int main() {
     p.spacing_scale=spacing; p.offset_x=p.offset_y=p.jitter_x=p.jitter_y=offset;
     f.render(p,0);
   }
-  ghost::BehaviorEngine behavior; ghost::HeartContext context;
-  behavior.begin(0); behavior.tick(1000,context);
-  assert(behavior.microBehavior().left_shape.width_scale==1);
-  for(auto type : {nerve::NeuronType::TOUCH,nerve::NeuronType::PICKED_UP,nerve::NeuronType::SHAKE}) {
-    behavior.onNeuron(nerve::makeNeuron(type,nerve::NeuronSource::IMU,1000),context);
-    behavior.tick(1040,context); auto active=behavior.microBehavior();
-    if(type==nerve::NeuronType::TOUCH) assert(active.left_shape.lower_lid>0);
-    if(type==nerve::NeuronType::PICKED_UP) assert(active.left_shape.height_scale>1);
-    if(type==nerve::NeuronType::SHAKE) assert(active.jitter_x!=0 && active.left_shape.upper_lid>0);
-    behavior.tick(1800,context); auto expired=behavior.microBehavior();
-    assert(expired.jitter_x==0 && expired.jitter_y==0);
-    assert(expired.left_shape.upper_lid==0 && expired.left_shape.lower_lid==0);
-    assert(expired.right_shape.height_scale==1 && expired.eye_spacing_scale==1);
+  // Immediate expression belongs to Reflex -> Body, not Behavior.
+  ghost::BehaviorEngine behavior;
+  ghost::HeartContext context;
+  body::BodyOutputComposer composer;
+  reflex::ReflexLayer reflex;
+  reflex.setIntentHandler([](const reflex::ReflexIntent& intent, void* ctx) {
+    static_cast<body::BodyOutputComposer*>(ctx)->onReflexIntent(intent);
+  }, &composer);
+  for (auto type : {nerve::NeuronType::TOUCH, nerve::NeuronType::LIFT_STARTED,
+                    nerve::NeuronType::SHAKE}) {
+    behavior.begin(0); composer.begin(0);
+    context.captured_ms = 1000;
+    auto event = nerve::makeNeuron(type, nerve::NeuronSource::IMU, 1000);
+    behavior.onNeuron(event, context);
+    reflex.onNeuron(event);
+    behavior.tick(1040, context);
+    const auto base = behavior.microBehavior();
+    const auto active = composer.compose(base, 1040).face;
+    assert(base.left_shape.lower_lid == 0 && base.jitter_x == 0);
+    if (type == nerve::NeuronType::TOUCH) assert(active.left.lower_lid > 0);
+    if (type == nerve::NeuronType::LIFT_STARTED) assert(active.left.height_scale > 1);
+    if (type == nerve::NeuronType::SHAKE)
+      assert(active.jitter_x != 0 && active.left.upper_lid > 0);
+    const auto expired = composer.compose(base, 1800).face;
+    assert(expired.jitter_x == base.jitter_x);
+    assert(expired.left.lower_lid == base.left_shape.lower_lid);
+    assert(expired.left.height_scale == base.left_shape.height_scale);
   }
-  behavior.tick(4300,context);
-  assert(behavior.microBehavior().eye_openness==0);
-
-  // Low-level motion direction steers gaze without raw camera coordinates.
-  ghost::BehaviorEngine directedMotionBehavior;
-  ghost::HeartContext directedContext;
-  directedMotionBehavior.begin(0);
-  directedContext.captured_ms = 1000;
-  nerve::NeuronPayload leftMotionPayload;
-  leftMotionPayload.scalar = 0.4f;
-  leftMotionPayload.x = -800;
-  leftMotionPayload.y = 200;
-  directedMotionBehavior.onNeuron(
-      nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
-                        nerve::NeuronSource::CAMERA_M5,
-                        900, 1.0f, leftMotionPayload),
-      directedContext);
-  directedMotionBehavior.tick(1040,directedContext);
-  assert(directedMotionBehavior.microBehavior().gaze_x < -0.25f);
-  assert(directedMotionBehavior.microBehavior().gaze_y > 0.02f);
-  const auto leftDirected = directedMotionBehavior.microBehavior();
-  assert(leftDirected.left_shape.width_scale == 1.0f);
-  assert(leftDirected.right_shape.width_scale == 1.0f);
-  assert(leftDirected.left_shape.height_scale > 1.15f);
-  assert(leftDirected.right_shape.height_scale < 0.86f);
-
-  ghost::BehaviorEngine rightDirectedBehavior;
-  rightDirectedBehavior.begin(0);
-  ghost::HeartContext rightContext;
-  rightContext.captured_ms = 1000;
-  nerve::NeuronPayload rightMotionPayload;
-  rightMotionPayload.scalar = 0.4f;
-  rightMotionPayload.x = 800;
-  rightMotionPayload.y = 0;
-  rightDirectedBehavior.onNeuron(
-      nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
-                        nerve::NeuronSource::CAMERA_M5,
-                        900, 1.0f, rightMotionPayload),
-      rightContext);
-  rightDirectedBehavior.tick(1040,rightContext);
-  const auto rightDirected = rightDirectedBehavior.microBehavior();
-  assert(rightDirected.right_shape.height_scale > 1.15f);
-  assert(rightDirected.left_shape.height_scale < 0.86f);
-
-  // Near-center motion keeps both eyes symmetric to avoid noisy twitching.
-  ghost::BehaviorEngine centerMotionBehavior;
-  centerMotionBehavior.begin(0);
-  ghost::HeartContext centerContext;
-  centerContext.captured_ms = 1000;
-  nerve::NeuronPayload centerMotionPayload;
-  centerMotionPayload.scalar = 0.4f;
-  centerMotionPayload.x = 120;
-  centerMotionBehavior.onNeuron(
-      nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
-                        nerve::NeuronSource::CAMERA_M5,
-                        900, 1.0f, centerMotionPayload),
-      centerContext);
-  centerMotionBehavior.tick(1040,centerContext);
-  const auto centerDirected = centerMotionBehavior.microBehavior();
-  assert(centerDirected.left_shape.height_scale == 1.0f);
-  assert(centerDirected.right_shape.height_scale == 1.0f);
+  // Image X is opposite screen side; visual shape and neck show direction.
+  for (int x : {-800, 0, 800}) {
+    composer.begin(0);
+    nerve::NeuronPayload payload; payload.x = x;
+    reflex.onNeuron(nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
+                     nerve::NeuronSource::CAMERA_M5, 1000, 1.0f, payload));
+    ghost::MicroBehaviorFrame base;
+    auto directed = composer.compose(base, 1200);
+    assert(directed.face.offset_x == 0);
+    if (x < 0) {
+      assert(directed.face.right.height_scale > 1);
+      assert(directed.face.left.height_scale < 1 && directed.neck_yaw > 0);
+    } else if (x > 0) {
+      assert(directed.face.left.height_scale > 1);
+      assert(directed.face.right.height_scale < 1 && directed.neck_yaw < 0);
+    } else {
+      assert(directed.face.left.height_scale == 1);
+      assert(directed.face.right.height_scale == 1);
+    }
+    base.interpersonal_priority = true;
+    assert(composer.compose(base, 1200).face.left.height_scale == 1);
+  }
+  // Safety interrupts vision and cannot be overwritten by a later Touch.
+  composer.begin(0);
+  reflex.onNeuron(nerve::makeNeuron(nerve::NeuronType::SHAKE,
+                                  nerve::NeuronSource::IMU, 1000));
+  reflex.onNeuron(nerve::makeNeuron(nerve::NeuronType::TOUCH,
+                                  nerve::NeuronSource::TOUCH, 1010));
+  reflex.onNeuron(nerve::makeNeuron(nerve::NeuronType::MOTION_DETECTED,
+                                  nerve::NeuronSource::CAMERA_M5, 1020));
+  auto safety = composer.compose({}, 1040).face;
+  assert(safety.jitter_x != 0 && safety.left.upper_lid > 0);
+  assert(safety.left.lower_lid == 0);
 
   // Heart-driven autonomous behavior: baseline curiosity chooses a look.
   ghost::BehaviorEngine autonomousBehavior;
@@ -135,7 +122,7 @@ int main() {
   autonomousBehavior.tick(15000,curiousContext);
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
   autonomousBehavior.tick(15500,curiousContext);
-  assert(std::fabs(autonomousBehavior.microBehavior().gaze_x) > 0.10f);
+  assert(autonomousBehavior.microBehavior().left_shape.width_scale > 1.02f);
 
   // Vision arbitration uses Ghost handling-time clock, not source timestamp.
   // Simulate a camera event whose occurrence timestamp is older than delivery.
@@ -167,7 +154,7 @@ int main() {
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
   autonomousBehavior.tick(17900,curiousContext);
   assert(autonomousBehavior.autonomousAction()==ghost::AutonomousAction::CURIOUS_LOOK);
-  assert(std::fabs(autonomousBehavior.microBehavior().gaze_x) > 0.10f);
+  assert(autonomousBehavior.microBehavior().left_shape.width_scale > 1.02f);
 
   // It completes only after the remaining autonomous lifetime is actually used.
   autonomousBehavior.tick(18920,curiousContext);
@@ -193,6 +180,6 @@ int main() {
   boredBehavior.tick(15000,boredContext);
   assert(boredBehavior.autonomousAction()==ghost::AutonomousAction::BORED_SCAN);
   boredBehavior.tick(16000,boredContext);
-  assert(std::fabs(boredBehavior.microBehavior().gaze_x) > 0.05f);
-  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry, strong directed motion gaze/asymmetry/deadzone, autonomous Heart-driven behavior, Vision pause/resume arbitration\n";
+  assert(std::fabs(boredBehavior.microBehavior().neck_yaw) > 0.05f);
+  std::cout << "PASS: neutral geometry, independent lids, blink, bounds, frame timing, clock wrap, transient expiry, Reflex-to-Body direction, expiry and safety priority, autonomous Heart-driven behavior, Vision pause/resume arbitration\n";
 }

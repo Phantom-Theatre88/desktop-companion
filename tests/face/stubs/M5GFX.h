@@ -2,7 +2,8 @@
 #include "Arduino.h"
 #include <vector>
 #include <cassert>
-constexpr uint32_t TFT_BLACK = 0, TFT_CYAN = 0x07ff;
+constexpr uint32_t TFT_WHITE = 0xffff, TFT_RED = 0xf800, TFT_BLACK = 0, TFT_CYAN = 0x07ff;
+constexpr int middle_center = 4;
 struct DrawCall { int x, y, w, h, radius; uint32_t color; };
 class M5GFX {
  public:
@@ -27,5 +28,14 @@ class M5Canvas {
     rects.push_back({x,y,w,h,0,c});
   }
   void fillTriangle(int,int,int,int,int,int,uint32_t) {}
+  // Platform-only shims for auxiliary mouth/prop/effect rendering.
+  void fillEllipse(int,int,int,int,uint32_t) {}
+  void drawCircle(int,int,int,uint32_t) {}
+  void fillCircle(int,int,int,uint32_t) {}
+  void drawLine(int,int,int,int,uint32_t) {}
+  void setTextDatum(int) {}
+  void setTextSize(int) {}
+  void setTextColor(uint32_t,uint32_t) {}
+  void drawString(const char*,int,int) {}
   void pushSprite(int,int) { ++pushes; }
 };
