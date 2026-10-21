@@ -23,11 +23,17 @@ void GhostCore::onNeuron(const nerve::SemanticNeuron& neuron) {
   // for arbitration/lifetimes so blocking device work cannot age an action.
   const HeartContext event_context = heart_.snapshot(time_.lastTickMs());
 
+  // Step 2: recall only committed history BEFORE staging this event.
+  // The result is intentionally not used for Heart tuning until Step 4.
+  MemoryRecord prior_experience;
+  const bool has_prior_experience =
+      memory_.recallLatest(neuron.type, prior_experience);
+  (void)has_prior_experience;
+  memory_.beginNeuronExperience(neuron, event_context);
   heart_.onNeuron(neuron, event_context);
-  memory_.onNeuron(neuron, event_context);
   // Record the post-stimulus Heart state separately, preserving the shared
   // pre-stimulus snapshot required by LOCK 35.
-  memory_.recordNeuronOutcome(heart_.snapshot(time_.lastTickMs()));
+  memory_.commitNeuronExperience(heart_.snapshot(time_.lastTickMs()));
   relationship_.onNeuron(neuron, event_context);
   behavior_.onNeuron(neuron, event_context);
 }
