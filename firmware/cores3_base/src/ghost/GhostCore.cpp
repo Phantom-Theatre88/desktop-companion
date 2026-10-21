@@ -12,9 +12,21 @@ void GhostCore::begin(uint32_t now_ms) {
   relationship_.begin(now_ms);
   relationship_.bindMemory(memory_);
   behavior_.begin(now_ms);
+  offline_status_ = ElapsedStatus::CLOCK_UNKNOWN;
+  if (persistence_.load(checkpoint_)) {
+    const auto elapsed = time_.elapsedSince(checkpoint_.unix_seconds);
+    offline_status_ = elapsed.status;
+    heart_.restoreCheckpoint(checkpoint_.heart, checkpoint_.baseline, elapsed,
+                             now_ms, checkpoint_.quiet_seconds);
+    memory_.restoreSnapshot(checkpoint_.memory);
+  }
+  last_checkpoint_attempt_ms_ = now_ms;
+  observed_heart_change_ms_ = heart_.lastHeartChangeMs();
+  checkpoint_dirty_ = true;
 }
 
 void GhostCore::onNeuron(const nerve::SemanticNeuron& neuron) {
+  checkpoint_dirty_ = true;
   last_neuron_type_ = neuron.type;
   last_neuron_ms_ = neuron.timestamp_ms;
   // LOCK 35: capture Heart Context once at the start of this event and use
@@ -68,6 +80,25 @@ void GhostCore::tick(uint32_t now_ms) {
   // Behavior receives the current read-only Heart snapshot every runtime tick
   // and produces continuous micro-behavior for the body/face layer.
   behavior_.tick(now_ms, heart_.snapshot(now_ms));
+  if (observed_heart_change_ms_ != heart_.lastHeartChangeMs()) checkpoint_dirty_ = true;
+  observed_heart_change_ms_ = heart_.lastHeartChangeMs();
+  // Rate-limit retries as well as successful periodic writes; no event-path I/O.
+  if (checkpoint_dirty_ && static_cast<uint32_t>(now_ms-last_checkpoint_attempt_ms_) >= 60000) {
+    last_checkpoint_attempt_ms_ = now_ms;
+    saveCheckpoint();
+  }
+}
+
+bool GhostCore::saveCheckpoint() {
+  last_checkpoint_attempt_ms_ = time_.lastTickMs();
+  checkpoint_.heart = heart_.state();
+  checkpoint_.baseline = heart_.baseline();
+  checkpoint_.memory = memory_.exportSnapshot();
+  checkpoint_.unix_seconds = time_.unixSeconds();
+  checkpoint_.quiet_seconds = (time_.lastTickMs()-heart_.lastEventMs())/1000;
+  const bool ok = persistence_.save(checkpoint_);
+  if (ok) checkpoint_dirty_ = false;
+  return ok;
 }
 
 void GhostCore::synapseHandler(const nerve::SemanticNeuron& neuron, void* context) {

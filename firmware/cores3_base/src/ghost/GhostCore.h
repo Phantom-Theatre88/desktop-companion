@@ -6,6 +6,7 @@
 #include "MemoryEngine.h"
 #include "RelationshipEngine.h"
 #include "TimeEngine.h"
+#include "GhostPersistence.h"
 #include "../nerve/NerveTypes.h"
 #include "../reflex/ReflexLayer.h"
 
@@ -14,6 +15,12 @@ namespace ghost {
 
 class GhostCore {
  public:
+  void configurePersistence(CheckpointStore primary, CheckpointStore backup = {}) {
+    persistence_.configure(primary, backup);
+  }
+  bool saveCheckpoint();
+  const GhostPersistence& persistence() const { return persistence_; }
+  ElapsedStatus offlineTimeStatus() const { return offline_status_; }
   void begin(uint32_t now_ms);
   void onNeuron(const nerve::SemanticNeuron& neuron);
   void onReflexResult(const reflex::ReflexResult& result);
@@ -39,6 +46,12 @@ class GhostCore {
   static void synapseHandler(const nerve::SemanticNeuron& neuron, void* context);
 
  private:
+  GhostPersistence persistence_{};
+  GhostCheckpoint checkpoint_{};
+  uint32_t last_checkpoint_attempt_ms_ = 0;
+  uint32_t observed_heart_change_ms_ = 0;
+  bool checkpoint_dirty_ = true;
+  ElapsedStatus offline_status_ = ElapsedStatus::CLOCK_UNKNOWN;
   HeartEngine heart_{};
   MemoryEngine memory_{};
   TimeEngine time_{};

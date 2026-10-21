@@ -36,14 +36,19 @@ void HeartEngine::begin(uint32_t now_ms) {
   restore_pending_ = false;
 
   // LOCK 19 / LOCK 20 / LOCK 51:
-  // NVS is the primary Heart storage. On normal boot, LOCK 20 requires each
-  // Heart field to follow a different restoration path. Only affection can be
-  // restored exactly from the saved snapshot without inventing missing tuning
-  // rules. The other five fields remain explicitly pending their required
-  // time/baseline/life-rhythm inputs instead of being mechanically copied.
-  if (persistence_.loadPrimary(primary_snapshot_)) {
+  // Legacy Heart-only migration fallback. The coherent Ghost checkpoint is
+  // loaded by GhostCore after begin. Without elapsed time, preserve valid legacy
+  // values and leave temporal correction pending (new 2026-10-21 LOCK).
+  const bool loaded = persistence_.loadPrimary(primary_snapshot_);
+  const auto& saved = primary_snapshot_;
+  const float values[] = {saved.mood, saved.affection, saved.curiosity,
+                         saved.boredom, saved.sleepiness, saved.attention};
+  bool valid = loaded;
+  for (float value : values)
+    valid = valid && std::isfinite(value) && value >= 0 && value <= 1;
+  if (valid) {
     primary_snapshot_loaded_ = true;
-    state_.affection = primary_snapshot_.affection;
+    state_ = primary_snapshot_; // Unknown elapsed time: preserve, never reset on boot.
     restore_pending_ = true;
   } else {
     first_boot_initialized_ = true;
@@ -64,6 +69,41 @@ void HeartEngine::begin(uint32_t now_ms) {
   last_impact_scale_ = 1.0f;
   last_event_type_ = nerve::NeuronType::NONE;
   last_event_ms_ = 0;
+}
+
+void HeartEngine::restoreCheckpoint(const HeartState& state,
+    const HeartState& baseline, const OfflineElapsed& elapsed, uint32_t now_ms,
+    uint32_t quiet_seconds) {
+  state_ = state;
+  baseline_ = baseline;
+  primary_snapshot_ = state;
+  primary_snapshot_loaded_ = true;
+  first_boot_initialized_ = false;
+  restore_pending_ = elapsed.status != ElapsedStatus::KNOWN;
+  // Provisional recovery uses the existing online rates after its 15 s delay.
+  // No wall clock -> preserve all fields, with elapsed correction pending.
+  if (!restore_pending_) {
+    const double quiet = static_cast<double>(quiet_seconds);
+    const double total = quiet + static_cast<double>(elapsed.seconds);
+    const double before = quiet > 15 ? (quiet - 15) / 5.0 : 0.0;
+    const double after = total > 15 ? (total - 15) / 5.0 : 0.0;
+    const double steps = after - before;
+    state_.mood = baseline.mood + (state.mood - baseline.mood) *
+        static_cast<float>(std::pow(1.0 - kMoodRecoveryFraction, steps));
+    state_.curiosity = baseline.curiosity + (state.curiosity - baseline.curiosity) *
+        static_cast<float>(std::pow(1.0 - kCuriosityRecoveryFraction, steps));
+    state_.attention = baseline.attention + (state.attention - baseline.attention) *
+        static_cast<float>(std::pow(1.0 - kAttentionRecoveryFraction, steps));
+    // Fatigue/idle are not clock-of-day estimates. Keep them until rhythm inputs
+    // exist; affection and all experience remain unchanged by offline recovery.
+  }
+  const uint64_t quiet = static_cast<uint64_t>(quiet_seconds) +
+      (restore_pending_ ? 0 : elapsed.seconds);
+  const uint32_t age_ms = static_cast<uint32_t>(quiet > 86400 ? 86400000 : quiet*1000);
+  last_tick_ms_ = last_meaningful_stimulus_ms_ = now_ms;
+  last_event_ms_ = now_ms - age_ms;
+  last_boredom_step_ms_ = last_sleepiness_step_ms_ = last_recovery_ms_ = now_ms;
+  clampState();
 }
 
 void HeartEngine::tick(uint32_t now_ms) {

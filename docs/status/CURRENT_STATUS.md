@@ -1,4 +1,24 @@
-# Current implementation status — Learning A Step 5
+# Current implementation status — Learning A Step 6
+
+2026-10-22 JST. Base: Step 5 `7daa3cc`. Previous Step 5/4/3 records follow below.
+
+## Step 6 result
+
+**Minimum coherent persistence/time/restoration path implemented and Mac-host verified. CoreS3 target and hardware remain unverified.**
+
+- CoreS3 setup connects primary two-slot NVS checkpoints and optional already-mounted SD backup.
+- Heart/baseline and eight committed Memory experiences restore together with schema/CRC/value validation. Relationship is re-evaluated from Memory; transient Behavior/Reflex state is not replayed.
+- Known offline time recovers temporary mood/curiosity/attention; affection and original experience remain intact. Unknown/backward clock preserves state with temporal correction pending. Session IDs prevent old uptime hints being reused across boots.
+- Dirty periodic saving/retry is rate-limited to 60 seconds; explicit checkpoint flush is available. Latest corrupt/partial save falls back to the previous valid primary or independent backup.
+- Existing Heart-only data is a validated migration fallback. Firmware does not guess UTC or mount/reconfigure SD implicitly.
+
+Executed `bash tests/run_host_tests.sh`: face/body, vision/runtime and Step 2–6 all PASS, including separate-process file save/read and sanitizer-enabled persistence/failure tests. `git diff --check` passed.
+
+Still separate: physical target build/power cycle, NVS/SD guarantees and resources, trusted RTC/system clock supply (`DESKBOT_TRUST_SYSTEM_TIME` defaults off), SD mounting, actual identity recognition, day/night rhythm, independent retained learning after history eviction, long-term baseline growth, broader stimulus/behavior coverage and Learning B. Default firmware restores experience without a clock; offline emotional correction requires a trusted provider. See `docs/sacred/GHOST_LEARNING_A_STEP6_IMPLEMENTATION.md` for exact conditions.
+
+---
+
+## Historical Step 5 result
 
 2026-10-22 JST. Base: Step 4 `ab945d0`. Previous Step 4/3 records are preserved below.
 

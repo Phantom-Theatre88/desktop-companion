@@ -8,7 +8,7 @@ base=firmware/cores3_base/src
   tests/host/behavior_step5_test.cpp "$base/core/DesktopCompanionRuntime.cpp" "$base/nerve/SynapseRouter.cpp" \
   "$base/body/BodyOutputComposer.cpp" "$base/face/FaceRenderer.cpp" \
   "$base/ghost/MemoryEngine.cpp" \
-  "$base/ghost/GhostCore.cpp" "$base/ghost/HeartEngine.cpp" \
+  "$base/ghost/GhostPersistence.cpp" "$base/ghost/GhostCore.cpp" "$base/ghost/HeartEngine.cpp" \
   "$base/reflex/ReflexLayer.cpp" "$base/ghost/BehaviorEngine.cpp" "$base/ghost/HeartMicroSdBackup.cpp" \
   -o "$test_dir/relationship"
 "$test_dir/relationship"

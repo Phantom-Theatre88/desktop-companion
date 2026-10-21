@@ -1,4 +1,6 @@
 #include <M5Unified.h>
+#include <time.h>
+#include "src/ghost/GhostEsp32Storage.h"
 #include <ESP_SR.h>
 #include <M5GFX.h>
 
@@ -539,7 +541,21 @@ void setup() {
   Serial.println("[BASE] CoreS3 clean base started");
   Serial.println("[BASE] No Stack-chan / AI_StackChan_Ex / stack-chan-ko / RoboEyes");
 
+  runtime.ghost().configurePersistence(deskbot::ghost::nvsCheckpointStore(),
+                                       deskbot::ghost::sdCheckpointStore());
+  // Enable only when board setup has established a trusted RTC/system clock.
+  // No network dependency, guessed shutdown time, or RTC reconfiguration here.
+#if defined(DESKBOT_TRUST_SYSTEM_TIME) && DESKBOT_TRUST_SYSTEM_TIME
+  runtime.ghost().timeEngine().setUnixClock([](uint64_t& seconds, void*) {
+    const time_t now = time(nullptr);
+    if (now <= 0) return false;
+    seconds = static_cast<uint64_t>(now); return true;
+  });
+#endif
   const bool nerve_ready = runtime.begin(millis());
+  Serial.printf("[CHECKPOINT] Restore source=%u offline-time=%u; SD backup requires mounted card\n",
+      static_cast<unsigned>(runtime.ghost().persistence().source()),
+      static_cast<unsigned>(runtime.ghost().offlineTimeStatus()));
   body_output.begin(millis());
   runtime.reflex().setIntentHandler(onReflexIntent, &body_output);
   Serial.printf("[NERVE] Synapse bindings: %u\n", static_cast<unsigned>(runtime.synapse().bindingCount()));

@@ -5,6 +5,7 @@ namespace ghost {
 
 void MemoryEngine::begin(uint32_t now_ms) {
   (void)now_ms;
+  session_id_ = 1;
   short_memory_ = ShortMemory{};
   last_candidate_ = MemoryRecord{};
   experience_count_ = 0;
@@ -17,6 +18,31 @@ void MemoryEngine::begin(uint32_t now_ms) {
     lane_handlers_[i] = nullptr;
     lane_contexts_[i] = nullptr;
   }
+}
+
+MemorySnapshot MemoryEngine::exportSnapshot() const {
+  MemorySnapshot snapshot;
+  snapshot.count = static_cast<uint32_t>(experience_count_);
+  snapshot.session_id = session_id_;
+  for (size_t i = 0; i < experience_count_; ++i)
+    snapshot.records[i] = working_experiences_[
+        (next_experience_index_ + kWorkingExperienceCapacity - experience_count_ + i) %
+        kWorkingExperienceCapacity];
+  return snapshot;
+}
+
+void MemoryEngine::restoreSnapshot(const MemorySnapshot& snapshot) {
+  // Snapshot is validated by GhostPersistence before any engine is changed.
+  if (snapshot.count > kWorkingExperienceCapacity || snapshot.session_id == UINT32_MAX)
+    return;
+  experience_count_ = snapshot.count;
+  next_experience_index_ = snapshot.count % kWorkingExperienceCapacity;
+  session_id_ = snapshot.session_id + 1;
+  for (size_t i = 0; i < kWorkingExperienceCapacity; ++i)
+    working_experiences_[i] = snapshot.records[i];
+  short_memory_ = ShortMemory{}; // Never reuse the previous boot's uptime hints.
+  pending_neuron_ = false;
+  last_candidate_ = MemoryRecord{};
 }
 
 bool MemoryEngine::recallLatest(nerve::NeuronType type,
@@ -79,6 +105,7 @@ void MemoryEngine::beginNeuronExperience(
   last_candidate_.heart_context = event_context;
   last_candidate_.appraisal_evidence = evidence;
   last_candidate_.occurred_ms = neuron.timestamp_ms;
+  last_candidate_.session_id = session_id_;
   last_candidate_.similar_prior_event = immediate_repeat;
   pending_neuron_ = true;
 }

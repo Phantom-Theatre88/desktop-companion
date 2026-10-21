@@ -10,7 +10,7 @@ base=firmware/cores3_base/src
 "$test_dir/face"
 "$compiler" "${flags[@]}" tests/vision/vision_test.cpp \
   "$base/vision/CameraVisionInput.cpp" "$base/core/DesktopCompanionRuntime.cpp" \
-  "$base/nerve/SynapseRouter.cpp" "$base/ghost/GhostCore.cpp" \
+  "$base/nerve/SynapseRouter.cpp" "$base/ghost/GhostPersistence.cpp" "$base/ghost/GhostCore.cpp" \
   "$base/ghost/BehaviorEngine.cpp" "$base/ghost/HeartEngine.cpp" \
   "$base/ghost/HeartMicroSdBackup.cpp" "$base/ghost/MemoryEngine.cpp" \
   "$base/reflex/ReflexLayer.cpp" "$base/body/BodyOutputComposer.cpp" "$base/face/FaceRenderer.cpp" -o "$test_dir/vision"
@@ -20,3 +20,4 @@ python3 tests/host/test_memory_step2.py
 bash tests/host/run_relationship_step3.sh
 bash tests/host/run_heart_step4.sh
 bash tests/host/run_behavior_step5.sh
+bash tests/host/run_persistence_step6.sh

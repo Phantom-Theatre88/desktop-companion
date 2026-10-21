@@ -32,6 +32,7 @@ struct MemoryRecord {
   HeartEventEvidence appraisal_evidence{}; // Prior-only input used this event
   bool similar_prior_event = false; // Legacy immediate-predecessor hint only
   uint32_t occurred_ms = 0;
+  uint32_t session_id = 1; // Uptime timestamps are scoped to this boot session.
 };
 
 enum class MemoryLane : uint8_t {
@@ -44,9 +45,17 @@ enum class MemoryLane : uint8_t {
 
 using MemoryRecordHandler = void (*)(const MemoryRecord& record, void* context);
 
+struct MemorySnapshot {
+  uint32_t count = 0;
+  uint32_t session_id = 1;
+  MemoryRecord records[8]{}; // oldest to newest, committed only
+};
+
 class MemoryEngine {
  public:
   void begin(uint32_t now_ms);
+  MemorySnapshot exportSnapshot() const;
+  void restoreSnapshot(const MemorySnapshot& snapshot);
   void onNeuron(const nerve::SemanticNeuron& neuron,
                 const HeartContext& event_context);
   // Read ONLY committed prior experience; an in-flight event is excluded.
@@ -94,10 +103,11 @@ class MemoryEngine {
   static constexpr size_t kLaneCount =
       static_cast<size_t>(MemoryLane::COUNT);
 
+  uint32_t session_id_ = 1;
   ShortMemory short_memory_{};
   MemoryRecord last_candidate_{};
-  // Bounded, volatile working history. NOT a permanent retention/forgetting
-  // policy; persistent learning is a later Step.
+  // Bounded working history, now included in Ghost checkpoints. Eight slots
+  // are an implementation bound, not a permanent retention/forgetting policy.
   static constexpr size_t kWorkingExperienceCapacity = 8;
   MemoryRecord working_experiences_[kWorkingExperienceCapacity]{};
   size_t experience_count_ = 0;

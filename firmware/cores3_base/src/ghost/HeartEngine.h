@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include "HeartPersistence.h"
 #include "HeartEventEvidence.h"
+#include "TimeEngine.h"
 #include "../nerve/NerveTypes.h"
 #include "../reflex/ReflexLayer.h"
 
@@ -38,13 +39,16 @@ struct HeartRestorePlan {
   HeartRestoreMode curiosity = HeartRestoreMode::DECAY_TOWARD_DYNAMIC_BASELINE;
   HeartRestoreMode boredom = HeartRestoreMode::RECALCULATE_FROM_ELAPSED_CONTEXT;
   HeartRestoreMode sleepiness = HeartRestoreMode::RECALCULATE_FROM_TIME_RHYTHM;
-  HeartRestoreMode attention = HeartRestoreMode::RESET_TO_DYNAMIC_BASELINE;
+  HeartRestoreMode attention = HeartRestoreMode::DECAY_TOWARD_DYNAMIC_BASELINE;
 };
 
 class HeartEngine {
  public:
   void begin(uint32_t now_ms);
   void tick(uint32_t now_ms);
+  void restoreCheckpoint(const HeartState& state, const HeartState& baseline,
+                         const OfflineElapsed& elapsed, uint32_t now_ms,
+                         uint32_t quiet_seconds = 0);
   void onNeuron(const nerve::SemanticNeuron& neuron, const HeartContext& event_context,
                 const HeartEventEvidence& evidence = {});
   void onReflexResult(const reflex::ReflexResult& result,
@@ -66,9 +70,9 @@ class HeartEngine {
   bool primarySaveOk() const { return primary_save_ok_; }
   const HeartState& primarySnapshot() const { return primary_snapshot_; }
 
-  // LOCK 20 production boundary. The plan fixes HOW each field must be restored
-  // without inventing coefficients, elapsed-time rules, life-rhythm rules, or
-  // long-term dynamic baselines before Step 9 has the required inputs.
+  // New time LOCK: restart itself does not reset attention/mood. Known elapsed
+  // time drives temporary-state recovery; unknown elapsed preserves values.
+  // Boredom/sleepiness life-rhythm recalculation remains a later capability.
   const HeartRestorePlan& restorePlan() const { return restore_plan_; }
   bool restorePending() const { return restore_pending_; }
 
