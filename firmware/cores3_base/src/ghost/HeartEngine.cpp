@@ -1,4 +1,5 @@
 #include "HeartEngine.h"
+#include <cmath>
 
 namespace deskbot {
 namespace ghost {
@@ -24,6 +25,7 @@ constexpr float kRecoveryEpsilon = 0.0005f;
 }  // namespace
 
 void HeartEngine::begin(uint32_t now_ms) {
+  last_appraisal_ = HeartAppraisal{};
   state_ = HeartState{};
   baseline_ = HeartState{};
   primary_snapshot_ = HeartState{};
@@ -106,11 +108,12 @@ void HeartEngine::tick(uint32_t now_ms) {
 }
 
 void HeartEngine::onNeuron(const nerve::SemanticNeuron& neuron,
-                           const HeartContext& event_context) {
-  // LOCK 35: use the fixed event-entry snapshot for interpretation. The first
-  // production table intentionally covers only senses already proven on the
-  // CoreS3. Relationship-dependent interpretation comes later.
-  (void)event_context;
+                           const HeartContext& event_context,
+                           const HeartEventEvidence& evidence) {
+  // LOCK 35: appraisal uses the immutable event-entry state and prior evidence.
+  last_appraisal_ = HeartAppraisal{};
+  if (neuron.type == nerve::NeuronType::TOUCH)
+    last_appraisal_ = appraiseTouch(neuron, event_context, evidence);
   last_event_type_ = neuron.type;
   last_event_ms_ = neuron.timestamp_ms;
 
@@ -130,7 +133,8 @@ void HeartEngine::onNeuron(const nerve::SemanticNeuron& neuron,
 
   switch (neuron.type) {
     case nerve::NeuronType::TOUCH:
-      applyDelta(+0.03f * impact, +0.02f * impact, 0.0f,
+      applyDelta(+0.03f * impact * last_appraisal_.mood_scale,
+                 +0.02f * impact * last_appraisal_.affection_scale, 0.0f,
                  -0.04f * impact, -0.04f * impact, +0.04f * impact,
                  neuron.timestamp_ms);
       break;
@@ -184,6 +188,47 @@ void HeartEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   }
 
   clampState();
+}
+
+HeartAppraisal HeartEngine::appraiseTouch(
+    const nerve::SemanticNeuron& neuron, const HeartContext& context,
+    const HeartEventEvidence& evidence) {
+  HeartAppraisal result;
+  // Provisional bounded reception tuning, not permanent personality learning.
+  // Current mood only modulates mood; it is never interpreted as Comfort.
+  auto bounded = [](float value, float low, float high) {
+    if (!std::isfinite(value)) return 0.0f;
+    return value < low ? low : (value > high ? high : value);
+  };
+  result.mood_scale += bounded(
+      context.state.mood - context.baseline.mood, -0.5f, 0.5f) * 0.10f;
+  const bool matching = evidence.type == neuron.type &&
+                        evidence.person_id == neuron.person_id;
+  // Anonymous history is not evidence about the same individual. Do not use it
+  // for interpersonal appraisal until recognition supplies an attribution.
+  if (matching && neuron.person_id != nerve::kUnknownPerson) {
+    if (evidence.has_prior && std::isfinite(evidence.prior_mood_delta) &&
+        std::isfinite(evidence.prior_affection_delta)) {
+      result.used_prior = true;
+      result.mood_scale += bounded(evidence.prior_mood_delta, -0.1f, 0.1f);
+      result.affection_scale += bounded(evidence.prior_affection_delta, -0.1f, 0.1f);
+    }
+    const size_t count = evidence.relationship_experiences;
+    if (count > 0 && evidence.positive_experiences <= count &&
+        evidence.negative_experiences <= count) {
+      result.used_relationship = true;
+      // Keep positive and negative evidence distinct: positive reception may
+      // strengthen affection, negative reception tempers the mood response.
+      result.affection_scale += 0.10f *
+          (static_cast<float>(evidence.positive_experiences) / count);
+      result.mood_scale -= 0.10f *
+          (static_cast<float>(evidence.negative_experiences) / count);
+    }
+  }
+  // No sign inversion or unbounded escalation. Safety/reflex never calls this.
+  result.mood_scale = bounded(result.mood_scale, 0.75f, 1.25f);
+  result.affection_scale = bounded(result.affection_scale, 0.75f, 1.25f);
+  return result;
 }
 
 void HeartEngine::onReflexResult(const reflex::ReflexResult& result,

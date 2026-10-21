@@ -35,6 +35,22 @@ bool MemoryEngine::recallLatest(nerve::NeuronType type,
   return false;
 }
 
+bool MemoryEngine::recallLatestForPerson(
+    nerve::NeuronType type, nerve::PersonId person_id, MemoryRecord& out) const {
+  for (size_t i = 0; i < experience_count_; ++i) {
+    const size_t index = (next_experience_index_ +
+                          kWorkingExperienceCapacity - 1 - i) %
+                         kWorkingExperienceCapacity;
+    const auto& record = working_experiences_[index];
+    if (record.kind == MemoryRecordKind::SEMANTIC_EVENT && record.has_outcome &&
+        record.neuron.type == type && record.neuron.person_id == person_id) {
+      out = record;
+      return true;
+    }
+  }
+  return false;
+}
+
 void MemoryEngine::visitPersonExperiences(
     nerve::PersonId person_id, MemoryRecordHandler visitor, void* context) const {
   if (person_id == nerve::kUnknownPerson || visitor == nullptr) return;
@@ -51,7 +67,8 @@ void MemoryEngine::visitPersonExperiences(
 
 void MemoryEngine::beginNeuronExperience(
     const nerve::SemanticNeuron& neuron,
-    const HeartContext& event_context) {
+    const HeartContext& event_context,
+    const HeartEventEvidence& evidence) {
   // Pending is intentionally invisible to recallLatest().
   // A new event must not be mistaken for its own prior experience.
   const bool immediate_repeat =
@@ -60,6 +77,7 @@ void MemoryEngine::beginNeuronExperience(
   last_candidate_.kind = MemoryRecordKind::SEMANTIC_EVENT;
   last_candidate_.neuron = neuron;
   last_candidate_.heart_context = event_context;
+  last_candidate_.appraisal_evidence = evidence;
   last_candidate_.occurred_ms = neuron.timestamp_ms;
   last_candidate_.similar_prior_event = immediate_repeat;
   pending_neuron_ = true;

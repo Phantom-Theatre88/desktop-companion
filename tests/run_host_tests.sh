@@ -18,3 +18,4 @@ base=firmware/cores3_base/src
 
 python3 tests/host/test_memory_step2.py
 bash tests/host/run_relationship_step3.sh
+bash tests/host/run_heart_step4.sh

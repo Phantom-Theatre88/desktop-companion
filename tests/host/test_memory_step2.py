@@ -14,6 +14,7 @@ src = root / "firmware/cores3_base/src"
 with tempfile.TemporaryDirectory(prefix="kibi-memory-step2-") as tmp:
     work = Path(tmp)
     for rel in ("ghost/MemoryEngine.cpp", "ghost/MemoryEngine.h",
+                "ghost/HeartEventEvidence.h",
                 "nerve/NerveTypes.h", "reflex/ReflexLayer.h"):
         dest = work / rel
         dest.parent.mkdir(parents=True, exist_ok=True)

@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include "HeartPersistence.h"
+#include "HeartEventEvidence.h"
 #include "../nerve/NerveTypes.h"
 #include "../reflex/ReflexLayer.h"
 
@@ -44,9 +45,12 @@ class HeartEngine {
  public:
   void begin(uint32_t now_ms);
   void tick(uint32_t now_ms);
-  void onNeuron(const nerve::SemanticNeuron& neuron, const HeartContext& event_context);
+  void onNeuron(const nerve::SemanticNeuron& neuron, const HeartContext& event_context,
+                const HeartEventEvidence& evidence = {});
   void onReflexResult(const reflex::ReflexResult& result,
                       const HeartContext& result_context);
+
+  const HeartAppraisal& lastAppraisal() const { return last_appraisal_; }
 
   HeartContext snapshot(uint32_t now_ms) const;
   const HeartState& state() const { return state_; }
@@ -76,6 +80,9 @@ class HeartEngine {
   bool loadMicroSdBackup(HeartState& out_state) const;
 
  private:
+  static HeartAppraisal appraiseTouch(const nerve::SemanticNeuron& neuron,
+      const HeartContext& context, const HeartEventEvidence& evidence);
+  HeartAppraisal last_appraisal_{};
   static float clamp01(float value);
   static float clampStrength(float value);
   static uint8_t stimulusFamily(nerve::NeuronType type);

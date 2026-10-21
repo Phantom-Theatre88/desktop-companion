@@ -24,14 +24,25 @@ void GhostCore::onNeuron(const nerve::SemanticNeuron& neuron) {
   // for arbitration/lifetimes so blocking device work cannot age an action.
   const HeartContext event_context = heart_.snapshot(time_.lastTickMs());
 
-  // Step 2: recall only committed history BEFORE staging this event.
-  // The result is intentionally not used for Heart tuning until Step 4.
-  MemoryRecord prior_experience;
-  const bool has_prior_experience =
-      memory_.recallLatest(neuron.type, prior_experience);
-  (void)has_prior_experience;
-  memory_.beginNeuronExperience(neuron, event_context);
-  heart_.onNeuron(neuron, event_context);
+  // Read prior Memory and Relationship BEFORE staging the current event.
+  HeartEventEvidence evidence;
+  evidence.person_id = neuron.person_id;
+  evidence.type = neuron.type;
+  MemoryRecord prior;
+  evidence.has_prior = memory_.recallLatestForPerson(
+      neuron.type, neuron.person_id, prior);
+  if (evidence.has_prior) {
+    evidence.prior_mood_delta =
+        prior.outcome_context.state.mood - prior.heart_context.state.mood;
+    evidence.prior_affection_delta =
+        prior.outcome_context.state.affection - prior.heart_context.state.affection;
+  }
+  const auto relationship = relationship_.evaluate(neuron.person_id);
+  evidence.relationship_experiences = relationship.experience_count;
+  evidence.positive_experiences = relationship.positive_experience_count;
+  evidence.negative_experiences = relationship.negative_experience_count;
+  memory_.beginNeuronExperience(neuron, event_context, evidence);
+  heart_.onNeuron(neuron, event_context, evidence);
   // Record the post-stimulus Heart state separately, preserving the shared
   // pre-stimulus snapshot required by LOCK 35.
   memory_.commitNeuronExperience(heart_.snapshot(time_.lastTickMs()));

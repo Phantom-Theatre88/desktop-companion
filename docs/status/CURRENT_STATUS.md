@@ -1,4 +1,24 @@
-# Current implementation status — Learning A Step 3
+# Current implementation status — Learning A Step 4
+
+2026-10-22 JST. Step 4 base: Step 3 `aad35fb`. Existing Step 3 record is preserved below.
+
+## Step 4 result
+
+**Minimum Step 4 implementation and Mac host regression verification are complete; CoreS3 hardware is unverified.**
+
+- Ghost snapshots prior Memory and Relationship before staging the current event.
+- Heart's TOUCH reception uses same-person/same-type prior reception, person-specific Relationship evidence and event-entry mood. Unknown identities do not share interpersonal evidence.
+- Memory records the evidence used and the before/after Heart contexts without rewriting the original experience.
+- Positive and negative evidence remain independent; Mood/Comfort and Affection/Social are not conflated. Safety/reflex and baseline updates remain outside this appraisal.
+- Scope is TOUCH mood/affection reception. Other stimuli keep their existing tables. This is not completion of all Heart learning capabilities.
+
+Executed: `bash tests/run_host_tests.sh` — face/body, vision/runtime, Memory Step 2, Relationship Step 3, Heart Step 4 all PASS. Step 3/4 use address/undefined-behavior sanitizers. `git diff --check` passed.
+
+See `docs/sacred/GHOST_LEARNING_A_STEP4_IMPLEMENTATION.md` for tuning, validation, and exact limitations. Step 5 (Behavior directly using experience/relationship), Step 6 (time/persistence/restart), identity recognition, long-term learning and hardware validation remain open.
+
+---
+
+## Historical Step 3 result
 
 2026-10-22 JST. Base: heart-engine `a437c554d9a0409826b0ca1a9c3ea2dba0e844b6`.
 

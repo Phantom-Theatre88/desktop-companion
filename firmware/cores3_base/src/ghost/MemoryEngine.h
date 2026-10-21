@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include "HeartEngine.h"
+#include "HeartEventEvidence.h"
 #include "../nerve/NerveTypes.h"
 #include "../reflex/ReflexLayer.h"
 
@@ -28,6 +29,7 @@ struct MemoryRecord {
   HeartContext heart_context{}; // Event-entry snapshot (LOCK 35)
   HeartContext outcome_context{}; // Heart state after this event
   bool has_outcome = false;
+  HeartEventEvidence appraisal_evidence{}; // Prior-only input used this event
   bool similar_prior_event = false; // Legacy immediate-predecessor hint only
   uint32_t occurred_ms = 0;
 };
@@ -50,6 +52,9 @@ class MemoryEngine {
   // Read ONLY committed prior experience; an in-flight event is excluded.
   // Exact semantic type is a conservative lookup, not learned similarity.
   bool recallLatest(nerve::NeuronType type, MemoryRecord& out) const;
+  // Exact type AND identity, including anonymous-to-anonymous only.
+  bool recallLatestForPerson(nerve::NeuronType type, nerve::PersonId person_id,
+                             MemoryRecord& out) const;
   // Visit committed person-attributed evidence only, newest first. Pending
   // events and unknown identities are excluded. Callback references are borrowed
   // for this call; consumers must not mutate Memory from the callback.
@@ -57,7 +62,8 @@ class MemoryEngine {
                               MemoryRecordHandler visitor, void* context) const;
   // Stage the event without adding it to recallable history.
   void beginNeuronExperience(const nerve::SemanticNeuron& neuron,
-                             const HeartContext& event_context);
+                             const HeartContext& event_context,
+                             const HeartEventEvidence& evidence = {});
   // Commit one complete experience, preserving both before and after Heart.
   bool commitNeuronExperience(const HeartContext& outcome_context);
   // Compatibility entry point for existing callers: stage only.
