@@ -63,12 +63,18 @@ struct NeuronPayload {
   int32_t y = 0;
 };
 
+// Stable identity supplied by recognition/interaction attribution, never inferred
+// from sensor source, presence, direction, or confidence. Zero means unknown.
+using PersonId = uint32_t;
+constexpr PersonId kUnknownPerson = 0;
+
 struct SemanticNeuron {
   NeuronType type = NeuronType::NONE;
   NeuronSource source = NeuronSource::UNKNOWN;
   uint32_t timestamp_ms = 0;
   float confidence = 1.0f;
   NeuronPayload payload{};
+  PersonId person_id = kUnknownPerson;
 };
 
 inline SemanticNeuron makeNeuron(

@@ -35,6 +35,20 @@ bool MemoryEngine::recallLatest(nerve::NeuronType type,
   return false;
 }
 
+void MemoryEngine::visitPersonExperiences(
+    nerve::PersonId person_id, MemoryRecordHandler visitor, void* context) const {
+  if (person_id == nerve::kUnknownPerson || visitor == nullptr) return;
+  for (size_t i = 0; i < experience_count_; ++i) {
+    const size_t index = (next_experience_index_ +
+                          kWorkingExperienceCapacity - 1 - i) %
+                         kWorkingExperienceCapacity;
+    const MemoryRecord& record = working_experiences_[index];
+    if (record.kind == MemoryRecordKind::SEMANTIC_EVENT &&
+        record.has_outcome && record.neuron.person_id == person_id)
+      visitor(record, context);
+  }
+}
+
 void MemoryEngine::beginNeuronExperience(
     const nerve::SemanticNeuron& neuron,
     const HeartContext& event_context) {

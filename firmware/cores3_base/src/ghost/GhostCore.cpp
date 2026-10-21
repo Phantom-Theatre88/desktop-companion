@@ -10,6 +10,7 @@ void GhostCore::begin(uint32_t now_ms) {
   memory_.begin(now_ms);
   time_.begin(now_ms);
   relationship_.begin(now_ms);
+  relationship_.bindMemory(memory_);
   behavior_.begin(now_ms);
 }
 
@@ -34,7 +35,7 @@ void GhostCore::onNeuron(const nerve::SemanticNeuron& neuron) {
   // Record the post-stimulus Heart state separately, preserving the shared
   // pre-stimulus snapshot required by LOCK 35.
   memory_.commitNeuronExperience(heart_.snapshot(time_.lastTickMs()));
-  relationship_.onNeuron(neuron, event_context);
+  // Relationship evaluates committed Memory on demand; no duplicate event feed.
   behavior_.onNeuron(neuron, event_context);
 }
 

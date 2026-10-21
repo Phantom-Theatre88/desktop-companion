@@ -50,6 +50,11 @@ class MemoryEngine {
   // Read ONLY committed prior experience; an in-flight event is excluded.
   // Exact semantic type is a conservative lookup, not learned similarity.
   bool recallLatest(nerve::NeuronType type, MemoryRecord& out) const;
+  // Visit committed person-attributed evidence only, newest first. Pending
+  // events and unknown identities are excluded. Callback references are borrowed
+  // for this call; consumers must not mutate Memory from the callback.
+  void visitPersonExperiences(nerve::PersonId person_id,
+                              MemoryRecordHandler visitor, void* context) const;
   // Stage the event without adding it to recallable history.
   void beginNeuronExperience(const nerve::SemanticNeuron& neuron,
                              const HeartContext& event_context);
