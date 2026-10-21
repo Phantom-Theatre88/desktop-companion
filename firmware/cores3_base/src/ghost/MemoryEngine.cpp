@@ -7,6 +7,11 @@ void MemoryEngine::begin(uint32_t now_ms) {
   (void)now_ms;
   short_memory_ = ShortMemory{};
   last_candidate_ = MemoryRecord{};
+  experience_count_ = 0;
+  next_experience_index_ = 0;
+  pending_neuron_ = false;
+  for (size_t i = 0; i < kWorkingExperienceCapacity; ++i)
+    working_experiences_[i] = MemoryRecord{};
 
   for (size_t i = 0; i < kLaneCount; ++i) {
     lane_handlers_[i] = nullptr;
@@ -14,29 +19,66 @@ void MemoryEngine::begin(uint32_t now_ms) {
   }
 }
 
-void MemoryEngine::onNeuron(const nerve::SemanticNeuron& neuron,
-                            const HeartContext& event_context) {
-  const bool had_similar_prior_event =
-      short_memory_.event_count > 0 && short_memory_.last_type == neuron.type;
-  MemoryRecord record;
-  record.similar_prior_event = had_similar_prior_event;
-  record.kind = MemoryRecordKind::SEMANTIC_EVENT;
-  record.neuron = neuron;
-  record.heart_context = event_context;
-  record.occurred_ms = neuron.timestamp_ms;
-  last_candidate_ = record;
-  short_memory_.last_type = neuron.type;
-  short_memory_.last_source = neuron.source;
-  short_memory_.last_event_ms = neuron.timestamp_ms;
-  ++short_memory_.event_count;
-
+bool MemoryEngine::recallLatest(nerve::NeuronType type,
+                                MemoryRecord& out) const {
+  for (size_t i = 0; i < experience_count_; ++i) {
+    const size_t index = (next_experience_index_ +
+                          kWorkingExperienceCapacity - 1 - i) %
+                         kWorkingExperienceCapacity;
+    const MemoryRecord& candidate = working_experiences_[index];
+    if (candidate.kind == MemoryRecordKind::SEMANTIC_EVENT &&
+        candidate.neuron.type == type && candidate.has_outcome) {
+      out = candidate;
+      return true;
+    }
+  }
+  return false;
 }
 
-void MemoryEngine::recordNeuronOutcome(const HeartContext& outcome_context) {
-  if (last_candidate_.kind != MemoryRecordKind::SEMANTIC_EVENT ||
-      last_candidate_.has_outcome) return;
+void MemoryEngine::beginNeuronExperience(
+    const nerve::SemanticNeuron& neuron,
+    const HeartContext& event_context) {
+  // Pending is intentionally invisible to recallLatest().
+  // A new event must not be mistaken for its own prior experience.
+  const bool immediate_repeat =
+      short_memory_.event_count > 0 && short_memory_.last_type == neuron.type;
+  last_candidate_ = MemoryRecord{};
+  last_candidate_.kind = MemoryRecordKind::SEMANTIC_EVENT;
+  last_candidate_.neuron = neuron;
+  last_candidate_.heart_context = event_context;
+  last_candidate_.occurred_ms = neuron.timestamp_ms;
+  last_candidate_.similar_prior_event = immediate_repeat;
+  pending_neuron_ = true;
+}
+
+void MemoryEngine::onNeuron(const nerve::SemanticNeuron& neuron,
+                            const HeartContext& event_context) {
+  beginNeuronExperience(neuron, event_context);
+}
+
+bool MemoryEngine::commitNeuronExperience(
+    const HeartContext& outcome_context) {
+  if (!pending_neuron_ ||
+      last_candidate_.kind != MemoryRecordKind::SEMANTIC_EVENT) {
+    return false;
+  }
   last_candidate_.outcome_context = outcome_context;
   last_candidate_.has_outcome = true;
+  working_experiences_[next_experience_index_] = last_candidate_;
+  next_experience_index_ =
+      (next_experience_index_ + 1) % kWorkingExperienceCapacity;
+  if (experience_count_ < kWorkingExperienceCapacity) ++experience_count_;
+  short_memory_.last_type = last_candidate_.neuron.type;
+  short_memory_.last_source = last_candidate_.neuron.source;
+  short_memory_.last_event_ms = last_candidate_.occurred_ms;
+  ++short_memory_.event_count;
+  pending_neuron_ = false;
+  return true;
+}
+
+void MemoryEngine::recordNeuronOutcome(
+    const HeartContext& outcome_context) {
+  (void)commitNeuronExperience(outcome_context);
 }
 
 void MemoryEngine::onReflexResult(const reflex::ReflexResult& result,
@@ -49,7 +91,9 @@ void MemoryEngine::onReflexResult(const reflex::ReflexResult& result,
   record.reflex_result = result;
   record.heart_context = result_context;
   record.occurred_ms = result.completed_ms;
-  last_candidate_ = record;
+  // Reflex results are candidates, not neuron experiences. Never allow an
+  // asynchronous reflex to silently commit a pending neuron.
+  if (!pending_neuron_) last_candidate_ = record;
 }
 
 void MemoryEngine::tick(uint32_t now_ms) {
