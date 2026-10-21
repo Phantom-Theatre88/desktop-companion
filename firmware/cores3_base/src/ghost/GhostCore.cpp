@@ -47,7 +47,7 @@ void GhostCore::onNeuron(const nerve::SemanticNeuron& neuron) {
   // pre-stimulus snapshot required by LOCK 35.
   memory_.commitNeuronExperience(heart_.snapshot(time_.lastTickMs()));
   // Relationship evaluates committed Memory on demand; no duplicate event feed.
-  behavior_.onNeuron(neuron, event_context);
+  behavior_.onNeuron(neuron, event_context, evidence);
 }
 
 void GhostCore::onReflexResult(const reflex::ReflexResult& result) {

@@ -1,6 +1,7 @@
 #include "BehaviorEngine.h"
 
 #include <math.h>
+#include <cmath>
 
 namespace deskbot {
 namespace ghost {
@@ -34,6 +35,8 @@ constexpr float kSleepBoredomThreshold = 0.28f;
 }  // namespace
 
 void BehaviorEngine::begin(uint32_t now_ms) {
+  interpersonal_decision_ = BehaviorDecision{};
+  wake_word_response_active_ = false;
   last_received_type_ = nerve::NeuronType::NONE;
   last_received_ms_ = 0;
   visual_event_type_ = nerve::NeuronType::NONE;
@@ -67,10 +70,20 @@ void BehaviorEngine::begin(uint32_t now_ms) {
 }
 
 void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
-                              const HeartContext& event_context) {
+                              const HeartContext& event_context,
+                              const HeartEventEvidence& evidence) {
   const uint32_t handled_ms = event_context.captured_ms;
   last_received_type_ = neuron.type;
   last_received_ms_ = neuron.timestamp_ms;
+
+  // Direct body interaction interrupts the acknowledgement. Do not let an
+  // old caller's response reappear after a safety/direct overlay expires.
+  if (neuron.type == nerve::NeuronType::TOUCH ||
+      neuron.type == nerve::NeuronType::PICKED_UP ||
+      neuron.type == nerve::NeuronType::SHAKE) {
+    wake_word_response_active_ = false;
+    interpersonal_decision_ = BehaviorDecision{};
+  }
 
   // LOCK 58: symbolic effects are selected from semantic meaning + context,
   // never from a raw Heart threshold alone.
@@ -128,6 +141,8 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
           life_state_ == LifeState::SLEEPING ||
           life_state_ == LifeState::DROWSY;
       wake_word_response_started_ms_ = handled_ms;
+      wake_word_response_active_ = true;
+      interpersonal_decision_ = chooseInterpersonalResponse(neuron, evidence);
     }
     life_state_ = LifeState::AWAKE;
     awake_hold_until_ms_ = handled_ms + kWakeHoldMs;
@@ -173,6 +188,42 @@ void BehaviorEngine::onNeuron(const nerve::SemanticNeuron& neuron,
   }
   last_event_ms_ = handled_ms;
   last_event_type_ = neuron.type;
+}
+
+BehaviorDecision BehaviorEngine::chooseInterpersonalResponse(
+    const nerve::SemanticNeuron& neuron, const HeartEventEvidence& evidence) {
+  BehaviorDecision decision;
+  decision.person_id = neuron.person_id;
+  if (neuron.person_id == nerve::kUnknownPerson ||
+      evidence.person_id != neuron.person_id || evidence.type != neuron.type)
+    return decision;
+  bool positive = false, negative = false;
+  if (evidence.has_prior && std::isfinite(evidence.prior_mood_delta) &&
+      std::isfinite(evidence.prior_affection_delta)) {
+    decision.used_prior = true;
+    positive = evidence.prior_mood_delta > 0 || evidence.prior_affection_delta > 0;
+    negative = evidence.prior_mood_delta < 0 || evidence.prior_affection_delta < 0;
+  }
+  const auto count = evidence.relationship_experiences;
+  if (count > 0 && evidence.positive_experiences <= count &&
+      evidence.negative_experiences <= count) {
+    decision.used_relationship = true;
+    positive = positive || evidence.positive_experiences > 0;
+    negative = negative || evidence.negative_experiences > 0;
+  }
+  // Adjustable first production tuning. Keep both signs as MIXED instead of
+  // interpreting a net count as trust or erasing contradictory experience.
+  if (positive && negative) {
+    decision.response = InterpersonalResponse::MIXED;
+    decision.response_scale = 0.95f;
+  } else if (negative) {
+    decision.response = InterpersonalResponse::MEASURED;
+    decision.response_scale = 0.80f;
+  } else if (positive) {
+    decision.response = InterpersonalResponse::OPEN;
+    decision.response_scale = 1.15f;
+  }
+  return decision;
 }
 
 void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
@@ -416,7 +467,7 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
   // Hearing our own name briefly overrides the idle posture without becoming a
   // canned face. Sleeping/drowsy starts a little slower and raises the head
   // farther; awake state answers with a smaller attentive movement.
-  if (wake_word_response_started_ms_ != 0) {
+  if (wake_word_response_active_) {
     const uint32_t wake_age = now_ms - wake_word_response_started_ms_;
     if (wake_age < kWakeWordBodyResponseMs) {
       const float p = clamp01(
@@ -432,8 +483,9 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
           clamp01(0.55f + (heart.attention - baseline.attention) * 1.8f);
       const float curiosity_drive =
           clamp01(0.55f + (heart.curiosity - baseline.curiosity) * 1.4f);
-      const float heart_drive =
-          clamp01((attention_drive * 0.65f) + (curiosity_drive * 0.35f));
+      const float heart_drive = clamp01(
+          ((attention_drive * 0.65f) + (curiosity_drive * 0.35f)) *
+          interpersonal_decision_.response_scale);
 
       micro_behavior_.interpersonal_priority = true;
       resting_openness = clamp01(
@@ -463,6 +515,8 @@ void BehaviorEngine::tick(uint32_t now_ms, const HeartContext& heart_context) {
           micro_behavior_.gaze_y - 0.05f * heart_drive * envelope);
     } else {
       wake_word_response_started_ms_ = 0;
+      wake_word_response_active_ = false;
+      interpersonal_decision_ = BehaviorDecision{};
       wake_word_response_was_sleeping_ = false;
     }
   }

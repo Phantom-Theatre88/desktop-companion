@@ -8,6 +8,21 @@
 namespace deskbot {
 namespace ghost {
 
+// Short-lived response selection, not a trust/personality score.
+enum class InterpersonalResponse : uint8_t {
+  STANDARD = 0,
+  OPEN,
+  MEASURED,
+  MIXED,
+};
+struct BehaviorDecision {
+  InterpersonalResponse response = InterpersonalResponse::STANDARD;
+  nerve::PersonId person_id = nerve::kUnknownPerson;
+  bool used_prior = false;
+  bool used_relationship = false;
+  float response_scale = 1.0f;
+};
+
 enum class AutonomousAction : uint8_t {
   NONE = 0,
   CURIOUS_LOOK,
@@ -66,9 +81,13 @@ class BehaviorEngine {
   void begin(uint32_t now_ms);
 
   void onNeuron(const nerve::SemanticNeuron& neuron,
-                const HeartContext& event_context);
+                const HeartContext& event_context,
+                const HeartEventEvidence& evidence = {});
 
   void tick(uint32_t now_ms, const HeartContext& heart_context);
+
+  const BehaviorDecision& interpersonalDecision() const { return interpersonal_decision_; }
+  bool interpersonalResponseActive() const { return wake_word_response_active_; }
 
   const MicroBehaviorFrame& microBehavior() const { return micro_behavior_; }
   nerve::NeuronType lastReceivedType() const { return last_received_type_; }
@@ -82,6 +101,10 @@ class BehaviorEngine {
   uint32_t autonomousLifecycleSeq() const { return autonomous_lifecycle_seq_; }
 
  private:
+  static BehaviorDecision chooseInterpersonalResponse(
+      const nerve::SemanticNeuron& neuron, const HeartEventEvidence& evidence);
+  BehaviorDecision interpersonal_decision_{};
+  bool wake_word_response_active_ = false;
   static float clamp01(float value);
   static float clampSigned(float value);
   void chooseAutonomousAction(uint32_t now_ms, const HeartState& heart);

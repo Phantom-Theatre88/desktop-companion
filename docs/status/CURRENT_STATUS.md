@@ -1,4 +1,24 @@
-# Current implementation status — Learning A Step 4
+# Current implementation status — Learning A Step 5
+
+2026-10-22 JST. Base: Step 4 `ab945d0`. Previous Step 4/3 records are preserved below.
+
+## Step 5 result
+
+**Minimum Step 5 implementation and Mac host verification are complete; CoreS3 hardware remains unverified.**
+
+- Behavior uses the same pre-event Memory/Relationship evidence snapshot as Heart.
+- WAKE_WORD_DETECTED acknowledgement selects standard/open/measured/mixed reception, then combines it with current Heart to drive existing continuous eye/neck output.
+- Unknown identities and mismatched evidence stay standard. Contradictory experience remains mixed. No separate event archive, trust inference or permanent learned policy is added.
+- Decisions expire, reset, and are replaced for each caller. Direct Ghost-delivered body events cancel them. Safety/direct Body overlays retain priority; ambient vision stays below interpersonal Behavior.
+- Handling time zero and uint32 wrap are covered by an explicit active flag.
+
+Executed `bash tests/run_host_tests.sh`: face/body, vision/runtime, Memory Step 2, Relationship Step 3, Heart Step 4, Behavior Step 5 all PASS; Step 3–5 include address/undefined-behavior sanitizers. `git diff --check` passed.
+
+Scope: existing name-call acknowledgement only. Person recognition, other response paths, actual appearance/servo motion, CoreS3 target build/coexistence and persistent learning remain unverified or unimplemented. Step 6 (time/persistence/restart restoration) is next. See `docs/sacred/GHOST_LEARNING_A_STEP5_IMPLEMENTATION.md` for the exact path and limitations.
+
+---
+
+## Historical Step 4 result
 
 2026-10-22 JST. Step 4 base: Step 3 `aad35fb`. Existing Step 3 record is preserved below.
 

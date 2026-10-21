@@ -4,7 +4,8 @@
 
 namespace deskbot { namespace ghost {
 // Value snapshot assembled BEFORE the current experience is staged. No event
-// ownership, trust score, intent inference or Memory dependency in Heart.
+// ownership, trust score, intent inference or Memory dependency in consumers.
+// Heart and Behavior share this same pre-event evidence.
 struct HeartEventEvidence {
   nerve::PersonId person_id = nerve::kUnknownPerson;
   nerve::NeuronType type = nerve::NeuronType::NONE;
