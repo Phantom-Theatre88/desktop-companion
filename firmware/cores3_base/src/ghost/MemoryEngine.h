@@ -28,7 +28,7 @@ struct MemoryRecord {
   HeartContext heart_context{}; // Event-entry snapshot (LOCK 35)
   HeartContext outcome_context{}; // Heart state after this event
   bool has_outcome = false;
-  bool similar_prior_event = false;
+  bool similar_prior_event = false; // Legacy immediate-predecessor hint only
   uint32_t occurred_ms = 0;
 };
 
@@ -47,8 +47,15 @@ class MemoryEngine {
   void begin(uint32_t now_ms);
   void onNeuron(const nerve::SemanticNeuron& neuron,
                 const HeartContext& event_context);
-  // Complete the same event record after Heart has reacted; never overwrite
-  // the entry snapshot. Prior-event lookup must happen before this event is recorded.
+  // Read ONLY committed prior experience; an in-flight event is excluded.
+  // Exact semantic type is a conservative lookup, not learned similarity.
+  bool recallLatest(nerve::NeuronType type, MemoryRecord& out) const;
+  // Stage the event without adding it to recallable history.
+  void beginNeuronExperience(const nerve::SemanticNeuron& neuron,
+                             const HeartContext& event_context);
+  // Commit one complete experience, preserving both before and after Heart.
+  bool commitNeuronExperience(const HeartContext& outcome_context);
+  // Compatibility entry point for existing callers: stage only.
   void recordNeuronOutcome(const HeartContext& outcome_context);
   void onReflexResult(const reflex::ReflexResult& result,
                       const HeartContext& result_context);
@@ -70,6 +77,7 @@ class MemoryEngine {
 
   const ShortMemory& shortMemory() const { return short_memory_; }
   const MemoryRecord& lastCandidate() const { return last_candidate_; }
+  size_t workingExperienceCount() const { return experience_count_; }
 
  private:
   static constexpr size_t kLaneCount =
@@ -77,6 +85,13 @@ class MemoryEngine {
 
   ShortMemory short_memory_{};
   MemoryRecord last_candidate_{};
+  // Bounded, volatile working history. NOT a permanent retention/forgetting
+  // policy; persistent learning is a later Step.
+  static constexpr size_t kWorkingExperienceCapacity = 8;
+  MemoryRecord working_experiences_[kWorkingExperienceCapacity]{};
+  size_t experience_count_ = 0;
+  size_t next_experience_index_ = 0;
+  bool pending_neuron_ = false;
   MemoryRecordHandler lane_handlers_[kLaneCount]{};
   void* lane_contexts_[kLaneCount]{};
 };
