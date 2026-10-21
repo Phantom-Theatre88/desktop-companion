@@ -25,7 +25,10 @@ struct MemoryRecord {
   MemoryRecordKind kind = MemoryRecordKind::NONE;
   nerve::SemanticNeuron neuron{};
   reflex::ReflexResult reflex_result{};
-  HeartContext heart_context{};
+  HeartContext heart_context{}; // Event-entry snapshot (LOCK 35)
+  HeartContext outcome_context{}; // Heart state after this event
+  bool has_outcome = false;
+  bool similar_prior_event = false;
   uint32_t occurred_ms = 0;
 };
 
@@ -44,6 +47,9 @@ class MemoryEngine {
   void begin(uint32_t now_ms);
   void onNeuron(const nerve::SemanticNeuron& neuron,
                 const HeartContext& event_context);
+  // Complete the same event record after Heart has reacted; never overwrite
+  // the entry snapshot. Prior-event lookup must happen before this event is recorded.
+  void recordNeuronOutcome(const HeartContext& outcome_context);
   void onReflexResult(const reflex::ReflexResult& result,
                       const HeartContext& result_context);
   void tick(uint32_t now_ms);
