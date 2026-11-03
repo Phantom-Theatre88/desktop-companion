@@ -2,7 +2,8 @@
 
 日付: 2026-11-03  
 基準: 実装Step 聖典 v1.0  
-スケッチ: `firmware/step0_cores3_minimal/step0_cores3_minimal.ino`
+スケッチ: `firmware/step0_cores3_minimal/step0_cores3_minimal.ino`  
+スケッチ追加コミット: `1cce952b89d9dbff99c7e95a6d1f41902c8395b1`
 
 ## 結果
 
