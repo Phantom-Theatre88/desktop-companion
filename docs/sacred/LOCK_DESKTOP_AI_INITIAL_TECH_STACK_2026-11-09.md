@@ -31,3 +31,4 @@
 - 実行・保存・Pushは実結果で検証する。
 
 **LOCK範囲：Brain＝Python、Ghost＝Python、Character＝Godot、接続＝ローカルWebSocketを「第一実装構成」とすること。その他の技術詳細は未決定。**
+
