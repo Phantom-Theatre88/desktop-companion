@@ -1,6 +1,7 @@
 extends Node3D
 const Clock = preload("res://scripts/world_clock.gd")
 const State = preload("res://scripts/world_state.gd")
+const ArtPass = preload("res://scripts/art_pass.gd")
 var clock = Clock.new()
 var world_state = State.new()
 var _yaw := 0.0
@@ -21,6 +22,8 @@ func _ready() -> void:
 	for id in world_state.snapshot_for_admin().objects:
 		var p: Array = world_state.snapshot_for_admin().objects[id].position
 		get_node("Furniture/" + id).position = Vector3(p[0], p[1], p[2])
+	# Art pass changes display meshes only; canonical world state is untouched.
+	ArtPass.apply(self)
 	_sky = environment.environment.sky.sky_material
 	_make_ui()
 	_update_camera()
