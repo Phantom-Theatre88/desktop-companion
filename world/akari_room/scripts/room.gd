@@ -41,9 +41,10 @@ func _make_ui() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(22, 20)
+	panel.position = Vector2(18, 14)
+	panel.scale = Vector2(0.80, 0.80)
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.10, 0.13, 0.15, 0.88)
+	style.bg_color = Color(0.10, 0.13, 0.15, 0.64)
 	style.content_margin_left = 18
 	style.content_margin_right = 18
 	style.content_margin_top = 12
@@ -55,7 +56,7 @@ func _make_ui() -> void:
 	panel.add_child(column)
 	var title := Label.new()
 	title.text = "AKARI Room"
-	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_font_size_override("font_size", 20)
 	column.add_child(title)
 	_label = Label.new()
 	column.add_child(_label)
@@ -76,7 +77,7 @@ func _make_ui() -> void:
 	var hint := Label.new()
 	hint.text = "右ドラッグ: 見回す  /  ホイール: 拡大  /  R: 視点リセット  /  Esc: 現在"
 	hint.position = Vector2(22, 766)
-	hint.add_theme_font_size_override("font_size", 16)
+	hint.add_theme_font_size_override("font_size", 13)
 	layer.add_child(hint)
 
 func _process(_delta: float) -> void:
