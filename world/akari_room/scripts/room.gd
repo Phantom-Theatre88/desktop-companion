@@ -2,6 +2,7 @@ extends Node3D
 const Clock = preload("res://scripts/world_clock.gd")
 const State = preload("res://scripts/world_state.gd")
 const ArtPass = preload("res://scripts/art_pass.gd")
+const BedAssetLoader = preload("res://scripts/bed_asset_loader.gd")
 var clock = Clock.new()
 var world_state = State.new()
 var _yaw := 0.0
@@ -24,6 +25,8 @@ func _ready() -> void:
 		get_node("Furniture/" + id).position = Vector3(p[0], p[1], p[2])
 	# Art pass changes display meshes only; canonical world state is untouched.
 	ArtPass.apply(self)
+	# Prefer Blender-authored asset if present; fallback leaves existing room intact.
+	BedAssetLoader.apply(self)
 	_sky = environment.environment.sky.sky_material
 	_make_ui()
 	_update_camera()
