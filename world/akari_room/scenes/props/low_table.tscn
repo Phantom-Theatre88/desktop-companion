@@ -1,0 +1,231 @@
+[gd_scene load_steps=28 format=3]
+
+[sub_resource type="StandardMaterial3D" id="mat_oak"]
+albedo_color = Color(0.62,0.41,0.23,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box1"]
+size = Vector3(1.30000, 0.09000, 0.70000)
+material = SubResource("mat_oak")
+
+[sub_resource type="BoxShape3D" id="shape1"]
+size = Vector3(1.30000, 0.09000, 0.70000)
+
+[sub_resource type="StandardMaterial3D" id="mat_wood"]
+albedo_color = Color(0.39,0.23,0.12,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box2"]
+size = Vector3(0.07000, 0.42000, 0.07000)
+material = SubResource("mat_wood")
+
+[sub_resource type="BoxMesh" id="box3"]
+size = Vector3(0.07000, 0.42000, 0.07000)
+material = SubResource("mat_wood")
+
+[sub_resource type="BoxMesh" id="box4"]
+size = Vector3(0.07000, 0.42000, 0.07000)
+material = SubResource("mat_wood")
+
+[sub_resource type="BoxMesh" id="box5"]
+size = Vector3(0.07000, 0.42000, 0.07000)
+material = SubResource("mat_wood")
+
+[sub_resource type="StandardMaterial3D" id="mat_book1"]
+albedo_color = Color(0.24,0.36,0.37,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box6"]
+size = Vector3(0.34000, 0.04500, 0.23000)
+material = SubResource("mat_book1")
+
+[sub_resource type="StandardMaterial3D" id="mat_cream"]
+albedo_color = Color(0.88,0.82,0.68,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box7"]
+size = Vector3(0.32000, 0.02500, 0.22500)
+material = SubResource("mat_cream")
+
+[sub_resource type="StandardMaterial3D" id="mat_glass"]
+albedo_color = Color(0.45,0.62,0.69,1)
+roughness = 0.85
+
+[sub_resource type="CylinderMesh" id="cyl8"]
+top_radius = 0.04
+bottom_radius = 0.065
+height = 0.21
+radial_segments = 24
+material = SubResource("mat_glass")
+
+[sub_resource type="StandardMaterial3D" id="mat_green"]
+albedo_color = Color(0.18,0.34,0.16,1)
+roughness = 0.85
+
+[sub_resource type="CylinderMesh" id="cyl9"]
+top_radius = 0.006
+bottom_radius = 0.006
+height = 0.26
+radial_segments = 24
+material = SubResource("mat_green")
+
+[sub_resource type="SphereMesh" id="sphere10"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_cream")
+
+[sub_resource type="CylinderMesh" id="cyl11"]
+top_radius = 0.006
+bottom_radius = 0.006
+height = 0.26
+radial_segments = 24
+material = SubResource("mat_green")
+
+[sub_resource type="SphereMesh" id="sphere12"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_cream")
+
+[sub_resource type="CylinderMesh" id="cyl13"]
+top_radius = 0.006
+bottom_radius = 0.006
+height = 0.26
+radial_segments = 24
+material = SubResource("mat_green")
+
+[sub_resource type="SphereMesh" id="sphere14"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_cream")
+
+[sub_resource type="CylinderMesh" id="cyl15"]
+top_radius = 0.006
+bottom_radius = 0.006
+height = 0.26
+radial_segments = 24
+material = SubResource("mat_green")
+
+[sub_resource type="SphereMesh" id="sphere16"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_cream")
+
+[sub_resource type="CylinderMesh" id="cyl17"]
+top_radius = 0.006
+bottom_radius = 0.006
+height = 0.26
+radial_segments = 24
+material = SubResource("mat_green")
+
+[sub_resource type="SphereMesh" id="sphere18"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_cream")
+
+[sub_resource type="StandardMaterial3D" id="mat_light"]
+albedo_color = Color(1.0,0.70,0.29,1)
+roughness = 0.85
+emission_enabled = true
+emission = Color(1.0,0.70,0.29,1)
+emission_energy_multiplier = 0.65
+
+[sub_resource type="CylinderMesh" id="cyl19"]
+top_radius = 0.065
+bottom_radius = 0.065
+height = 0.15
+radial_segments = 24
+material = SubResource("mat_light")
+
+[node name="LowTable" type="Node3D"]
+
+[node name="Top" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 0.46000, 0.00000)
+mesh = SubResource("box1")
+
+[node name="Body" type="StaticBody3D" parent="Top"]
+
+[node name="Shape" type="CollisionShape3D" parent="Top/Body"]
+shape = SubResource("shape1")
+
+[node name="Leg-0.5-0.23" type="MeshInstance3D" parent="."]
+position = Vector3(-0.50000, 0.21000, -0.23000)
+mesh = SubResource("box2")
+
+[node name="Leg-0.50.23" type="MeshInstance3D" parent="."]
+position = Vector3(-0.50000, 0.21000, 0.23000)
+mesh = SubResource("box3")
+
+[node name="Leg0.5-0.23" type="MeshInstance3D" parent="."]
+position = Vector3(0.50000, 0.21000, -0.23000)
+mesh = SubResource("box4")
+
+[node name="Leg0.50.23" type="MeshInstance3D" parent="."]
+position = Vector3(0.50000, 0.21000, 0.23000)
+mesh = SubResource("box5")
+
+[node name="Book" type="MeshInstance3D" parent="."]
+position = Vector3(-0.30000, 0.53000, 0.02000)
+mesh = SubResource("box6")
+
+[node name="Pages" type="MeshInstance3D" parent="."]
+position = Vector3(-0.30000, 0.56000, 0.02000)
+mesh = SubResource("box7")
+
+[node name="Vase" type="MeshInstance3D" parent="."]
+position = Vector3(0.21000, 0.61000, -0.06000)
+mesh = SubResource("cyl8")
+
+[node name="Stem0" type="MeshInstance3D" parent="."]
+position = Vector3(0.29000, 0.82000, -0.06000)
+mesh = SubResource("cyl9")
+
+[node name="Flower0" type="MeshInstance3D" parent="."]
+position = Vector3(0.29000, 0.95000, -0.06000)
+scale = Vector3(0.10000, 0.07000, 0.09000)
+mesh = SubResource("sphere10")
+
+[node name="Stem1" type="MeshInstance3D" parent="."]
+position = Vector3(0.17671, 0.82000, -0.06000)
+mesh = SubResource("cyl11")
+
+[node name="Flower1" type="MeshInstance3D" parent="."]
+position = Vector3(0.17671, 0.95000, -0.06000)
+scale = Vector3(0.10000, 0.07000, 0.09000)
+mesh = SubResource("sphere12")
+
+[node name="Stem2" type="MeshInstance3D" parent="."]
+position = Vector3(0.15771, 0.82000, -0.06000)
+mesh = SubResource("cyl13")
+
+[node name="Flower2" type="MeshInstance3D" parent="."]
+position = Vector3(0.15771, 0.95000, -0.06000)
+scale = Vector3(0.10000, 0.07000, 0.09000)
+mesh = SubResource("sphere14")
+
+[node name="Stem3" type="MeshInstance3D" parent="."]
+position = Vector3(0.28681, 0.82000, -0.06000)
+mesh = SubResource("cyl15")
+
+[node name="Flower3" type="MeshInstance3D" parent="."]
+position = Vector3(0.28681, 0.95000, -0.06000)
+scale = Vector3(0.10000, 0.07000, 0.09000)
+mesh = SubResource("sphere16")
+
+[node name="Stem4" type="MeshInstance3D" parent="."]
+position = Vector3(0.19836, 0.82000, -0.06000)
+mesh = SubResource("cyl17")
+
+[node name="Flower4" type="MeshInstance3D" parent="."]
+position = Vector3(0.19836, 0.95000, -0.06000)
+scale = Vector3(0.10000, 0.07000, 0.09000)
+mesh = SubResource("sphere18")
+
+[node name="Candle" type="MeshInstance3D" parent="."]
+position = Vector3(0.43000, 0.57000, 0.07000)
+mesh = SubResource("cyl19")
+
+[node name="CandleLight" type="OmniLight3D" parent="."]
+position = Vector3(0.43000, 0.77000, 0.07000)
+light_color = Color(1,0.63,0.25,1)
+light_energy = 0.25
+omni_range = 1.4

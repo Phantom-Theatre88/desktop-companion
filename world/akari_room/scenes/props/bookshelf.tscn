@@ -1,0 +1,1133 @@
+[gd_scene load_steps=142 format=3]
+
+[sub_resource type="StandardMaterial3D" id="mat_wood"]
+albedo_color = Color(0.39,0.23,0.12,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box1"]
+size = Vector3(0.88000, 2.90000, 0.05500)
+material = SubResource("mat_wood")
+
+[sub_resource type="BoxShape3D" id="shape1"]
+size = Vector3(0.88000, 2.90000, 0.05500)
+
+[sub_resource type="StandardMaterial3D" id="mat_oak"]
+albedo_color = Color(0.62,0.41,0.23,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box2"]
+size = Vector3(0.07500, 2.90000, 0.44000)
+material = SubResource("mat_oak")
+
+[sub_resource type="BoxShape3D" id="shape2"]
+size = Vector3(0.07500, 2.90000, 0.44000)
+
+[sub_resource type="BoxMesh" id="box3"]
+size = Vector3(0.07500, 2.90000, 0.44000)
+material = SubResource("mat_oak")
+
+[sub_resource type="BoxShape3D" id="shape3"]
+size = Vector3(0.07500, 2.90000, 0.44000)
+
+[sub_resource type="BoxMesh" id="box4"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+material = SubResource("mat_oak")
+
+[sub_resource type="BoxShape3D" id="shape4"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+
+[sub_resource type="StandardMaterial3D" id="mat_book1"]
+albedo_color = Color(0.24,0.36,0.37,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box5"]
+size = Vector3(0.06500, 0.27000, 0.23000)
+material = SubResource("mat_book1")
+
+[sub_resource type="StandardMaterial3D" id="mat_cream"]
+albedo_color = Color(0.88,0.82,0.68,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box6"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="StandardMaterial3D" id="mat_book2"]
+albedo_color = Color(0.61,0.32,0.22,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box7"]
+size = Vector3(0.06500, 0.31800, 0.23000)
+material = SubResource("mat_book2")
+
+[sub_resource type="BoxMesh" id="box8"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="StandardMaterial3D" id="mat_book3"]
+albedo_color = Color(0.73,0.65,0.45,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box9"]
+size = Vector3(0.06500, 0.36600, 0.23000)
+material = SubResource("mat_book3")
+
+[sub_resource type="BoxMesh" id="box10"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="StandardMaterial3D" id="mat_book4"]
+albedo_color = Color(0.33,0.34,0.45,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box11"]
+size = Vector3(0.06500, 0.29400, 0.23000)
+material = SubResource("mat_book4")
+
+[sub_resource type="BoxMesh" id="box12"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box13"]
+size = Vector3(0.06500, 0.34200, 0.23000)
+material = SubResource("mat_book1")
+
+[sub_resource type="BoxMesh" id="box14"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box15"]
+size = Vector3(0.06500, 0.27000, 0.23000)
+material = SubResource("mat_book2")
+
+[sub_resource type="BoxMesh" id="box16"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box17"]
+size = Vector3(0.06500, 0.31800, 0.23000)
+material = SubResource("mat_book3")
+
+[sub_resource type="BoxMesh" id="box18"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box19"]
+size = Vector3(0.06500, 0.36600, 0.23000)
+material = SubResource("mat_book4")
+
+[sub_resource type="BoxMesh" id="box20"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box21"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+material = SubResource("mat_oak")
+
+[sub_resource type="BoxShape3D" id="shape21"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+
+[sub_resource type="BoxMesh" id="box22"]
+size = Vector3(0.06500, 0.34200, 0.23000)
+material = SubResource("mat_book2")
+
+[sub_resource type="BoxMesh" id="box23"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box24"]
+size = Vector3(0.06500, 0.27000, 0.23000)
+material = SubResource("mat_book3")
+
+[sub_resource type="BoxMesh" id="box25"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box26"]
+size = Vector3(0.06500, 0.31800, 0.23000)
+material = SubResource("mat_book4")
+
+[sub_resource type="BoxMesh" id="box27"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box28"]
+size = Vector3(0.06500, 0.36600, 0.23000)
+material = SubResource("mat_book1")
+
+[sub_resource type="BoxMesh" id="box29"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box30"]
+size = Vector3(0.06500, 0.29400, 0.23000)
+material = SubResource("mat_book2")
+
+[sub_resource type="BoxMesh" id="box31"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box32"]
+size = Vector3(0.06500, 0.34200, 0.23000)
+material = SubResource("mat_book3")
+
+[sub_resource type="BoxMesh" id="box33"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box34"]
+size = Vector3(0.06500, 0.27000, 0.23000)
+material = SubResource("mat_book4")
+
+[sub_resource type="BoxMesh" id="box35"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box36"]
+size = Vector3(0.06500, 0.31800, 0.23000)
+material = SubResource("mat_book1")
+
+[sub_resource type="BoxMesh" id="box37"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box38"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+material = SubResource("mat_oak")
+
+[sub_resource type="BoxShape3D" id="shape38"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+
+[sub_resource type="BoxMesh" id="box39"]
+size = Vector3(0.06500, 0.29400, 0.23000)
+material = SubResource("mat_book3")
+
+[sub_resource type="BoxMesh" id="box40"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box41"]
+size = Vector3(0.06500, 0.34200, 0.23000)
+material = SubResource("mat_book4")
+
+[sub_resource type="BoxMesh" id="box42"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box43"]
+size = Vector3(0.06500, 0.27000, 0.23000)
+material = SubResource("mat_book1")
+
+[sub_resource type="BoxMesh" id="box44"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box45"]
+size = Vector3(0.06500, 0.31800, 0.23000)
+material = SubResource("mat_book2")
+
+[sub_resource type="BoxMesh" id="box46"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box47"]
+size = Vector3(0.06500, 0.36600, 0.23000)
+material = SubResource("mat_book3")
+
+[sub_resource type="BoxMesh" id="box48"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box49"]
+size = Vector3(0.06500, 0.29400, 0.23000)
+material = SubResource("mat_book4")
+
+[sub_resource type="BoxMesh" id="box50"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box51"]
+size = Vector3(0.06500, 0.34200, 0.23000)
+material = SubResource("mat_book1")
+
+[sub_resource type="BoxMesh" id="box52"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box53"]
+size = Vector3(0.06500, 0.27000, 0.23000)
+material = SubResource("mat_book2")
+
+[sub_resource type="BoxMesh" id="box54"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box55"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+material = SubResource("mat_oak")
+
+[sub_resource type="BoxShape3D" id="shape55"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+
+[sub_resource type="BoxMesh" id="box56"]
+size = Vector3(0.06500, 0.36600, 0.23000)
+material = SubResource("mat_book4")
+
+[sub_resource type="BoxMesh" id="box57"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box58"]
+size = Vector3(0.06500, 0.29400, 0.23000)
+material = SubResource("mat_book1")
+
+[sub_resource type="BoxMesh" id="box59"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box60"]
+size = Vector3(0.06500, 0.34200, 0.23000)
+material = SubResource("mat_book2")
+
+[sub_resource type="BoxMesh" id="box61"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box62"]
+size = Vector3(0.06500, 0.27000, 0.23000)
+material = SubResource("mat_book3")
+
+[sub_resource type="BoxMesh" id="box63"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box64"]
+size = Vector3(0.06500, 0.31800, 0.23000)
+material = SubResource("mat_book4")
+
+[sub_resource type="BoxMesh" id="box65"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box66"]
+size = Vector3(0.06500, 0.36600, 0.23000)
+material = SubResource("mat_book1")
+
+[sub_resource type="BoxMesh" id="box67"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box68"]
+size = Vector3(0.06500, 0.29400, 0.23000)
+material = SubResource("mat_book2")
+
+[sub_resource type="BoxMesh" id="box69"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box70"]
+size = Vector3(0.06500, 0.34200, 0.23000)
+material = SubResource("mat_book3")
+
+[sub_resource type="BoxMesh" id="box71"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box72"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+material = SubResource("mat_oak")
+
+[sub_resource type="BoxShape3D" id="shape72"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+
+[sub_resource type="BoxMesh" id="box73"]
+size = Vector3(0.06500, 0.31800, 0.23000)
+material = SubResource("mat_book1")
+
+[sub_resource type="BoxMesh" id="box74"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box75"]
+size = Vector3(0.06500, 0.36600, 0.23000)
+material = SubResource("mat_book2")
+
+[sub_resource type="BoxMesh" id="box76"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box77"]
+size = Vector3(0.06500, 0.29400, 0.23000)
+material = SubResource("mat_book3")
+
+[sub_resource type="BoxMesh" id="box78"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box79"]
+size = Vector3(0.06500, 0.34200, 0.23000)
+material = SubResource("mat_book4")
+
+[sub_resource type="BoxMesh" id="box80"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box81"]
+size = Vector3(0.06500, 0.27000, 0.23000)
+material = SubResource("mat_book1")
+
+[sub_resource type="BoxMesh" id="box82"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box83"]
+size = Vector3(0.06500, 0.31800, 0.23000)
+material = SubResource("mat_book2")
+
+[sub_resource type="BoxMesh" id="box84"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box85"]
+size = Vector3(0.06500, 0.36600, 0.23000)
+material = SubResource("mat_book3")
+
+[sub_resource type="BoxMesh" id="box86"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box87"]
+size = Vector3(0.06500, 0.29400, 0.23000)
+material = SubResource("mat_book4")
+
+[sub_resource type="BoxMesh" id="box88"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box89"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+material = SubResource("mat_oak")
+
+[sub_resource type="BoxShape3D" id="shape89"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+
+[sub_resource type="BoxMesh" id="box90"]
+size = Vector3(0.06500, 0.27000, 0.23000)
+material = SubResource("mat_book2")
+
+[sub_resource type="BoxMesh" id="box91"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box92"]
+size = Vector3(0.06500, 0.31800, 0.23000)
+material = SubResource("mat_book3")
+
+[sub_resource type="BoxMesh" id="box93"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box94"]
+size = Vector3(0.06500, 0.36600, 0.23000)
+material = SubResource("mat_book4")
+
+[sub_resource type="BoxMesh" id="box95"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box96"]
+size = Vector3(0.06500, 0.29400, 0.23000)
+material = SubResource("mat_book1")
+
+[sub_resource type="BoxMesh" id="box97"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box98"]
+size = Vector3(0.06500, 0.34200, 0.23000)
+material = SubResource("mat_book2")
+
+[sub_resource type="BoxMesh" id="box99"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box100"]
+size = Vector3(0.06500, 0.27000, 0.23000)
+material = SubResource("mat_book3")
+
+[sub_resource type="BoxMesh" id="box101"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box102"]
+size = Vector3(0.06500, 0.31800, 0.23000)
+material = SubResource("mat_book4")
+
+[sub_resource type="BoxMesh" id="box103"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box104"]
+size = Vector3(0.06500, 0.36600, 0.23000)
+material = SubResource("mat_book1")
+
+[sub_resource type="BoxMesh" id="box105"]
+size = Vector3(0.05500, 0.01200, 0.00600)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxMesh" id="box106"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+material = SubResource("mat_oak")
+
+[sub_resource type="BoxShape3D" id="shape106"]
+size = Vector3(0.88000, 0.05500, 0.44000)
+
+[sub_resource type="StandardMaterial3D" id="mat_pot"]
+albedo_color = Color(0.59,0.36,0.23,1)
+roughness = 0.85
+
+[sub_resource type="CylinderMesh" id="cyl107"]
+top_radius = 0.23
+bottom_radius = 0.18
+height = 0.32
+radial_segments = 24
+material = SubResource("mat_pot")
+
+[sub_resource type="StandardMaterial3D" id="mat_green"]
+albedo_color = Color(0.18,0.34,0.16,1)
+roughness = 0.85
+
+[sub_resource type="CylinderMesh" id="cyl108"]
+top_radius = 0.014
+bottom_radius = 0.014
+height = 0.65
+radial_segments = 24
+material = SubResource("mat_green")
+
+[sub_resource type="SphereMesh" id="sphere109"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_green")
+
+[sub_resource type="CylinderMesh" id="cyl110"]
+top_radius = 0.014
+bottom_radius = 0.014
+height = 0.65
+radial_segments = 24
+material = SubResource("mat_green")
+
+[sub_resource type="StandardMaterial3D" id="mat_leaf"]
+albedo_color = Color(0.29,0.45,0.19,1)
+roughness = 0.85
+
+[sub_resource type="SphereMesh" id="sphere111"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_leaf")
+
+[sub_resource type="CylinderMesh" id="cyl112"]
+top_radius = 0.014
+bottom_radius = 0.014
+height = 0.65
+radial_segments = 24
+material = SubResource("mat_green")
+
+[sub_resource type="SphereMesh" id="sphere113"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_green")
+
+[sub_resource type="CylinderMesh" id="cyl114"]
+top_radius = 0.014
+bottom_radius = 0.014
+height = 0.65
+radial_segments = 24
+material = SubResource("mat_green")
+
+[sub_resource type="SphereMesh" id="sphere115"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_leaf")
+
+[sub_resource type="CylinderMesh" id="cyl116"]
+top_radius = 0.014
+bottom_radius = 0.014
+height = 0.65
+radial_segments = 24
+material = SubResource("mat_green")
+
+[sub_resource type="SphereMesh" id="sphere117"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_green")
+
+[sub_resource type="CylinderMesh" id="cyl118"]
+top_radius = 0.014
+bottom_radius = 0.014
+height = 0.65
+radial_segments = 24
+material = SubResource("mat_green")
+
+[sub_resource type="SphereMesh" id="sphere119"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_leaf")
+
+[sub_resource type="CylinderMesh" id="cyl120"]
+top_radius = 0.014
+bottom_radius = 0.014
+height = 0.65
+radial_segments = 24
+material = SubResource("mat_green")
+
+[sub_resource type="SphereMesh" id="sphere121"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_green")
+
+[node name="Bookshelf" type="Node3D"]
+
+[node name="Back" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 1.45000, -0.19000)
+mesh = SubResource("box1")
+
+[node name="Body" type="StaticBody3D" parent="Back"]
+
+[node name="Shape" type="CollisionShape3D" parent="Back/Body"]
+shape = SubResource("shape1")
+
+[node name="Side-0.45" type="MeshInstance3D" parent="."]
+position = Vector3(-0.45000, 1.45000, 0.00000)
+mesh = SubResource("box2")
+
+[node name="Body" type="StaticBody3D" parent="Side-0.45"]
+
+[node name="Shape" type="CollisionShape3D" parent="Side-0.45/Body"]
+shape = SubResource("shape2")
+
+[node name="Side0.45" type="MeshInstance3D" parent="."]
+position = Vector3(0.45000, 1.45000, 0.00000)
+mesh = SubResource("box3")
+
+[node name="Body" type="StaticBody3D" parent="Side0.45"]
+
+[node name="Shape" type="CollisionShape3D" parent="Side0.45/Body"]
+shape = SubResource("shape3")
+
+[node name="Shelf0" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 0.06000, 0.00000)
+mesh = SubResource("box4")
+
+[node name="Body" type="StaticBody3D" parent="Shelf0"]
+
+[node name="Shape" type="CollisionShape3D" parent="Shelf0/Body"]
+shape = SubResource("shape4")
+
+[node name="Book0_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.36000, 0.23500, 0.03500)
+mesh = SubResource("box5")
+
+[node name="SpineBand0_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.36000, 0.16000, 0.15400)
+mesh = SubResource("box6")
+
+[node name="Book0_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26500, 0.25900, 0.03500)
+mesh = SubResource("box7")
+
+[node name="SpineBand0_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26500, 0.16000, 0.15400)
+mesh = SubResource("box8")
+
+[node name="Book0_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17000, 0.28300, 0.03500)
+mesh = SubResource("box9")
+
+[node name="SpineBand0_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17000, 0.16000, 0.15400)
+mesh = SubResource("box10")
+
+[node name="Book0_3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.07500, 0.24700, 0.03500)
+mesh = SubResource("box11")
+
+[node name="SpineBand0_3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.07500, 0.16000, 0.15400)
+mesh = SubResource("box12")
+
+[node name="Book0_4" type="MeshInstance3D" parent="."]
+position = Vector3(0.02000, 0.27100, 0.03500)
+mesh = SubResource("box13")
+
+[node name="SpineBand0_4" type="MeshInstance3D" parent="."]
+position = Vector3(0.02000, 0.16000, 0.15400)
+mesh = SubResource("box14")
+
+[node name="Book0_5" type="MeshInstance3D" parent="."]
+position = Vector3(0.11500, 0.23500, 0.03500)
+mesh = SubResource("box15")
+
+[node name="SpineBand0_5" type="MeshInstance3D" parent="."]
+position = Vector3(0.11500, 0.16000, 0.15400)
+mesh = SubResource("box16")
+
+[node name="Book0_6" type="MeshInstance3D" parent="."]
+position = Vector3(0.21000, 0.25900, 0.03500)
+mesh = SubResource("box17")
+
+[node name="SpineBand0_6" type="MeshInstance3D" parent="."]
+position = Vector3(0.21000, 0.16000, 0.15400)
+mesh = SubResource("box18")
+
+[node name="Book0_7" type="MeshInstance3D" parent="."]
+position = Vector3(0.30500, 0.28300, 0.03500)
+mesh = SubResource("box19")
+
+[node name="SpineBand0_7" type="MeshInstance3D" parent="."]
+position = Vector3(0.30500, 0.16000, 0.15400)
+mesh = SubResource("box20")
+
+[node name="Shelf1" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 0.52000, 0.00000)
+mesh = SubResource("box21")
+
+[node name="Body" type="StaticBody3D" parent="Shelf1"]
+
+[node name="Shape" type="CollisionShape3D" parent="Shelf1/Body"]
+shape = SubResource("shape21")
+
+[node name="Book1_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.36000, 0.73100, 0.03500)
+mesh = SubResource("box22")
+
+[node name="SpineBand1_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.36000, 0.62000, 0.15400)
+mesh = SubResource("box23")
+
+[node name="Book1_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26500, 0.69500, 0.03500)
+mesh = SubResource("box24")
+
+[node name="SpineBand1_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26500, 0.62000, 0.15400)
+mesh = SubResource("box25")
+
+[node name="Book1_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17000, 0.71900, 0.03500)
+mesh = SubResource("box26")
+
+[node name="SpineBand1_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17000, 0.62000, 0.15400)
+mesh = SubResource("box27")
+
+[node name="Book1_3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.07500, 0.74300, 0.03500)
+mesh = SubResource("box28")
+
+[node name="SpineBand1_3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.07500, 0.62000, 0.15400)
+mesh = SubResource("box29")
+
+[node name="Book1_4" type="MeshInstance3D" parent="."]
+position = Vector3(0.02000, 0.70700, 0.03500)
+mesh = SubResource("box30")
+
+[node name="SpineBand1_4" type="MeshInstance3D" parent="."]
+position = Vector3(0.02000, 0.62000, 0.15400)
+mesh = SubResource("box31")
+
+[node name="Book1_5" type="MeshInstance3D" parent="."]
+position = Vector3(0.11500, 0.73100, 0.03500)
+mesh = SubResource("box32")
+
+[node name="SpineBand1_5" type="MeshInstance3D" parent="."]
+position = Vector3(0.11500, 0.62000, 0.15400)
+mesh = SubResource("box33")
+
+[node name="Book1_6" type="MeshInstance3D" parent="."]
+position = Vector3(0.21000, 0.69500, 0.03500)
+mesh = SubResource("box34")
+
+[node name="SpineBand1_6" type="MeshInstance3D" parent="."]
+position = Vector3(0.21000, 0.62000, 0.15400)
+mesh = SubResource("box35")
+
+[node name="Book1_7" type="MeshInstance3D" parent="."]
+position = Vector3(0.30500, 0.71900, 0.03500)
+mesh = SubResource("box36")
+
+[node name="SpineBand1_7" type="MeshInstance3D" parent="."]
+position = Vector3(0.30500, 0.62000, 0.15400)
+mesh = SubResource("box37")
+
+[node name="Shelf2" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 0.98000, 0.00000)
+mesh = SubResource("box38")
+
+[node name="Body" type="StaticBody3D" parent="Shelf2"]
+
+[node name="Shape" type="CollisionShape3D" parent="Shelf2/Body"]
+shape = SubResource("shape38")
+
+[node name="Book2_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.36000, 1.16700, 0.03500)
+mesh = SubResource("box39")
+
+[node name="SpineBand2_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.36000, 1.08000, 0.15400)
+mesh = SubResource("box40")
+
+[node name="Book2_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26500, 1.19100, 0.03500)
+mesh = SubResource("box41")
+
+[node name="SpineBand2_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26500, 1.08000, 0.15400)
+mesh = SubResource("box42")
+
+[node name="Book2_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17000, 1.15500, 0.03500)
+mesh = SubResource("box43")
+
+[node name="SpineBand2_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17000, 1.08000, 0.15400)
+mesh = SubResource("box44")
+
+[node name="Book2_3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.07500, 1.17900, 0.03500)
+mesh = SubResource("box45")
+
+[node name="SpineBand2_3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.07500, 1.08000, 0.15400)
+mesh = SubResource("box46")
+
+[node name="Book2_4" type="MeshInstance3D" parent="."]
+position = Vector3(0.02000, 1.20300, 0.03500)
+mesh = SubResource("box47")
+
+[node name="SpineBand2_4" type="MeshInstance3D" parent="."]
+position = Vector3(0.02000, 1.08000, 0.15400)
+mesh = SubResource("box48")
+
+[node name="Book2_5" type="MeshInstance3D" parent="."]
+position = Vector3(0.11500, 1.16700, 0.03500)
+mesh = SubResource("box49")
+
+[node name="SpineBand2_5" type="MeshInstance3D" parent="."]
+position = Vector3(0.11500, 1.08000, 0.15400)
+mesh = SubResource("box50")
+
+[node name="Book2_6" type="MeshInstance3D" parent="."]
+position = Vector3(0.21000, 1.19100, 0.03500)
+mesh = SubResource("box51")
+
+[node name="SpineBand2_6" type="MeshInstance3D" parent="."]
+position = Vector3(0.21000, 1.08000, 0.15400)
+mesh = SubResource("box52")
+
+[node name="Book2_7" type="MeshInstance3D" parent="."]
+position = Vector3(0.30500, 1.15500, 0.03500)
+mesh = SubResource("box53")
+
+[node name="SpineBand2_7" type="MeshInstance3D" parent="."]
+position = Vector3(0.30500, 1.08000, 0.15400)
+mesh = SubResource("box54")
+
+[node name="Shelf3" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 1.44000, 0.00000)
+mesh = SubResource("box55")
+
+[node name="Body" type="StaticBody3D" parent="Shelf3"]
+
+[node name="Shape" type="CollisionShape3D" parent="Shelf3/Body"]
+shape = SubResource("shape55")
+
+[node name="Book3_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.36000, 1.66300, 0.03500)
+mesh = SubResource("box56")
+
+[node name="SpineBand3_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.36000, 1.54000, 0.15400)
+mesh = SubResource("box57")
+
+[node name="Book3_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26500, 1.62700, 0.03500)
+mesh = SubResource("box58")
+
+[node name="SpineBand3_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26500, 1.54000, 0.15400)
+mesh = SubResource("box59")
+
+[node name="Book3_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17000, 1.65100, 0.03500)
+mesh = SubResource("box60")
+
+[node name="SpineBand3_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17000, 1.54000, 0.15400)
+mesh = SubResource("box61")
+
+[node name="Book3_3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.07500, 1.61500, 0.03500)
+mesh = SubResource("box62")
+
+[node name="SpineBand3_3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.07500, 1.54000, 0.15400)
+mesh = SubResource("box63")
+
+[node name="Book3_4" type="MeshInstance3D" parent="."]
+position = Vector3(0.02000, 1.63900, 0.03500)
+mesh = SubResource("box64")
+
+[node name="SpineBand3_4" type="MeshInstance3D" parent="."]
+position = Vector3(0.02000, 1.54000, 0.15400)
+mesh = SubResource("box65")
+
+[node name="Book3_5" type="MeshInstance3D" parent="."]
+position = Vector3(0.11500, 1.66300, 0.03500)
+mesh = SubResource("box66")
+
+[node name="SpineBand3_5" type="MeshInstance3D" parent="."]
+position = Vector3(0.11500, 1.54000, 0.15400)
+mesh = SubResource("box67")
+
+[node name="Book3_6" type="MeshInstance3D" parent="."]
+position = Vector3(0.21000, 1.62700, 0.03500)
+mesh = SubResource("box68")
+
+[node name="SpineBand3_6" type="MeshInstance3D" parent="."]
+position = Vector3(0.21000, 1.54000, 0.15400)
+mesh = SubResource("box69")
+
+[node name="Book3_7" type="MeshInstance3D" parent="."]
+position = Vector3(0.30500, 1.65100, 0.03500)
+mesh = SubResource("box70")
+
+[node name="SpineBand3_7" type="MeshInstance3D" parent="."]
+position = Vector3(0.30500, 1.54000, 0.15400)
+mesh = SubResource("box71")
+
+[node name="Shelf4" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 1.90000, 0.00000)
+mesh = SubResource("box72")
+
+[node name="Body" type="StaticBody3D" parent="Shelf4"]
+
+[node name="Shape" type="CollisionShape3D" parent="Shelf4/Body"]
+shape = SubResource("shape72")
+
+[node name="Book4_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.36000, 2.09900, 0.03500)
+mesh = SubResource("box73")
+
+[node name="SpineBand4_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.36000, 2.00000, 0.15400)
+mesh = SubResource("box74")
+
+[node name="Book4_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26500, 2.12300, 0.03500)
+mesh = SubResource("box75")
+
+[node name="SpineBand4_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26500, 2.00000, 0.15400)
+mesh = SubResource("box76")
+
+[node name="Book4_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17000, 2.08700, 0.03500)
+mesh = SubResource("box77")
+
+[node name="SpineBand4_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17000, 2.00000, 0.15400)
+mesh = SubResource("box78")
+
+[node name="Book4_3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.07500, 2.11100, 0.03500)
+mesh = SubResource("box79")
+
+[node name="SpineBand4_3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.07500, 2.00000, 0.15400)
+mesh = SubResource("box80")
+
+[node name="Book4_4" type="MeshInstance3D" parent="."]
+position = Vector3(0.02000, 2.07500, 0.03500)
+mesh = SubResource("box81")
+
+[node name="SpineBand4_4" type="MeshInstance3D" parent="."]
+position = Vector3(0.02000, 2.00000, 0.15400)
+mesh = SubResource("box82")
+
+[node name="Book4_5" type="MeshInstance3D" parent="."]
+position = Vector3(0.11500, 2.09900, 0.03500)
+mesh = SubResource("box83")
+
+[node name="SpineBand4_5" type="MeshInstance3D" parent="."]
+position = Vector3(0.11500, 2.00000, 0.15400)
+mesh = SubResource("box84")
+
+[node name="Book4_6" type="MeshInstance3D" parent="."]
+position = Vector3(0.21000, 2.12300, 0.03500)
+mesh = SubResource("box85")
+
+[node name="SpineBand4_6" type="MeshInstance3D" parent="."]
+position = Vector3(0.21000, 2.00000, 0.15400)
+mesh = SubResource("box86")
+
+[node name="Book4_7" type="MeshInstance3D" parent="."]
+position = Vector3(0.30500, 2.08700, 0.03500)
+mesh = SubResource("box87")
+
+[node name="SpineBand4_7" type="MeshInstance3D" parent="."]
+position = Vector3(0.30500, 2.00000, 0.15400)
+mesh = SubResource("box88")
+
+[node name="Shelf5" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 2.36000, 0.00000)
+mesh = SubResource("box89")
+
+[node name="Body" type="StaticBody3D" parent="Shelf5"]
+
+[node name="Shape" type="CollisionShape3D" parent="Shelf5/Body"]
+shape = SubResource("shape89")
+
+[node name="Book5_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.36000, 2.53500, 0.03500)
+mesh = SubResource("box90")
+
+[node name="SpineBand5_0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.36000, 2.46000, 0.15400)
+mesh = SubResource("box91")
+
+[node name="Book5_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26500, 2.55900, 0.03500)
+mesh = SubResource("box92")
+
+[node name="SpineBand5_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26500, 2.46000, 0.15400)
+mesh = SubResource("box93")
+
+[node name="Book5_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17000, 2.58300, 0.03500)
+mesh = SubResource("box94")
+
+[node name="SpineBand5_2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17000, 2.46000, 0.15400)
+mesh = SubResource("box95")
+
+[node name="Book5_3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.07500, 2.54700, 0.03500)
+mesh = SubResource("box96")
+
+[node name="SpineBand5_3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.07500, 2.46000, 0.15400)
+mesh = SubResource("box97")
+
+[node name="Book5_4" type="MeshInstance3D" parent="."]
+position = Vector3(0.02000, 2.57100, 0.03500)
+mesh = SubResource("box98")
+
+[node name="SpineBand5_4" type="MeshInstance3D" parent="."]
+position = Vector3(0.02000, 2.46000, 0.15400)
+mesh = SubResource("box99")
+
+[node name="Book5_5" type="MeshInstance3D" parent="."]
+position = Vector3(0.11500, 2.53500, 0.03500)
+mesh = SubResource("box100")
+
+[node name="SpineBand5_5" type="MeshInstance3D" parent="."]
+position = Vector3(0.11500, 2.46000, 0.15400)
+mesh = SubResource("box101")
+
+[node name="Book5_6" type="MeshInstance3D" parent="."]
+position = Vector3(0.21000, 2.55900, 0.03500)
+mesh = SubResource("box102")
+
+[node name="SpineBand5_6" type="MeshInstance3D" parent="."]
+position = Vector3(0.21000, 2.46000, 0.15400)
+mesh = SubResource("box103")
+
+[node name="Book5_7" type="MeshInstance3D" parent="."]
+position = Vector3(0.30500, 2.58300, 0.03500)
+mesh = SubResource("box104")
+
+[node name="SpineBand5_7" type="MeshInstance3D" parent="."]
+position = Vector3(0.30500, 2.46000, 0.15400)
+mesh = SubResource("box105")
+
+[node name="Shelf6" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 2.82000, 0.00000)
+mesh = SubResource("box106")
+
+[node name="Body" type="StaticBody3D" parent="Shelf6"]
+
+[node name="Shape" type="CollisionShape3D" parent="Shelf6/Body"]
+shape = SubResource("shape106")
+
+[node name="TopPlant" type="Node3D" parent="."]
+position = Vector3(0.00000, 2.94000, 0.00000)
+scale = Vector3(0.70000, 0.70000, 0.70000)
+
+[node name="Pot" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(0.00000, 0.16000, 0.00000)
+mesh = SubResource("cyl107")
+
+[node name="Stem0" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(0.11500, 0.56000, 0.00000)
+mesh = SubResource("cyl108")
+
+[node name="Leaf0" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(0.23000, 0.66000, 0.00000)
+scale = Vector3(0.27000, 0.13000, 0.18000)
+mesh = SubResource("sphere109")
+
+[node name="Stem1" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(-0.08480, 0.56000, 0.07768)
+mesh = SubResource("cyl110")
+
+[node name="Leaf1" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(-0.16960, 0.80000, 0.15536)
+scale = Vector3(0.27000, 0.13000, 0.18000)
+mesh = SubResource("sphere111")
+
+[node name="Stem2" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(0.01006, 0.56000, -0.11456)
+mesh = SubResource("cyl112")
+
+[node name="Leaf2" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(0.02012, 0.94000, -0.22912)
+scale = Vector3(0.27000, 0.13000, 0.18000)
+mesh = SubResource("sphere113")
+
+[node name="Stem3" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(0.06996, 0.56000, 0.09127)
+mesh = SubResource("cyl114")
+
+[node name="Leaf3" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(0.13992, 0.66000, 0.18254)
+scale = Vector3(0.27000, 0.13000, 0.18000)
+mesh = SubResource("sphere115")
+
+[node name="Stem4" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(-0.11324, 0.56000, -0.02005)
+mesh = SubResource("cyl116")
+
+[node name="Leaf4" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(-0.22648, 0.80000, -0.04010)
+scale = Vector3(0.27000, 0.13000, 0.18000)
+mesh = SubResource("sphere117")
+
+[node name="Stem5" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(0.09704, 0.56000, -0.06171)
+mesh = SubResource("cyl118")
+
+[node name="Leaf5" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(0.19409, 0.94000, -0.12341)
+scale = Vector3(0.27000, 0.13000, 0.18000)
+mesh = SubResource("sphere119")
+
+[node name="Stem6" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(-0.02988, 0.56000, 0.11105)
+mesh = SubResource("cyl120")
+
+[node name="Leaf6" type="MeshInstance3D" parent="TopPlant"]
+position = Vector3(-0.05976, 0.66000, 0.22210)
+scale = Vector3(0.27000, 0.13000, 0.18000)
+mesh = SubResource("sphere121")

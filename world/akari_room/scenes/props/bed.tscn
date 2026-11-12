@@ -1,0 +1,255 @@
+[gd_scene load_steps=34 format=3]
+
+[sub_resource type="StandardMaterial3D" id="mat_oak"]
+albedo_color = Color(0.62,0.41,0.23,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box1"]
+size = Vector3(1.66000, 0.35000, 2.45000)
+material = SubResource("mat_oak")
+
+[sub_resource type="BoxShape3D" id="shape1"]
+size = Vector3(1.66000, 0.35000, 2.45000)
+
+[sub_resource type="StandardMaterial3D" id="mat_cream"]
+albedo_color = Color(0.88,0.82,0.68,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box2"]
+size = Vector3(1.59000, 0.25000, 2.34000)
+material = SubResource("mat_cream")
+
+[sub_resource type="BoxShape3D" id="shape2"]
+size = Vector3(1.59000, 0.25000, 2.34000)
+
+[sub_resource type="BoxMesh" id="box3"]
+size = Vector3(1.72000, 0.92000, 0.09000)
+material = SubResource("mat_oak")
+
+[sub_resource type="BoxShape3D" id="shape3"]
+size = Vector3(1.72000, 0.92000, 0.09000)
+
+[sub_resource type="StandardMaterial3D" id="mat_pink"]
+albedo_color = Color(0.58,0.32,0.32,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box4"]
+size = Vector3(1.63000, 0.17000, 1.75000)
+material = SubResource("mat_pink")
+
+[sub_resource type="StandardMaterial3D" id="mat_linen"]
+albedo_color = Color(0.77,0.62,0.51,1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="box5"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box6"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box7"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box8"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box9"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box10"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box11"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box12"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box13"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box14"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box15"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box16"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box17"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box18"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box19"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box20"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box21"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box22"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box23"]
+size = Vector3(0.01800, 0.01200, 1.72000)
+material = SubResource("mat_linen")
+
+[sub_resource type="SphereMesh" id="sphere24"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_linen")
+
+[sub_resource type="SphereMesh" id="sphere25"]
+radius = 0.5
+height = 1.0
+material = SubResource("mat_linen")
+
+[sub_resource type="BoxMesh" id="box26"]
+size = Vector3(1.65000, 0.05500, 0.45000)
+material = SubResource("mat_cream")
+
+[node name="Bed" type="Node3D"]
+
+[node name="Frame" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 0.31000, 0.00000)
+mesh = SubResource("box1")
+
+[node name="Body" type="StaticBody3D" parent="Frame"]
+
+[node name="Shape" type="CollisionShape3D" parent="Frame/Body"]
+shape = SubResource("shape1")
+
+[node name="Mattress" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 0.61000, 0.00000)
+mesh = SubResource("box2")
+
+[node name="Body" type="StaticBody3D" parent="Mattress"]
+
+[node name="Shape" type="CollisionShape3D" parent="Mattress/Body"]
+shape = SubResource("shape2")
+
+[node name="Headboard" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 0.72000, -1.20000)
+mesh = SubResource("box3")
+
+[node name="Body" type="StaticBody3D" parent="Headboard"]
+
+[node name="Shape" type="CollisionShape3D" parent="Headboard/Body"]
+shape = SubResource("shape3")
+
+[node name="Duvet" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 0.81000, 0.30000)
+mesh = SubResource("box4")
+
+[node name="QuiltSeam0" type="MeshInstance3D" parent="."]
+position = Vector3(-0.77000, 0.90200, 0.30000)
+mesh = SubResource("box5")
+
+[node name="QuiltSeam1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.68500, 0.90200, 0.30000)
+mesh = SubResource("box6")
+
+[node name="QuiltSeam2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.60000, 0.90200, 0.30000)
+mesh = SubResource("box7")
+
+[node name="QuiltSeam3" type="MeshInstance3D" parent="."]
+position = Vector3(-0.51500, 0.90200, 0.30000)
+mesh = SubResource("box8")
+
+[node name="QuiltSeam4" type="MeshInstance3D" parent="."]
+position = Vector3(-0.43000, 0.90200, 0.30000)
+mesh = SubResource("box9")
+
+[node name="QuiltSeam5" type="MeshInstance3D" parent="."]
+position = Vector3(-0.34500, 0.90200, 0.30000)
+mesh = SubResource("box10")
+
+[node name="QuiltSeam6" type="MeshInstance3D" parent="."]
+position = Vector3(-0.26000, 0.90200, 0.30000)
+mesh = SubResource("box11")
+
+[node name="QuiltSeam7" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17500, 0.90200, 0.30000)
+mesh = SubResource("box12")
+
+[node name="QuiltSeam8" type="MeshInstance3D" parent="."]
+position = Vector3(-0.09000, 0.90200, 0.30000)
+mesh = SubResource("box13")
+
+[node name="QuiltSeam9" type="MeshInstance3D" parent="."]
+position = Vector3(-0.00500, 0.90200, 0.30000)
+mesh = SubResource("box14")
+
+[node name="QuiltSeam10" type="MeshInstance3D" parent="."]
+position = Vector3(0.08000, 0.90200, 0.30000)
+mesh = SubResource("box15")
+
+[node name="QuiltSeam11" type="MeshInstance3D" parent="."]
+position = Vector3(0.16500, 0.90200, 0.30000)
+mesh = SubResource("box16")
+
+[node name="QuiltSeam12" type="MeshInstance3D" parent="."]
+position = Vector3(0.25000, 0.90200, 0.30000)
+mesh = SubResource("box17")
+
+[node name="QuiltSeam13" type="MeshInstance3D" parent="."]
+position = Vector3(0.33500, 0.90200, 0.30000)
+mesh = SubResource("box18")
+
+[node name="QuiltSeam14" type="MeshInstance3D" parent="."]
+position = Vector3(0.42000, 0.90200, 0.30000)
+mesh = SubResource("box19")
+
+[node name="QuiltSeam15" type="MeshInstance3D" parent="."]
+position = Vector3(0.50500, 0.90200, 0.30000)
+mesh = SubResource("box20")
+
+[node name="QuiltSeam16" type="MeshInstance3D" parent="."]
+position = Vector3(0.59000, 0.90200, 0.30000)
+mesh = SubResource("box21")
+
+[node name="QuiltSeam17" type="MeshInstance3D" parent="."]
+position = Vector3(0.67500, 0.90200, 0.30000)
+mesh = SubResource("box22")
+
+[node name="QuiltSeam18" type="MeshInstance3D" parent="."]
+position = Vector3(0.76000, 0.90200, 0.30000)
+mesh = SubResource("box23")
+
+[node name="Pillow-0.4" type="MeshInstance3D" parent="."]
+position = Vector3(-0.40000, 0.82000, -0.81000)
+scale = Vector3(0.72000, 0.22000, 0.45000)
+mesh = SubResource("sphere24")
+
+[node name="Pillow0.4" type="MeshInstance3D" parent="."]
+position = Vector3(0.40000, 0.82000, -0.81000)
+scale = Vector3(0.72000, 0.22000, 0.45000)
+mesh = SubResource("sphere25")
+
+[node name="FoldedThrow" type="MeshInstance3D" parent="."]
+position = Vector3(0.00000, 0.92000, 0.70000)
+mesh = SubResource("box26")
