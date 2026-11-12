@@ -1,7 +1,7 @@
 extends RefCounted
 ## Non-destructive optional Blender/glTF art asset override.
 ## If the GLB is absent, the existing room remains usable.
-const BED_GLB := "res://assets/akari_bed_soft_v01.glb"
+const BED_GLB = "res://assets/akari_bed_soft_v01.glb"
 
 static func apply(room: Node3D) -> bool:
 	if not ResourceLoader.exists(BED_GLB):
