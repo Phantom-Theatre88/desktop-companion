@@ -49,8 +49,8 @@ func _ready() -> void:
 	set_process(true)
 
 func _resolve_binding() -> void:
-	_skeleton = get_node_or_null(skeleton_path) as Skeleton3D
-	_face_mesh = get_node_or_null(face_mesh_path) as MeshInstance3D
+	_skeleton = null if skeleton_path.is_empty() else get_node_or_null(skeleton_path) as Skeleton3D
+	_face_mesh = null if face_mesh_path.is_empty() else get_node_or_null(face_mesh_path) as MeshInstance3D
 	_bone_indices.clear()
 	_rest_pose_rotations.clear()
 	if _skeleton == null:
