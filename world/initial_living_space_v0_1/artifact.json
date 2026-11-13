@@ -1,0 +1,8 @@
+{
+  "archive": "WORLD_INITIAL_LIVING_SPACE_v0.1_2026-11-13.zip",
+  "sha256": "cc4f07e00f5d6f91c2facd62346d9c735cc31ea61a1a086f4ecd034760753f70",
+  "size": 44589120,
+  "dropbox_path": "/新ロボット/WORLD_INITIAL_LIVING_SPACE_v0.1_2026-11-13.zip",
+  "baseline": "AKARI_Room_Refined_v10",
+  "restore": "展開したgodot/を使用する。本ディレクトリのソースだけではモデル・画像が揃わない。"
+}

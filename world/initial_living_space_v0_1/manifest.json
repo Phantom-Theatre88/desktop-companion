@@ -1,0 +1,592 @@
+{
+  "milestone": "WORLD初期生活空間 v0.1：AKARI入室・実描画確認",
+  "date_jst": "2026-11-13",
+  "baseline": "AKARI_Room_Refined_v10",
+  "files": [
+    {
+      "path": "LOCK_WORLD_INITIAL_LIVING_SPACE_V0_1_2026-11-13.md",
+      "size": 4298,
+      "sha256": "55e590edddfcb7b1ff708cb421defab40f7a056cd5a6fe119f259372a90bfc36"
+    },
+    {
+      "path": "README.md",
+      "size": 1721,
+      "sha256": "6c9c179bbcc04ad37d9b99189f9ff6829abccc0dc5cdd14685a37811cf736be6"
+    },
+    {
+      "path": "blender/room_materials_baked_v6.blend",
+      "size": 4216242,
+      "sha256": "db2bb48142509d9b42bc235fa0d9931105fffc1407d3806b4ea6a2a97a46d183"
+    },
+    {
+      "path": "blender/room_source_v13.blend",
+      "size": 2296377,
+      "sha256": "b648d5fa8c618a91a76c41ec0db96df502177af4135106107a0f5dda7ca2fdcf"
+    },
+    {
+      "path": "godot/README.md",
+      "size": 2271,
+      "sha256": "710eb9dcfea11a7710a9f85f31be0ed48a2de53bce9822db32e09af9ccefab08"
+    },
+    {
+      "path": "godot/README_v6.md",
+      "size": 1349,
+      "sha256": "7bae226c751ed71e9c25bdadbfc62f1a9a03119788a6f7fa0e9c3f83da4ae011"
+    },
+    {
+      "path": "godot/README_品質確認.md",
+      "size": 2477,
+      "sha256": "0721d471a37e0e505e11acbab290984c5d3a05caeb08223ca9eb4bf0d7fecc0c"
+    },
+    {
+      "path": "godot/README_統合確認.md",
+      "size": 4421,
+      "sha256": "3959835243a3b2038cbf1e77ac8d6b20c0bd17aa7e5dd741bee64281b4806e2f"
+    },
+    {
+      "path": "godot/avatar/akari_test.glb",
+      "size": 18014312,
+      "sha256": "cbcbc78bb0f49325ca25b33a26db3b901148939ddcf0b3d9953fb7ab346ecbc9"
+    },
+    {
+      "path": "godot/avatar/akari_test_MatcapWarp.png",
+      "size": 69,
+      "sha256": "9e084b8d331ed370ca9822b57c207a18b7ec0aa672a2b0487d2caaa86df26567"
+    },
+    {
+      "path": "godot/avatar/akari_test_N00_000_00_Face_00_out.png",
+      "size": 14079,
+      "sha256": "d5c7fc19d8aa5279d9e006cd283dd280d82a36a2ed9239fec92fb2cb359c1816"
+    },
+    {
+      "path": "godot/avatar/akari_test_N00_000_00_HairBack_00_nml.png",
+      "size": 86157,
+      "sha256": "d926d74b113072e8960b68aecaf9f5ad7c3ac513360d8162adcd91f449acc9db"
+    },
+    {
+      "path": "godot/avatar/akari_test_N00_000_Hair_00_nml.png",
+      "size": 97368,
+      "sha256": "86426d781334c6a440439db9039a9a47ce8b9f16f82fd805a56c6f0f8047bf52"
+    },
+    {
+      "path": "godot/avatar/akari_test_Shader_NoneBlack.png",
+      "size": 69,
+      "sha256": "9e084b8d331ed370ca9822b57c207a18b7ec0aa672a2b0487d2caaa86df26567"
+    },
+    {
+      "path": "godot/avatar/akari_test_Shader_NoneNormal.png",
+      "size": 79,
+      "sha256": "d76fc537166ea42dad9f97cde34574ae348397e1279710fb69b8f2e743b2cc95"
+    },
+    {
+      "path": "godot/avatar/akari_test_Thumbnail.png",
+      "size": 1504330,
+      "sha256": "d51a6137897d52e9cd448d82ed855ba1ca88201c27816f8f394757f154fb9d48"
+    },
+    {
+      "path": "godot/avatar/akari_test__01.png",
+      "size": 70827,
+      "sha256": "1ca30f44144d6c4de4aa96d55df75f613834276f6ceda3ce5ea30958c95d8f99"
+    },
+    {
+      "path": "godot/avatar/akari_test__02.png",
+      "size": 133362,
+      "sha256": "e307c5422d12ffc1ec707d3eb7cd285c4b79d8724fa95853f437f6f5c1ab1c9e"
+    },
+    {
+      "path": "godot/avatar/akari_test__03.png",
+      "size": 59348,
+      "sha256": "ba3becae59295276f6ae880de2379b2caf8c5e3966628217ea5a6079af271afa"
+    },
+    {
+      "path": "godot/avatar/akari_test__04.png",
+      "size": 178446,
+      "sha256": "37bca6c38356dbde0f0a06682352f6cca242f63435814be86bac08c5d4b9eab5"
+    },
+    {
+      "path": "godot/avatar/akari_test__05.png",
+      "size": 15779,
+      "sha256": "f8f4e1ddb775ff90723cf3da6f2b8e8537482059a894437564dfaf2b8db85e53"
+    },
+    {
+      "path": "godot/avatar/akari_test__06.png",
+      "size": 260512,
+      "sha256": "439dc6605fb2f39453d1c9691e7198b30bd6152d94dd1e4787331a073bbfd862"
+    },
+    {
+      "path": "godot/avatar/akari_test__07.png",
+      "size": 57801,
+      "sha256": "2e95d04e6297262d9fa0ee07af5d71507bf8a9c644729a1aebaf2fb5fda46a5d"
+    },
+    {
+      "path": "godot/avatar/akari_test__08.png",
+      "size": 39887,
+      "sha256": "d2703dc0924483a8d79855916dae6a74302a7874f9eca10bd35daa38f4a41ecd"
+    },
+    {
+      "path": "godot/avatar/akari_test__09.png",
+      "size": 97840,
+      "sha256": "5ffa9f7671ff9b07847e7799276f508f7afde88528384a6e563f74cd93b276d3"
+    },
+    {
+      "path": "godot/avatar/akari_test__10.png",
+      "size": 766435,
+      "sha256": "4011970987c49216bb16eb121ade24db6a8dc8d4b68e0abe0d9b6796343fc5ed"
+    },
+    {
+      "path": "godot/avatar/akari_test__11.png",
+      "size": 2959176,
+      "sha256": "8a86c6836d18630a551378460ff35ccf00007bf86a042ad1b05a123c02bf2109"
+    },
+    {
+      "path": "godot/avatar/akari_test__12.png",
+      "size": 1775864,
+      "sha256": "f45663b285d2f91608daf31c39db5f4bb6c3a868dafdb0e1280cd70eeec5aa48"
+    },
+    {
+      "path": "godot/avatar/akari_test__13.png",
+      "size": 173125,
+      "sha256": "9ac7d02a565b41903debc8561c5cd150f698627e54903c942d667bd0d5c52578"
+    },
+    {
+      "path": "godot/avatar/akari_test__14.png",
+      "size": 1547424,
+      "sha256": "54a1af53ab325e58d9836dd3b61b88083befd64ffbb3821d2422a967f2920868"
+    },
+    {
+      "path": "godot/avatar/akari_test__15.png",
+      "size": 192808,
+      "sha256": "edb3209cef135e0b280bae0e23e7bebd7f4e7fb7339fbcf09d2f09e5b4f5b04c"
+    },
+    {
+      "path": "godot/avatar/akari_test__16.png",
+      "size": 145658,
+      "sha256": "549fae3c0863c0966f974561c8b8baeb78cd26a5180c1acb4cc89018d5297a4e"
+    },
+    {
+      "path": "godot/avatar/akari_test__17.png",
+      "size": 54645,
+      "sha256": "3acc498938ca7e9ba2cfb39f5237d8c6db48cdfad784a0b75f70d55b63fab34d"
+    },
+    {
+      "path": "godot/avatar/vrm_expression_map.json",
+      "size": 4116,
+      "sha256": "210ddff1e16ee7fe0a832e31a8d624575b449360f15e01b0284fcf852afa6cb0"
+    },
+    {
+      "path": "godot/evidence/.gdignore",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "godot/evidence/books.jpg",
+      "size": 184419,
+      "sha256": "e10db2366dccac5bb3f342687ae2c816f8f4a19c80860a3d82a1f425d9254514"
+    },
+    {
+      "path": "godot/evidence/editor_verified.jpg",
+      "size": 297264,
+      "sha256": "aa89ca614944df4a6645c8b68e203387dce96e3e43e450e1aec8ddbd3877fed7"
+    },
+    {
+      "path": "godot/evidence/laptop.jpg",
+      "size": 136990,
+      "sha256": "25120e5459be1128eee5f93467fb0f38cc13caf4e413f2dc583dacd78b161aab"
+    },
+    {
+      "path": "godot/evidence/plants.jpg",
+      "size": 181000,
+      "sha256": "3a27c26f2b3eb5f35d2b3e5fba54658281fdebb4bcc11c92efaa550d7ea894bc"
+    },
+    {
+      "path": "godot/evidence/room.jpg",
+      "size": 242138,
+      "sha256": "cb7b0d3c1b16596bc27fa8cd92b02fe3d7a36ec975fdc7ce03a6c04d00c7b0f7"
+    },
+    {
+      "path": "godot/evidence/verification.json",
+      "size": 957,
+      "sha256": "6b67c545905e959ba4a36917f533426a6fea082454d02607fa86609df5215cb0"
+    },
+    {
+      "path": "godot/project.godot",
+      "size": 690,
+      "sha256": "28c4a7dcb3a8690a12ff43ef773390b80b15eec60068829a3a4992b1beb389ee"
+    },
+    {
+      "path": "godot/room/room.glb",
+      "size": 8580816,
+      "sha256": "37c5b928a88cec687127557447b3b5eaa5522fdd4fdf9c60630d9e55d94567b1"
+    },
+    {
+      "path": "godot/room/room_room_albedo.png",
+      "size": 1515685,
+      "sha256": "8728f4429b97dba0a0e6ca5d6fda5c840a9be13416ec1065aa56963915d6eb6d"
+    },
+    {
+      "path": "godot/room/room_room_normal.png",
+      "size": 1192322,
+      "sha256": "bdc05f6d9ab5daf9608bd0ead27239b1f4c76c48763839edcae2d24106726c79"
+    },
+    {
+      "path": "godot/room/room_room_roughness.png",
+      "size": 365703,
+      "sha256": "3fa28c704252ef533871fe107c273056abc3bcac0b4e8f7909975a4b10d9a364"
+    },
+    {
+      "path": "godot/scenes/main.tscn",
+      "size": 509,
+      "sha256": "cd4250d63c907a5dd34c1583f266b7914908e92d10ba1bd7201c8628863c6c3e"
+    },
+    {
+      "path": "godot/scenes/room_integration.tscn",
+      "size": 526,
+      "sha256": "17b385e305908ea7c3d7992f505405b4b6187268fa032f1cebf42cdb592636cb"
+    },
+    {
+      "path": "godot/scripts/city_v8.gd",
+      "size": 9582,
+      "sha256": "fd928ea15b004240147927ef36a885b105b3f33a4ca2f07704e5e14f2d252372"
+    },
+    {
+      "path": "godot/scripts/city_v8.gd.uid",
+      "size": 20,
+      "sha256": "dc07be65617603a4f25a1eaf76e8449ea3863ef923adc7be732a990cc0d59e0e"
+    },
+    {
+      "path": "godot/scripts/interior_finish_v7.gd",
+      "size": 12536,
+      "sha256": "9139c56713308640a52743c76c11c08afb71b620f932d41ee20ee689ac3fea68"
+    },
+    {
+      "path": "godot/scripts/interior_finish_v7.gd.uid",
+      "size": 20,
+      "sha256": "6deb93cc694ed6167ad02f57895c1f60aa9b98bdd14d603545f4f7262f31f98e"
+    },
+    {
+      "path": "godot/scripts/living_details_v10.gd",
+      "size": 13389,
+      "sha256": "4c8f693b04e6eb259945a23f949e4113c8dfb06ff08e0220c3f04c506b940603"
+    },
+    {
+      "path": "godot/scripts/living_details_v10.gd.uid",
+      "size": 20,
+      "sha256": "8912b6e23cd11cbb4636da6cf82c93caf598c0e674156748c8caa521dc056c85"
+    },
+    {
+      "path": "godot/scripts/main.gd",
+      "size": 14110,
+      "sha256": "efa2de04e54972a85291c4b90057b259da9e4be1aade283c5081ce0a6a786a0b"
+    },
+    {
+      "path": "godot/scripts/main.gd.uid",
+      "size": 20,
+      "sha256": "dd4aa7d09e60159c0b2c690d29b1834e959a3f736a60d6ed52bd8cfc4a4af260"
+    },
+    {
+      "path": "godot/scripts/room_integration.gd",
+      "size": 23517,
+      "sha256": "d05a0925936d53abc03db4841da1a930f34a1b30e9d88613b555f8c23a80017a"
+    },
+    {
+      "path": "godot/scripts/room_integration.gd.uid",
+      "size": 20,
+      "sha256": "52ad785b3428670250fa977cc930f654f12110cb2ce946470f3d9aace53f4cdc"
+    },
+    {
+      "path": "godot/scripts/skytree_v9.gd",
+      "size": 6708,
+      "sha256": "499a212949d1b9bc014bd0160ad7fcb1fa4fd556d99670a9b0e16d0e3fc82418"
+    },
+    {
+      "path": "godot/scripts/skytree_v9.gd.uid",
+      "size": 20,
+      "sha256": "911ee5105d5e9b8c9184b90888e6d53ab8da64389a7d516147e9031d5e6a1405"
+    },
+    {
+      "path": "godot/scripts/verify_shared_light.gd",
+      "size": 2476,
+      "sha256": "13465a861cdf84344ec833e2e4d234175ad84873842a9885acc308977ad66b68"
+    },
+    {
+      "path": "godot/scripts/verify_shared_light.gd.uid",
+      "size": 20,
+      "sha256": "20cd011301645c050e19538b885b8a07429bab2a0a20c5603c536c64adab7f47"
+    },
+    {
+      "path": "godot/textures/baked/room_albedo.png",
+      "size": 1515685,
+      "sha256": "8728f4429b97dba0a0e6ca5d6fda5c840a9be13416ec1065aa56963915d6eb6d"
+    },
+    {
+      "path": "godot/textures/baked/room_albedo_margin.png",
+      "size": 1737020,
+      "sha256": "36bf2d758ad00d319f44f6f64b6799d00fdd1684e1885c9f91c6b1f48de9ec5d"
+    },
+    {
+      "path": "godot/textures/baked/room_normal.png",
+      "size": 1192322,
+      "sha256": "bdc05f6d9ab5daf9608bd0ead27239b1f4c76c48763839edcae2d24106726c79"
+    },
+    {
+      "path": "godot/textures/baked/room_roughness.png",
+      "size": 409044,
+      "sha256": "ce9b613208abd3763c23772e49bfce2d3f14e50304704131517345ea2e69c783"
+    },
+    {
+      "path": "godot/textures/curtain_rose_albedo.png",
+      "size": 169858,
+      "sha256": "8bba51be02cf1b53d2e03aedb3c789386962aa065248de4323fe51d222483b9b"
+    },
+    {
+      "path": "godot/textures/curtain_rose_normal.png",
+      "size": 239651,
+      "sha256": "f08374fd89889dfa5e414d97151687ca1d136877193fc147111b0a2d20989b23"
+    },
+    {
+      "path": "godot/textures/curtain_rose_roughness.png",
+      "size": 31912,
+      "sha256": "e5351a051af208ca53f88e39aba29ae46c8df7cd82518a9105356c404b8f5f83"
+    },
+    {
+      "path": "godot/textures/floor_oak_albedo.png",
+      "size": 111651,
+      "sha256": "2f18cf49bb9e528345b603cc25c6cb6cbb6496fb3b46258c22b233172c03922c"
+    },
+    {
+      "path": "godot/textures/floor_oak_normal.png",
+      "size": 151290,
+      "sha256": "da421865f866dd429c221b46b34e661012a7eed131dce3c360c58a2660b27d88"
+    },
+    {
+      "path": "godot/textures/floor_oak_roughness.png",
+      "size": 20335,
+      "sha256": "abfe64e9a8a58c071b8a83c30f4698949def653673952e62cb30c8903938ff0a"
+    },
+    {
+      "path": "godot/textures/linen_albedo.png",
+      "size": 162227,
+      "sha256": "89d91f1a39b5eb385fd62e8400c7e8b4d69241ccc59dcf07a490985a4dd6d821"
+    },
+    {
+      "path": "godot/textures/linen_normal.png",
+      "size": 240841,
+      "sha256": "506198c10171e24a07b2c2c53f836d1de8a339405e59e073aefe12c1d87a721a"
+    },
+    {
+      "path": "godot/textures/linen_roughness.png",
+      "size": 42839,
+      "sha256": "9c01b96732dcd173c1c428331650fb0f7db418a09830af9ea60d0a55b64c502c"
+    },
+    {
+      "path": "godot/textures/living/laptop_desktop.png",
+      "size": 9556,
+      "sha256": "ba66f37b4b161ea3aeb0bfb98229398f840ced2d5c91b9cd659769e40ffe1d2e"
+    },
+    {
+      "path": "godot/textures/living/leaf_color.png",
+      "size": 113976,
+      "sha256": "a817aec561d2207350f628a9817f02dfe220b638aca1236c617be710c6c533ac"
+    },
+    {
+      "path": "godot/textures/living/paper_edges.png",
+      "size": 2217,
+      "sha256": "1d0af3d2f12cc6a1ab1ad258273111ae6df996ec007fd63a3e2c332b236ce723"
+    },
+    {
+      "path": "godot/textures/living/spine_00.png",
+      "size": 14278,
+      "sha256": "d95a1e52d70fcf17f5530b59f2de7f6fda5af9ae8f4ee1a0c4d489f63c8d5bf8"
+    },
+    {
+      "path": "godot/textures/living/spine_01.png",
+      "size": 7364,
+      "sha256": "81cd1aae63bc5b9d147f633bd1fd969820133511566bcb4faaeaca4e939f3898"
+    },
+    {
+      "path": "godot/textures/living/spine_02.png",
+      "size": 7780,
+      "sha256": "0c60ad0c4417b9a4968546297155eea5549201b6fa2979334733a1bbc588b80b"
+    },
+    {
+      "path": "godot/textures/living/spine_03.png",
+      "size": 10049,
+      "sha256": "a60bf852f6ab82f22d7649c502fe3f7902f2ff84c0c95ac46b556bac1d4b4749"
+    },
+    {
+      "path": "godot/textures/living/spine_04.png",
+      "size": 10776,
+      "sha256": "f5f7917ff5f4cf017bb2cea461b55e10ae0d788e6732dc7087c27111ba8cbe94"
+    },
+    {
+      "path": "godot/textures/living/spine_05.png",
+      "size": 13260,
+      "sha256": "558f91b3dd3485b5c4e78c9500c9222521c565ac5a3a4e787c68c275cc2d5dd5"
+    },
+    {
+      "path": "godot/textures/living/spine_06.png",
+      "size": 9524,
+      "sha256": "09e2ef111332fc28510113f1ae2af16ceb620672e336cb8071371045c34203a7"
+    },
+    {
+      "path": "godot/textures/living/spine_07.png",
+      "size": 11901,
+      "sha256": "812607aa6c1a3a3159fda07b1b42e9c85f4ee587742d850d31ae6f0d67250985"
+    },
+    {
+      "path": "godot/textures/living/spine_08.png",
+      "size": 8715,
+      "sha256": "f755699666671ec2d2964d39c2b369c03b407ff23282ac85ac4e7bcb441bd361"
+    },
+    {
+      "path": "godot/textures/living/spine_09.png",
+      "size": 12614,
+      "sha256": "3790bea6a14802f3406ee2747eeb6073c65f89d4ee4ab5886e7b3ba609dc6a1c"
+    },
+    {
+      "path": "godot/textures/living/spine_10.png",
+      "size": 9944,
+      "sha256": "57270d1ea10133922fcd6fb31384b4e2b6b7229c195712ea1b7a74d4593f9e72"
+    },
+    {
+      "path": "godot/textures/living/spine_11.png",
+      "size": 11343,
+      "sha256": "cdb7cb1e73227278323ae5a1e4d14aab1011a0fbf211e5ef44dc3e43f70dfc72"
+    },
+    {
+      "path": "godot/textures/living/spine_12.png",
+      "size": 9203,
+      "sha256": "6035adfdf4725f8664d7bdef09cb2e14c36f1103e1927cd1055aedf108c65d41"
+    },
+    {
+      "path": "godot/textures/living/spine_13.png",
+      "size": 9803,
+      "sha256": "229aa9ff9570e93e435279d40b0826f3f2e3390ead51e52668dbdf9c0466360b"
+    },
+    {
+      "path": "godot/textures/living/spine_14.png",
+      "size": 9548,
+      "sha256": "b4ba7b4ef40ab2187da96f0fbddd5bd8462d569363c91e8da4fc9cb1b5e5ed91"
+    },
+    {
+      "path": "godot/textures/living/spine_15.png",
+      "size": 7701,
+      "sha256": "71fe7a80cd5b1df68c6177be8059c7740471e72a032a0717733252166b05321b"
+    },
+    {
+      "path": "godot/textures/oak_albedo.png",
+      "size": 113606,
+      "sha256": "89c6dd023d81da11a5692dc573c33f7e6cbe8ef6a3211cd28808c4cfb13c9b5a"
+    },
+    {
+      "path": "godot/textures/oak_normal.png",
+      "size": 147497,
+      "sha256": "6450116bab52708f308ccae28e4f815f6194308e11f318e0247a60bd40c458d1"
+    },
+    {
+      "path": "godot/textures/oak_roughness.png",
+      "size": 19377,
+      "sha256": "69e2db9b8979f45eb589ac947d035418b28caf75e51904f84a0238c3fdf520e9"
+    },
+    {
+      "path": "godot/textures/plaster_albedo.png",
+      "size": 92379,
+      "sha256": "552ff5cfeb57609bbe64e8aa9a1a9d96ff1b8824a947ac3eee92dde8b4ceeee5"
+    },
+    {
+      "path": "godot/textures/plaster_normal.png",
+      "size": 370974,
+      "sha256": "78e364c4a9aa048b8e5372480a7916e3beac5eb15b279d6ea1ea424492904f7d"
+    },
+    {
+      "path": "godot/textures/plaster_roughness.png",
+      "size": 50814,
+      "sha256": "7e9a427c109cf265ab5ae619c056036357d4505ecf28bce47f7b5ad37093bffa"
+    },
+    {
+      "path": "godot/textures/rack_oak_albedo.png",
+      "size": 113486,
+      "sha256": "80a6a78a25c1d62166887d502da6b7addbbaed1068093887a7a5ac5ff59134da"
+    },
+    {
+      "path": "godot/textures/rack_oak_normal.png",
+      "size": 145794,
+      "sha256": "d750a444cf070694798500b40f1722868186e422977aef89477b2b634fbccaff"
+    },
+    {
+      "path": "godot/textures/rack_oak_roughness.png",
+      "size": 19421,
+      "sha256": "f2e8c6a77744ea4c17bfdbc86e82505dcb5dd51c6d66d73fe1cd3e8b4682a0fc"
+    },
+    {
+      "path": "godot/textures/rose_albedo.png",
+      "size": 136197,
+      "sha256": "1dc5e04cd32058e735568d4c1b4485c85ae5a2041e8445e0f36da5db909b483f"
+    },
+    {
+      "path": "godot/textures/rose_normal.png",
+      "size": 239564,
+      "sha256": "fe02fde12e180c675804547d828d331b13ac7c79758e1292209cffbeed01884c"
+    },
+    {
+      "path": "godot/textures/rose_roughness.png",
+      "size": 42250,
+      "sha256": "c9888fef099045dd9d806521f8e8c47ffbaea54ade069256fa51328ba3970297"
+    },
+    {
+      "path": "godot/textures/upright_oak_albedo.png",
+      "size": 124004,
+      "sha256": "449dd599cedbd91133a7c39a8af18838ccf1180f0a42853247b9c4e8639a7e30"
+    },
+    {
+      "path": "godot/textures/upright_oak_normal.png",
+      "size": 147719,
+      "sha256": "2b8eaf9c401236e19473e106b05876e58fb96647d4aabc08115b4949bc842e54"
+    },
+    {
+      "path": "godot/textures/upright_oak_roughness.png",
+      "size": 25004,
+      "sha256": "c066a9ed9d8a911a3f27af2efdc4827e50abc058b7ce447b1b848e4a0b4fe659"
+    },
+    {
+      "path": "godot/textures/woven_fine_normal.png",
+      "size": 906,
+      "sha256": "c9f2644829d444d38616713a91f92fdc162430b75b9ca72f6805d77c766f7696"
+    },
+    {
+      "path": "godot/tools/verify_skytree_v9.gd",
+      "size": 1156,
+      "sha256": "122f0e815dc31803e9b7770537a262a062b5a3fe109e3fac076ea92b7d6956ed"
+    },
+    {
+      "path": "godot/tools/verify_skytree_v9.gd.uid",
+      "size": 20,
+      "sha256": "3cde0279a4d9f2b4c2baeba76d0ed5ae30d59d91b4f30c3e58c2688ffedd1973"
+    },
+    {
+      "path": "godot/tools/vrm_to_glb.py",
+      "size": 3784,
+      "sha256": "fcef1a577696126c4a8d21f2d08e58d9fefcebdc6ac768a221958e37742019ae"
+    },
+    {
+      "path": "production_tools/bake_room_v6.py",
+      "size": 4632,
+      "sha256": "ee5448cc182e22af3e5170fed70202126e269854c71ba170d158d46471d87f08"
+    },
+    {
+      "path": "production_tools/living_textures_v10.py",
+      "size": 2954,
+      "sha256": "187b51fc2013bc07555509df58e4ea490345fa16292a496922ec741a951f00fb"
+    },
+    {
+      "path": "production_tools/refine_avatar_v6.py",
+      "size": 984,
+      "sha256": "937bbcbb2c7031f60ca54ab44163574c007d2f2ec1a4fc645a091f7f99a6a7be"
+    },
+    {
+      "path": "production_tools/refine_scene_v6.py",
+      "size": 5492,
+      "sha256": "5de78462ba57dea302067e5699127a447760be966fb6dc6eb55cd9e9ec4ea333"
+    }
+  ]
+}

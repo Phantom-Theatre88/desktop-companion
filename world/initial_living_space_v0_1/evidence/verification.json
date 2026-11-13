@@ -1,0 +1,32 @@
+{
+  "version": 10,
+  "real_ui_verified": true,
+  "engine": "Godot 4.7.2 / Metal Forward+",
+  "gui_errors": 0,
+  "gui_warnings": 0,
+  "original_checks": {
+    "project.godot": true,
+    "scripts/main.gd": true,
+    "scripts/room_integration.gd": true,
+    "avatar/akari_test.glb": true,
+    "source_blend": true,
+    "character_control_unchanged": true
+  },
+  "verified_views": [
+    "room",
+    "laptop",
+    "plants",
+    "books"
+  ],
+  "changes": [
+    "continuous bound books with printed spines, page edges, tilted rows and horizontal stacks",
+    "curved leaves with petioles and branches; two distinct pots",
+    "five-petal cherry blossoms instead of spheres",
+    "open laptop with 65-key keyboard, trackpad and display"
+  ],
+  "remaining": [
+    "植物の陰影・葉の不規則さは引き続き調整余地あり",
+    "参考画像と同等の写実性には未到達",
+    "PCは立体の美術小物で、操作できるOSではない"
+  ]
+}

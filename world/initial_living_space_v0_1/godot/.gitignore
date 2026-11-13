@@ -1,0 +1,7 @@
+.godot/
+*.import
+.DS_Store
+# Full binary assets are restored from the matching Dropbox ZIP.
+avatar/
+room/
+textures/
