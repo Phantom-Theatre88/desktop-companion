@@ -33,7 +33,7 @@ func make_rig(seed_value: int) -> Dictionary:
 func run_tests() -> void:
 	var rig := make_rig(1042)
 	var skeleton: Skeleton3D = rig.skeleton
-	var motor: Node3D = rig.motor
+	var motor = rig.motor
 	check(motor.diagnostics().bound, "Body binding must succeed")
 	check(motor.diagnostics().bone_count == 7, "Expected seven mapped bones")
 	check(motor.diagnostics().elapsed == 0.0, "New motor starts with zero elapsed time")
