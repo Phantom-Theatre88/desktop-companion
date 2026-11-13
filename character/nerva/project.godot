@@ -1,0 +1,10 @@
+; Standalone NERVA motor-control test fixture. Does not replace Character.
+config_version=5
+
+[application]
+config/name="NERVA Idle Motor Test"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
