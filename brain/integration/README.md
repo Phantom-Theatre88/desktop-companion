@@ -1,70 +1,126 @@
-# AKARI Brain Step 1 — OpenClaw × LangGraph
+# AKARI Brain Step 1｜日本語説明書・Mac検証手順
 
-**Status: implementation pushed; end-to-end runtime verification pending.**
-Current GitHub branch: heart-engine. This is a Brain integration prototype, not a new canon/LOCK.
-The existing brain/step1/canon_guard.py stays unchanged as an optional canon-reading utility.
+**現在地：実装コードは保存済み。OpenClawとLangGraphの実機連携は未検証。Step 1完成ではありません。**
 
-## Responsibility split
-- OpenClaw: conversation, memory retrieval, interpretation, and supplying goal/context/constraints.
-- LangGraph: per-job planning steps, local worker execution, retries, checkpoint/resume, status reporting.
-- Worker for the first local test: Ollama at 127.0.0.1:11434; no external-model forwarding.
-- Ghost, NERVA, Character: unchanged; their links are not implemented here.
+## 何を作ったか
 
-## Mac setup
-Requires Python 3.11+, running Ollama with a locally installed model, and a compatible OpenClaw installation.
+OpenClawが記憶から整理した目的・文脈をLangGraphへ委任し、LangGraphがローカルLLMで実行して、進捗・結果をOpenClawから照会できる構造です。
 
-1. From the repository root:
+| 担当 | 役割 |
+| --- | --- |
+| OpenClaw | 対話・長期記憶・依頼理解 |
+| LangGraph | 仕事の実行・状態管理・失敗時の再試行・標準チェックポイント |
+| Ollama | 最初の試験用ローカルLLM |
+| Ghost・NERVA・Character | 今回は未接続。既存LOCKを維持 |
 
-```sh
+OpenClawの記憶の**自動検索・自動書き戻しはまだ未実装**です。現在のプラグインではOpenClaw側が取得した文脈をcontextとして明示的に渡します。
+
+## 収録ファイル
+
+- service.py：LangGraphサービス（受付・実行・結果確認・再開）
+- requirements.txt：Python依存ライブラリ
+- openclaw-plugin/：OpenClaw連携の試作プラグイン
+- tests/：静的テスト
+- README.md：本書
+
+## A｜Macでサービスを起動
+
+前提：Python 3.11以上、Ollamaと利用可能なローカルモデル。初回のライブラリ導入にはインターネット接続が必要です。
+
+ターミナル①で実行（GitHubのリポジトリから操作する場合）：
+
+~~~bash
 cd brain/integration
+python3 --version
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-export AKARI_OLLAMA_MODEL='your-installed-model'
-export AKARI_API_TOKEN='a-long-random-locally-generated-secret'
+python3 -m pip install -r requirements.txt
+ollama list
+~~~
+
+次の「モデル名」をollama listで表示された実在の名前に置き換えます。
+
+~~~bash
+export AKARI_OLLAMA_MODEL='モデル名'
+export AKARI_API_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(24))')"
 export LANGGRAPH_STRICT_MSGPACK=true
 uvicorn service:app --host 127.0.0.1 --port 8765
-```
+~~~
 
-2. In a second terminal, install/build the OpenClaw plugin, and register the local folder per the OpenClaw version's official plugin instructions. Pass the same API token into the OpenClaw process:
+**期待結果：** Uvicornが127.0.0.1:8765で起動。ターミナル①は閉じません。
 
-```sh
-cd brain/integration/openclaw-plugin
-npm install
-npm run build
-```
+## B｜別ターミナルから仕事を送る
 
-The plugin targets the newer OpenClaw plugin SDK and requires a compatible Node.js/OpenClaw version. Do not assume the user's installed versions satisfy these requirements. Its runtime is not yet verified.
+認証トークンを別のターミナルでも設定する必要があります。ターミナル①で次の値を表示し、ターミナル②に設定します。トークンはチャットやGitHubへ投稿しないでください。
 
-3. OpenClaw exposes:
-- akari_delegate(goal, context, constraints, optional job_id) → immediate job ID
-- akari_job_status(job_id) → current status and result/error
-- akari_resume(job_id) → resume a partially checkpointed graph
+~~~bash
+printf '%s\n' "$AKARI_API_TOKEN"
+~~~
 
-OpenClaw should first retrieve relevant memory and pass it explicitly as context. This bridge itself does not automatically search or write OpenClaw memory. After successful completion OpenClaw must record the result through its normal memory workflow; the plugin only returns the status and result.
+ターミナル②：
 
-## HTTP smoke test without OpenClaw
-
-```sh
-curl -X POST http://127.0.0.1:8765/jobs \
+~~~bash
+export AKARI_API_TOKEN='ターミナル①で確認した値'
+curl -sS -X POST http://127.0.0.1:8765/jobs \
   -H "X-AKARI-Token: $AKARI_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"job_id":"akari-test-001","goal":"与えられた情報を三行で整理して","context":"8bit図鑑は既存の完成が優先","constraints":["不明なことを推測しない"]}'
-curl -H "X-AKARI-Token: $AKARI_API_TOKEN" http://127.0.0.1:8765/jobs/akari-test-001
-```
+  -d '{"job_id":"akari-test-001","goal":"この情報を日本語で3行に整理して","context":"8bit図鑑は既存の完成を優先。","constraints":["推測を事実と書かない"]}'
+curl -sS -H "X-AKARI-Token: $AKARI_API_TOKEN" \
+  http://127.0.0.1:8765/jobs/akari-test-001
+~~~
 
-A successful result returns status=completed and verification=nonempty_worker_response; this is **not a fact-check**. No model or failure returns failed, not a pretend completion. The same job_id is not intentionally executed twice.
+- queued：受け付けただけ。成功ではありません
+- running / verifying：処理中
+- completed：空でない文章が得られた（内容の正しさまでは未検証）
+- failed：モデル未設定や通信失敗など
+- duplicate: true：同じジョブIDで再投稿されたとき
 
-## Known limits
-- The SQLite AsyncSqliteSaver is for a single-machine prototype; not production-scale multi-worker.
-- An OS crash before the first checkpoint can lose an accepted queued job; non-idempotent external side effects are not supported.
-- A crash during a node can rerun that node. For Step 1 the worker only generates text; it does not modify files.
-- Local token-protected loopback service only. Do not send sensitive memory to untrusted external AI.
-- True OpenClaw memory search, Mac runtime, plugin build, crash-restart recovery, and parallel conversation must be verified on actual devices before declaring Step 1 complete.
-- No existing LOCK changed.
+処理が終わらなければ、最後のcurlをもう一度実行してください。
 
-## Tests
-```sh
+## C｜再起動して状態を確認
+
+ターミナル①をcontrol+Cで終了。同じディレクトリから、同じ環境変数を設定して再起動してください。保存先は .akari-local-data/jobs.sqlite です。その後、BのGETを再実行し、以前のjob_idの状態が見えるか確認します。
+
+**重要：** 突然停止時の完全復旧や外部ファイル操作の二重実行防止は未検証です。現在のワーカーは文章生成のみで、ファイル書込みは行いません。
+
+## D｜OpenClawプラグインを試す
+
+LangGraphサービス単体が動いたら、次を実行：
+
+~~~bash
+cd openclaw-plugin
+npm install
+npm run build
+~~~
+
+使用中のOpenClawの公式手順に従ってローカルプラグインを登録し、サービスと同じAKARI_API_TOKENをOpenClawのプロセスに設定してください。
+
+- akari_delegate：目的・文脈・制約を渡し、job_idを取得
+- akari_job_status：作業状態と結果を取得
+- akari_resume：保存済みの中断ジョブを再開
+
+**OpenClawのSDKバージョンとの互換性、ビルド、実際の読み込みは未検証です。** バージョンが合わない場合、出たエラーを確認して修正します。
+
+## E｜基本テスト
+
+~~~bash
+cd brain/integration
 python3 -m unittest discover -s tests -v
 python3 -m compileall -q service.py
-```
+~~~
+
+これらは基本契約・構文の確認であり、実際の連携成功を保証するものではありません。
+
+## 完成判定チェック
+
+- [ ] サービス起動
+- [ ] 仕事の登録、結果取得、失敗表示
+- [ ] 同じIDの重複処理防止
+- [ ] 再起動後の状態参照と中断再開
+- [ ] OpenClawプラグインのビルド・読み込み
+- [ ] OpenClawから委任・照会でき、仕事中も会話継続
+- [ ] OpenClawの長期記憶を参照し、結果を記憶に戻せる
+
+**現時点では実機による項目の合格は未確認。**
+
+正式LOCKは変更していません。旧brain/step1/canon_guard.pyは正本参照の補助コードとして維持しています。
