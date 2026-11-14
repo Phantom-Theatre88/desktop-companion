@@ -1,0 +1,6 @@
+.venv/
+.akari-local-data/
+__pycache__/
+*.pyc
+openclaw-plugin/node_modules/
+openclaw-plugin/dist/
