@@ -15,7 +15,7 @@ Requires Python 3.11+, running Ollama with a locally installed model, and a comp
 
 1. From the repository root:
 
-\`\`\`sh
+```sh
 cd brain/integration
 python3 -m venv .venv
 source .venv/bin/activate
@@ -24,15 +24,15 @@ export AKARI_OLLAMA_MODEL='your-installed-model'
 export AKARI_API_TOKEN='a-long-random-locally-generated-secret'
 export LANGGRAPH_STRICT_MSGPACK=true
 uvicorn service:app --host 127.0.0.1 --port 8765
-\`\`\`
+```
 
 2. In a second terminal, install/build the OpenClaw plugin, and register the local folder per the OpenClaw version's official plugin instructions. Pass the same API token into the OpenClaw process:
 
-\`\`\`sh
+```sh
 cd brain/integration/openclaw-plugin
 npm install
 npm run build
-\`\`\`
+```
 
 The plugin targets the newer OpenClaw plugin SDK and requires a compatible Node.js/OpenClaw version. Do not assume the user's installed versions satisfy these requirements. Its runtime is not yet verified.
 
@@ -45,13 +45,13 @@ OpenClaw should first retrieve relevant memory and pass it explicitly as context
 
 ## HTTP smoke test without OpenClaw
 
-\`\`\`sh
+```sh
 curl -X POST http://127.0.0.1:8765/jobs \
   -H "X-AKARI-Token: $AKARI_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"job_id":"akari-test-001","goal":"与えられた情報を三行で整理して","context":"8bit図鑑は既存の完成が優先","constraints":["不明なことを推測しない"]}'
 curl -H "X-AKARI-Token: $AKARI_API_TOKEN" http://127.0.0.1:8765/jobs/akari-test-001
-\`\`\`
+```
 
 A successful result returns status=completed and verification=nonempty_worker_response; this is **not a fact-check**. No model or failure returns failed, not a pretend completion. The same job_id is not intentionally executed twice.
 
@@ -64,7 +64,7 @@ A successful result returns status=completed and verification=nonempty_worker_re
 - No existing LOCK changed.
 
 ## Tests
-\`\`\`sh
+```sh
 python3 -m unittest discover -s tests -v
 python3 -m compileall -q service.py
-\`\`\`
+```
