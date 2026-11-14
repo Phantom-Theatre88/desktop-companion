@@ -1,0 +1,22 @@
+{
+  "id": "akari-langgraph",
+  "name": "AKARI LangGraph Bridge",
+  "description": "Delegate to local LangGraph and check progress",
+  "categories": [
+    "agent-runtimes"
+  ],
+  "contracts": {
+    "tools": [
+      "akari_delegate",
+      "akari_job_status",
+      "akari_resume"
+    ]
+  },
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false
+  }
+}
