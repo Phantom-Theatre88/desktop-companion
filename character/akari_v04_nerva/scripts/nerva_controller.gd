@@ -32,16 +32,23 @@ var _ghost_intent_remaining: float = 0.0
 # Current Ghost compatibility state; never treated as a NERVA emotion.
 var _ghost_boredom: float = 0.0
 var _ghost_sleepiness: float = 0.0
+var _ghost_curiosity: float = 0.65
+var _ghost_attention: float = 0.50
 
-func accept_ghost_state(boredom: float, sleepiness: float) -> void:
-    if not is_finite(boredom) or not is_finite(sleepiness):
+func accept_ghost_state(boredom: float, sleepiness: float,
+        curiosity: float = 0.65, attention: float = 0.50) -> void:
+    if not is_finite(boredom) or not is_finite(sleepiness) or not is_finite(curiosity) or not is_finite(attention):
         return
     _ghost_boredom = clampf(boredom, 0.0, 1.0)
     _ghost_sleepiness = clampf(sleepiness, 0.0, 1.0)
+    _ghost_curiosity = clampf(curiosity, 0.0, 1.0)
+    _ghost_attention = clampf(attention, 0.0, 1.0)
 
 func clear_ghost_state() -> void:
     _ghost_boredom = 0.0
     _ghost_sleepiness = 0.0
+    _ghost_curiosity = 0.65
+    _ghost_attention = 0.50
 
 
 func accept_ghost_intent(kind: String, strength: float) -> void:
@@ -173,8 +180,9 @@ func step(delta: float) -> void:
         if _gaze_countdown <= 0.0:
             # New targets at irregular intervals; no fixed repeating animation clip.
             var baseline: float = _rng.randf_range(1.9, 5.7)
-            var curious_scan: float = lerpf(baseline, 1.9, _ghost_boredom)
-            _gaze_countdown = lerpf(curious_scan, 5.7, _ghost_sleepiness)
+            var curiosity_drive: float = maxf(_ghost_boredom, maxf(0.0, _ghost_curiosity - 0.65) / 0.35)
+            var focus_hold: float = maxf(_ghost_sleepiness, maxf(0.0, _ghost_attention - 0.50) / 0.50)
+            _gaze_countdown = lerpf(lerpf(baseline, 1.9, clampf(curiosity_drive, 0.0, 1.0)), 5.7, clampf(focus_hold, 0.0, 1.0))
             var gaze_span := 18.0 if _ghost_intent == "scan" else 10.0
             _target_head_yaw = 0.0 if _ghost_intent == "sleep" else _rng.randf_range(-gaze_span, gaze_span)
             _target_head_pitch = _rng.randf_range(-5.0, 5.0)
