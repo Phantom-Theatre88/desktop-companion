@@ -29,6 +29,20 @@ var blink_value: float = 0.0
 var _ghost_intent: String = "idle"
 var _ghost_strength: float = 0.0
 var _ghost_intent_remaining: float = 0.0
+# Current Ghost compatibility state; never treated as a NERVA emotion.
+var _ghost_boredom: float = 0.0
+var _ghost_sleepiness: float = 0.0
+
+func accept_ghost_state(boredom: float, sleepiness: float) -> void:
+    if not is_finite(boredom) or not is_finite(sleepiness):
+        return
+    _ghost_boredom = clampf(boredom, 0.0, 1.0)
+    _ghost_sleepiness = clampf(sleepiness, 0.0, 1.0)
+
+func clear_ghost_state() -> void:
+    _ghost_boredom = 0.0
+    _ghost_sleepiness = 0.0
+
 
 func accept_ghost_intent(kind: String, strength: float) -> void:
     if not kind in ["idle", "attend", "rest", "blink", "scan", "drowsy", "sleep"]:
@@ -110,6 +124,7 @@ func _apply_idle_pose(_delta: float) -> void:
     var t := _idle_time
     var enable := 1.0 if _idle_enabled else 0.0
     var energy := _gesture_energy * enable
+    energy *= 1.0 - _ghost_sleepiness
     if _ghost_intent in ["rest", "drowsy"]:
         energy *= 1.0 - 0.8 * _ghost_strength
     elif _ghost_intent == "sleep":
@@ -152,7 +167,9 @@ func step(delta: float) -> void:
         _gaze_countdown -= delta
         if _gaze_countdown <= 0.0:
             # New targets at irregular intervals; no fixed repeating animation clip.
-            _gaze_countdown = _rng.randf_range(1.9, 5.7)
+            var baseline: float = _rng.randf_range(1.9, 5.7)
+            var curious_scan: float = lerpf(baseline, 1.9, _ghost_boredom)
+            _gaze_countdown = lerpf(curious_scan, 5.7, _ghost_sleepiness)
             var gaze_span := 18.0 if _ghost_intent == "scan" else 10.0
             _target_head_yaw = 0.0 if _ghost_intent == "sleep" else _rng.randf_range(-gaze_span, gaze_span)
             _target_head_pitch = _rng.randf_range(-5.0, 5.0)
