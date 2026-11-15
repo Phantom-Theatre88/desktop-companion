@@ -46,6 +46,8 @@ async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--time-scale", type=float, default=1.0,
                         help="test-only Ghost clock acceleration (default: real time)")
+    parser.add_argument("--headless", action="store_true",
+                        help="run without console input until stopped")
     args = parser.parse_args()
     if not 1.0 <= args.time_scale <= 60.0:
         parser.error("--time-scale must be between 1 and 60")
@@ -85,9 +87,13 @@ async def main() -> None:
             clients.discard(ws)
 
     async with serve(connection, "127.0.0.1", 8766):
-        print("Ghost runs autonomously. Test input: near | quiet | blink | status | quit", flush=True)
+        print("Ghost runs autonomously. Local websocket: 127.0.0.1:8766", flush=True)
         task = asyncio.create_task(autonomous_loop())
         try:
+            if args.headless:
+                await asyncio.Event().wait()
+                return
+            print("Optional test input: near | quiet | blink | status | quit", flush=True)
             while True:
                 line = await asyncio.to_thread(sys.stdin.readline)
                 if not line or line.strip() == "quit":
