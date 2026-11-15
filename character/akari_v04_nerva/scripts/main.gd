@@ -273,6 +273,8 @@ func _process(delta: float) -> void:
     _sync_nerva()
     _nerva.step(delta)
     _apply_expression("blink", _nerva.blink_value)
+    if not _smiling:
+        _apply_expression("happy", _nerva.smile_value)
 
 func _update_status() -> void:
     if status_label == null:
