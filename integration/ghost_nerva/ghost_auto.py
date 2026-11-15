@@ -70,6 +70,29 @@ class GhostAutonomy:
         self.action = "idle"
         return self.action
 
+    def touch(self, now_ms: int) -> str:
+        """Simulated TOUCH event, not real sensor input.
+
+        Uses the existing CoreS3 first-touch table. Repeated-stimulus
+        habituation and relationship learning remain unimplemented.
+        """
+        if now_ms < self.elapsed_ms:
+            raise ValueError("Ghost time cannot run backwards")
+        self.elapsed_ms = now_ms
+        self.mood = clamp01(self.mood + 0.03)
+        self.affection = clamp01(self.affection + 0.02)
+        self.boredom = clamp01(self.boredom - 0.04)
+        self.sleepiness = clamp01(self.sleepiness - 0.04)
+        self.attention = clamp01(self.attention + 0.04)
+        self.last_event_ms = now_ms
+        self.last_boredom_ms = now_ms
+        self.last_sleepiness_ms = now_ms
+        self.last_meaningful_ms = now_ms
+        self.awake_hold_until_ms = now_ms + 15_000
+        self.last_decision_ms = now_ms
+        self.action = "idle"
+        return self.action
+
     def tick(self, now_ms: int) -> str | None:
         """Update six-state partial Heart; emit only semantic action changes."""
         if now_ms < self.elapsed_ms:
