@@ -43,7 +43,7 @@ class GhostBoundaryTests(unittest.TestCase):
             SemanticEvent('e1', 'greeting', 10, 'person-A'),
             HeartSnapshot(.7, .6, 10))
         self.assertEqual(first.context.prior_same_kind, ())
-        self.assertIsNone(first.context.relationship_evidence.events[0] if first.context.relationship_evidence and first.context.relationship_evidence.events else None)
+        self.assertEqual(first.context.relationship_evidence.events, ())
         second = self.g.remember_then_record(
             SemanticEvent('e2', 'greeting', 20, 'person-A'),
             HeartSnapshot(.8, .7, 20))
