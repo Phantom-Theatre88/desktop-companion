@@ -34,6 +34,7 @@ button{color:#e9f4fd;background:#26495f;border:1px solid #44738d;border-radius:9
 <div class="item"><label>NERVAの実受信</label><strong>未確認</strong></div>
 <div class="item"><label>Ghost経過時間</label><strong id="elapsed">—</strong></div>
 <div class="item"><label>試験イベント記録</label><strong id="memory">—</strong></div>
+<div class="item"><label>呼びかけ後の覚醒保持</label><strong id="awake-hold">—</strong></div>
 </div><p class="muted">NERVAの受信確認機能はまだ実装されていません。「送信」と「身体動作成功」は区別します。</p></section>
 <section class="card wide"><h2>開発用コントローラー</h2>
 <p class="muted">実行すると既存の試験刺激が記録され、意図が送信されます。Ghostの自発的判断ではありません。</p>
@@ -41,6 +42,7 @@ button{color:#e9f4fd;background:#26495f;border:1px solid #44738d;border-radius:9
 <button data-event="near" disabled>注意を向ける（試験）</button>
 <button data-event="quiet" disabled>静かな状態（試験）</button>
 <button data-event="blink" disabled>瞬き（試験）</button>
+<button data-event="wake" disabled>呼びかけて起こす（試験）</button>
 </div><p class="muted" id="command-result">Ghostとの接続後に操作できます。</p></section>
 <section class="card wide"><div class="line"><h2>時系列ログ</h2><button id="save-log" disabled>ログを保存</button></div>
 <ol class="eventlog" id="events" aria-live="polite"></ol>
@@ -51,7 +53,7 @@ button{color:#e9f4fd;background:#26495f;border:1px solid #44738d;border-radius:9
 const $=id=>document.getElementById(id);
 let socket=null,serial=0,logs=[],reconnect=null,lastSequence=-1;
 const intentLabels={idle:"通常待機",scan:"周囲を見る",drowsy:"眠そう",sleep:"睡眠",attend:"注意を向ける",rest:"静かにする",blink:"瞬き"};
-const names={ghost_autonomous_spike:"Ghost自発（部分試作）",viewer_test:"Viewer試験",console_test:"端末試験",state_sync:"現在状態の同期",state_resync:"自発状態へ復帰"};
+const names={viewer_test_wake:"Viewer呼びかけ（試験）",console_test_wake:"端末呼びかけ（試験）",ghost_autonomous_spike:"Ghost自発（部分試作）",viewer_test:"Viewer試験",console_test:"端末試験",state_sync:"現在状態の同期",state_resync:"自発状態へ復帰"};
 function log(kind,message){const row={time:new Date().toLocaleTimeString("ja-JP"),kind,message};logs.push(row);if(logs.length>500)logs.shift();const li=document.createElement("li"),badge=document.createElement("span");badge.className="tag";badge.textContent=kind;li.append(badge,document.createTextNode(row.time+"  "+message));$("events").prepend(li);while($("events").children.length>150)$("events").lastElementChild.remove();$("save-log").disabled=false;}
 function metric(id,value){if(typeof value!=="number"||!Number.isFinite(value))return;const v=Math.min(1,Math.max(0,value));$(id+"-value").textContent=Math.round(v*100)+"%";$(id+"-bar").style.width=(v*100)+"%";}
 function connect(){
@@ -66,14 +68,15 @@ function connect(){
   metric("boredom",m.autonomy?.boredom);metric("sleepiness",m.autonomy?.sleepiness);
   $("action").textContent=intentLabels[m.autonomy?.action]||m.autonomy?.action||"未取得";
   $("elapsed").textContent=Math.round((m.clock?.elapsed_ms||0)/1000)+"秒"+(m.clock?.test_scale!==1?"（時間加速試験）":"");
-  $("memory").textContent=String(m.memory_spike?.record_count??"—")+"件（試験のみ）";return;
+  $("memory").textContent=String(m.memory_spike?.record_count??"—")+"件（試験のみ）";
+  $("awake-hold").textContent=Math.ceil((m.autonomy?.awake_hold_remaining_ms||0)/1000)+"秒";return;
  }
  if(m.type==="ghost_intent"){
   $("last-intent").textContent=intentLabels[m.intent?.kind]||m.intent?.kind||"不明";
   $("source").textContent=names[m.source]||m.source||"未分類";
   if(m.sequence===lastSequence&&m.source==="ghost_autonomous_spike")return;
   lastSequence=m.sequence;
-  log(m.source==="ghost_autonomous_spike"?"自発判断":(m.source==="state_sync"||m.source==="state_resync")?"状態同期":"テスト意図",($("source").textContent)+" → "+$("last-intent").textContent+"（NERVA受信未確認）");return;
+  log(m.source==="ghost_autonomous_spike"?"自発判断":(m.source==="state_sync"||m.source==="state_resync")?"状態同期":m.source?.endsWith("_wake")?"呼びかけ試験":"テスト意図",($("source").textContent)+" → "+$("last-intent").textContent+"（NERVA受信未確認）");return;
  }
  if(m.type==="viewer_test_ack"){$("command-result").textContent=m.accepted?"テスト入力受付済み（身体動作は未確認）":"拒否されました";log("テスト受付",m.request_id+" : "+$("command-result").textContent);}
  };
