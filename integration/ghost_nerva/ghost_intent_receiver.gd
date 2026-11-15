@@ -44,11 +44,14 @@ func _handle(message: Dictionary) -> void:
         var sleepiness = state.get("sleepiness")
         var curiosity = state.get("curiosity", 0.65)
         var attention = state.get("attention", 0.50)
-        for number in [boredom, sleepiness, curiosity, attention]:
+        var mood = state.get("mood", 0.60)
+        var affection = state.get("affection", 0.55)
+        for number in [boredom, sleepiness, curiosity, attention, mood, affection]:
             if not (number is float or number is int):
                 return
         get_parent().get("_nerva").accept_ghost_state(
-            float(boredom), float(sleepiness), float(curiosity), float(attention))
+            float(boredom), float(sleepiness), float(curiosity), float(attention),
+            float(mood), float(affection))
         return
     if message.get("type") != "ghost_intent" or int(message.get("version", -1)) != 1:
         return
