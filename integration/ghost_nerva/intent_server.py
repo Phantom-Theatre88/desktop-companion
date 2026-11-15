@@ -76,6 +76,8 @@ def snapshot(sequence: int, ghost: Ghost, autonomy: GhostAutonomy,
         },
         "memory_spike": {
             "record_count": len(ghost.memory.recall()), "persistent": False,
+            "last_event_mood_before": ghost.memory.recall()[-1].heart_before.mood if ghost.memory.recall() else None,
+            "last_event_mood_after": ghost.memory.recall()[-1].heart_after.mood if ghost.memory.recall() else None,
             "note": "test events only; no complete experience learning",
             "last_event_prior_same_kind_count": prior_same_kind_count,
         },
@@ -105,7 +107,7 @@ async def run_server(*, time_scale: float = 1.0, headless: bool = False,
                      stop_event: asyncio.Event | None = None) -> None:
     if not 1.0 <= time_scale <= 60.0:
         raise ValueError("time_scale must be between 1 and 60")
-    ghost = Ghost(HeartSnapshot(mood=0.0, comfort=0.5, captured_ms=0))
+    ghost = Ghost(HeartSnapshot(mood=0.60, comfort=0.5, captured_ms=0))
     autonomy = GhostAutonomy()
     clients: set = set()
     sequence = 0
@@ -141,10 +143,10 @@ async def run_server(*, time_scale: float = 1.0, headless: bool = False,
         async with send_lock:
             sequence += 1
             now_ms = int((time.monotonic() - started) * 1000)
-            processed = ghost.remember_then_record(
-                SemanticEvent(f"test-{sequence}", kind, now_ms),
-                ghost.heart.snapshot())
-            latest_prior_same_kind_count = len(processed.context.prior_same_kind)
+            # Sync current compatibility Mood before storing experience.
+            # Comfort remains a fixed test-only boundary, not a completed score.
+            ghost.heart.observe(
+                HeartSnapshot(mood=autonomy.mood, comfort=0.5, captured_ms=now_ms))
             if kind in ("wake", "touch"):
                 ghost_ms = int((time.monotonic() - started) * 1000 * time_scale)
                 if kind == "wake":
@@ -158,6 +160,10 @@ async def run_server(*, time_scale: float = 1.0, headless: bool = False,
             else:
                 message = envelope(sequence, kind)
                 message["source"] = source
+            processed = ghost.remember_then_record(
+                SemanticEvent(f"test-{sequence}", kind, now_ms),
+                HeartSnapshot(mood=autonomy.mood, comfort=0.5, captured_ms=now_ms))
+            latest_prior_same_kind_count = len(processed.context.prior_same_kind)
             if request_id is not None:
                 message["request_id"] = request_id
             await broadcast(message)
