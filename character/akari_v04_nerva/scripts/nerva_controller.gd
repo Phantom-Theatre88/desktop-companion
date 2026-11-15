@@ -31,11 +31,11 @@ var _ghost_strength: float = 0.0
 var _ghost_intent_remaining: float = 0.0
 
 func accept_ghost_intent(kind: String, strength: float) -> void:
-    if not kind in ["idle", "attend", "rest", "blink"]:
+    if not kind in ["idle", "attend", "rest", "blink", "scan", "drowsy", "sleep"]:
         return
     _ghost_intent = kind
     _ghost_strength = clampf(strength, 0.0, 1.0)
-    _ghost_intent_remaining = 2.5 if kind == "attend" else 4.0
+    _ghost_intent_remaining = -1.0 if kind in ["scan", "drowsy", "sleep", "idle"] else (2.5 if kind == "attend" else 4.0)
     if kind == "attend":
         # NERVA chooses the pose and transition; Ghost sends no joint angles.
         _target_head_pitch = -6.0 * _ghost_strength
@@ -44,6 +44,10 @@ func accept_ghost_intent(kind: String, strength: float) -> void:
         _gaze_countdown = _ghost_intent_remaining
     elif kind == "blink":
         request_blink()
+    elif kind == "scan":
+        _gaze_countdown = 0.0
+    elif kind == "sleep":
+        _reset_targets()
 
 func clear_ghost_intent() -> void:
     _ghost_intent = "idle"
@@ -106,8 +110,10 @@ func _apply_idle_pose(_delta: float) -> void:
     var t := _idle_time
     var enable := 1.0 if _idle_enabled else 0.0
     var energy := _gesture_energy * enable
-    if _ghost_intent == "rest":
+    if _ghost_intent in ["rest", "drowsy"]:
         energy *= 1.0 - 0.8 * _ghost_strength
+    elif _ghost_intent == "sleep":
+        energy = 0.0
     var breath := sin(t * 1.65)
     var sway := sin(t * 0.41) * 0.7 + sin(t * 0.67 + 0.3) * 0.3
     var ease := 1.0 - pow(1.0 - clampf(_arms_down, 0.0, 1.0), 2.0)
@@ -147,7 +153,8 @@ func step(delta: float) -> void:
         if _gaze_countdown <= 0.0:
             # New targets at irregular intervals; no fixed repeating animation clip.
             _gaze_countdown = _rng.randf_range(1.9, 5.7)
-            _target_head_yaw = _rng.randf_range(-10.0, 10.0)
+            var gaze_span := 18.0 if _ghost_intent == "scan" else 10.0
+            _target_head_yaw = 0.0 if _ghost_intent == "sleep" else _rng.randf_range(-gaze_span, gaze_span)
             _target_head_pitch = _rng.randf_range(-5.0, 5.0)
             _target_eye_yaw = _rng.randf_range(-8.0, 8.0)
             _target_body_yaw = _rng.randf_range(-4.0, 4.0)
@@ -157,6 +164,9 @@ func step(delta: float) -> void:
         _eye_yaw = lerpf(_eye_yaw, _target_eye_yaw, 1.0 - exp(-delta * 3.0))
     _apply_idle_pose(delta)
 
+    if _ghost_intent == "sleep":
+        blink_value = 1.0
+        return
     if _blink_phase >= 0.0:
         _blink_phase += delta
         var amount := 1.0 - absf(_blink_phase - 0.105) / 0.105
