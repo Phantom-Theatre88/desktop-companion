@@ -14,6 +14,7 @@
 2. Python 3.11以上で、`python3 -m pip install 'websockets>=12,<17'`。
 3. `python3 -m unittest discover -s integration/ghost_nerva -v` で契約試験。
 4. `python3 integration/ghost_nerva/intent_server.py` でローカル送信機を起動。
+   - 端末入力なしで常時試験するなら `python3 integration/ghost_nerva/intent_server.py --headless`（Ctrl+Cで停止）。
    - 時間経過テストを短縮する場合は `python3 integration/ghost_nerva/intent_server.py --time-scale 60`（**検証専用**。実生活の時間加速設定ではない）。
 5. Dropboxに保存したCharacter v0.4のGodotプロジェクトを**別フォルダへ複製**。
 6. その複製にGitHub `character/akari_v04_nerva/scripts/main.gd` と `nerva_controller.gd` を適用。元版は変更しない。
