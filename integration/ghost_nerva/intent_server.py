@@ -21,7 +21,7 @@ sys.path.insert(0, str(GHOST_SOURCE))
 from ghost_core import Ghost, HeartSnapshot, SemanticEvent  # noqa: E402
 from ghost_auto import GhostAutonomy  # noqa: E402
 
-TEST_KINDS = frozenset(("near", "quiet", "blink", "wake"))
+TEST_KINDS = frozenset(("near", "quiet", "blink", "wake", "touch"))
 VIEWER_ORIGINS = (None, "http://127.0.0.1:8767", "http://localhost:8767")
 
 
@@ -31,7 +31,8 @@ def intent_from_test_event(kind: str) -> dict:
         "near": {"kind": "attend", "strength": 0.55},
         "quiet": {"kind": "rest", "strength": 0.25},
         "blink": {"kind": "blink", "strength": 1.0},
-        "wake": {"kind": "idle", "strength": 0.0},  # semantic wake, handled by GhostAutonomy
+        "wake": {"kind": "idle", "strength": 0.0},  # semantic wake
+        "touch": {"kind": "attend", "strength": 0.55},  # simulated TOUCH
         "status": {"kind": "idle", "strength": 0.0},  # legacy console API
     }[kind]
 
@@ -144,11 +145,16 @@ async def run_server(*, time_scale: float = 1.0, headless: bool = False,
                 SemanticEvent(f"test-{sequence}", kind, now_ms),
                 ghost.heart.snapshot())
             latest_prior_same_kind_count = len(processed.context.prior_same_kind)
-            if kind == "wake":
+            if kind in ("wake", "touch"):
                 ghost_ms = int((time.monotonic() - started) * 1000 * time_scale)
-                autonomy.wake(ghost_ms)
-                message = autonomous_envelope(sequence, autonomy.action)
-                message["source"] = source + "_wake"
+                if kind == "wake":
+                    autonomy.wake(ghost_ms)
+                    message = autonomous_envelope(sequence, autonomy.action)
+                    message["source"] = source + "_wake"
+                else:
+                    autonomy.touch(ghost_ms)
+                    message = envelope(sequence, kind)
+                    message["source"] = source + "_touch"
             else:
                 message = envelope(sequence, kind)
                 message["source"] = source
@@ -157,7 +163,7 @@ async def run_server(*, time_scale: float = 1.0, headless: bool = False,
             await broadcast(message)
             await broadcast(snapshot(sequence, ghost, autonomy, time_scale, latest_prior_same_kind_count))
             restore_generation += 1
-            if kind != "wake":
+            if kind not in ("wake", "touch"):
                 asyncio.create_task(restore_autonomy(restore_generation))
 
     async def autonomous_loop() -> None:
@@ -208,14 +214,14 @@ async def run_server(*, time_scale: float = 1.0, headless: bool = False,
             elif headless:
                 await asyncio.Future()
             else:
-                print("Console test: near | quiet | blink | wake | status | quit", flush=True)
+                print("Console test: near | quiet | blink | wake | touch | status | quit", flush=True)
                 while True:
                     line = await asyncio.to_thread(sys.stdin.readline)
                     if not line or line.strip() == "quit":
                         break
                     kind = line.strip()
                     if kind not in TEST_KINDS | {"status"}:
-                        print("Use near, quiet, blink, wake, status or quit", flush=True)
+                        print("Use near, quiet, blink, wake, touch, status or quit", flush=True)
                     elif kind == "status":
                         await broadcast(snapshot(sequence, ghost, autonomy, time_scale))
                     else:
