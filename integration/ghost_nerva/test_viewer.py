@@ -29,7 +29,7 @@ class ViewerContractTests(unittest.TestCase):
         self.assertEqual(validate_viewer_command(
             '{"type":"viewer_test_event","version":1,"kind":"near","request_id":"abc"}'),
             ("near", "abc"))
-        self.assertEqual(TEST_KINDS, {"near", "quiet", "blink"})
+        self.assertEqual(TEST_KINDS, {"near", "quiet", "blink", "wake"})
 
     def test_snapshot_uses_live_values_and_labels_spikes(self):
         ghost = Ghost(HeartSnapshot(0, .5, 0))
@@ -43,6 +43,16 @@ class ViewerContractTests(unittest.TestCase):
         self.assertEqual(data["memory_spike"]["record_count"], 0)
         self.assertFalse(data["relationship"]["implemented"])
         self.assertEqual(data["heart_spike"]["status"], "initial_test_values_not_autonomously_updated")
+
+    def test_existing_wake_response_is_temporary_not_sleep_deletion(self):
+        autonomy = GhostAutonomy()
+        autonomy.tick(1_800_000)
+        self.assertEqual(autonomy.action, "sleep")
+        self.assertEqual(autonomy.wake(1_800_000), "idle")
+        self.assertEqual(autonomy.tick(1_806_000), None)
+        self.assertEqual(autonomy.action, "idle")
+        autonomy.tick(1_830_000)
+        self.assertEqual(autonomy.action, "sleep")
 
     def test_autonomous_intent_has_distinct_source(self):
         data = autonomous_envelope(3, "drowsy")
