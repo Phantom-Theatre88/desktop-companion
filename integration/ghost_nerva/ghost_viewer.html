@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AKARI | Ghost Viewer v0.1</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#0c141c;color:#e8f0f7}
+*{box-sizing:border-box}body{max-width:1120px;margin:0 auto;padding:28px 20px}header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+h1{margin:0;font-size:27px;letter-spacing:.03em}h2{margin:0 0 12px;font-size:16px}p{line-height:1.6}.sub,.muted{color:#9caebc;font-size:13px}.sub{margin:5px 0}
+.status{display:flex;align-items:center;gap:9px;color:#aebdca;font-size:14px}.dot{width:9px;height:9px;background:#c77a67;border-radius:50%}.status.on .dot{background:#63d0a5}
+main{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(280px,0.82fr);gap:16px}
+.card{background:#14212d;border:1px solid #2a3c4a;border-radius:14px;padding:20px;min-width:0}
+.wide{grid-column:1/-1}.bars{display:grid;gap:19px}.line{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:7px}.track{height:9px;border-radius:12px;background:#31414d;overflow:hidden}.fill{width:0%;height:100%;background:linear-gradient(90deg,#609bc6,#9acbdb);transition:width .35s}
+.value{font-variant-numeric:tabular-nums}.metric-note{color:#8195a6;font-size:11px;margin-top:5px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.item{background:#1b2b38;border-radius:10px;padding:13px}.item label{display:block;font-size:12px;color:#95aab8;margin-bottom:7px}.item strong{font-size:17px;word-break:break-word}
+button{color:#e9f4fd;background:#26495f;border:1px solid #44738d;border-radius:9px;padding:12px 15px;font-size:14px;cursor:pointer}button:disabled{opacity:.38;cursor:not-allowed}button:not(:disabled):hover{background:#30617d}
+.actions{display:flex;flex-wrap:wrap;gap:8px}code{color:#9fcee6}.eventlog{list-style:none;padding:0;margin:0;max-height:270px;overflow:auto}
+.eventlog li{padding:9px 2px;border-bottom:1px solid #2b3946;font-size:13px;line-height:1.5}
+.tag{font-size:11px;padding:3px 6px;border-radius:5px;background:#334c60;margin-right:8px}
+.info{border-left:3px solid #477d96;padding-left:12px;margin-top:15px}.notice{margin-top:15px;padding:10px;border-radius:8px;background:#263440;color:#bbd0dd;font-size:12px}
+@media(max-width:770px){main{grid-template-columns:1fr}.wide{grid-column:auto}body{padding:18px 12px}}
+</style></head><body>
+<header><div><h1>AKARI <span style="color:#91c6da">Ghost Viewer</span></h1>
+<p class="sub">v0.1 · Mac / 開発・診断用 · 正式なGhost全体ではなく統合試作の観測</p></div>
+<div id="connection" class="status"><span class="dot"></span><span id="connection-text">未接続</span></div></header>
+<main>
+<section class="card"><h2>Ghostの現在の状態（実データ）</h2>
+<div class="bars">
+<div><div class="line"><span>退屈</span><strong class="value" id="boredom-value">—</strong></div><div class="track"><div class="fill" id="boredom-bar"></div></div><div class="metric-note">既存C++の無刺激時処理を移植した試作値</div></div>
+<div><div class="line"><span>眠気</span><strong class="value" id="sleepiness-value">—</strong></div><div class="track"><div class="fill" id="sleepiness-bar"></div></div><div class="metric-note">既存C++の無刺激時処理を移植した試作値</div></div>
+</div><div class="notice">気分・安心感・関係性の完成値はまだ表示しません。現行Pythonの気分・安心感は固定初期値で、Ghostの自律変化とは異なります。</div></section>
+<section class="card"><h2>判断と接続</h2><div class="grid">
+<div class="item"><label>Ghostの自発判断</label><strong id="action">未取得</strong></div>
+<div class="item"><label>最後に送った意図</label><strong id="last-intent">未取得</strong></div>
+<div class="item"><label>意図の由来</label><strong id="source">未取得</strong></div>
+<div class="item"><label>NERVAの実受信</label><strong>未確認</strong></div>
+<div class="item"><label>Ghost経過時間</label><strong id="elapsed">—</strong></div>
+<div class="item"><label>試験イベント記録</label><strong id="memory">—</strong></div>
+</div><p class="muted">NERVAの受信確認機能はまだ実装されていません。「送信」と「身体動作成功」は区別します。</p></section>
+<section class="card wide"><h2>開発用コントローラー</h2>
+<p class="muted">実行すると既存の試験刺激が記録され、意図が送信されます。Ghostの自発的判断ではありません。</p>
+<div class="actions">
+<button data-event="near" disabled>注意を向ける（試験）</button>
+<button data-event="quiet" disabled>静かな状態（試験）</button>
+<button data-event="blink" disabled>瞬き（試験）</button>
+</div><p class="muted" id="command-result">Ghostとの接続後に操作できます。</p></section>
+<section class="card wide"><div class="line"><h2>時系列ログ</h2><button id="save-log" disabled>ログを保存</button></div>
+<ol class="eventlog" id="events" aria-live="polite"></ol>
+<div class="info muted">自発判断・テスト操作・状態取得は別々の種別で記録します。ログはViewer画面内にのみ保持され、Ghostの経験記憶には使いません。</div></section>
+</main>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+let socket=null,serial=0,logs=[],reconnect=null,lastSequence=-1;
+const intentLabels={idle:"通常待機",scan:"周囲を見る",drowsy:"眠そう",sleep:"睡眠",attend:"注意を向ける",rest:"静かにする",blink:"瞬き"};
+const names={ghost_autonomous_spike:"Ghost自発（部分試作）",viewer_test:"Viewer試験",console_test:"端末試験"};
+function log(kind,message){const row={time:new Date().toLocaleTimeString("ja-JP"),kind,message};logs.push(row);if(logs.length>500)logs.shift();const li=document.createElement("li"),badge=document.createElement("span");badge.className="tag";badge.textContent=kind;li.append(badge,document.createTextNode(row.time+"  "+message));$("events").prepend(li);while($("events").children.length>150)$("events").lastElementChild.remove();$("save-log").disabled=false;}
+function metric(id,value){if(typeof value!=="number"||!Number.isFinite(value))return;const v=Math.min(1,Math.max(0,value));$(id+"-value").textContent=Math.round(v*100)+"%";$(id+"-bar").style.width=(v*100)+"%";}
+function connect(){
+ clearTimeout(reconnect);socket=new WebSocket("ws://127.0.0.1:8766");
+ socket.onopen=()=>{$("connection").classList.add("on");$("connection-text").textContent="Ghost試作に接続中";document.querySelectorAll("[data-event]").forEach(b=>b.disabled=false);log("接続","Ghostへ接続");};
+ socket.onclose=()=>{$("connection").classList.remove("on");$("connection-text").textContent="切断中 · 再接続待機";document.querySelectorAll("[data-event]").forEach(b=>b.disabled=true);log("切断","Ghostが応答しません");reconnect=setTimeout(connect,3000);};
+ socket.onerror=()=>{}; // onclose handles failures
+ socket.onmessage=evt=>{
+ let m;try{m=JSON.parse(evt.data)}catch{return}
+ if(!m||m.version!==1)return;
+ if(m.type==="ghost_snapshot"){
+  metric("boredom",m.autonomy?.boredom);metric("sleepiness",m.autonomy?.sleepiness);
+  $("action").textContent=intentLabels[m.autonomy?.action]||m.autonomy?.action||"未取得";
+  $("elapsed").textContent=Math.round((m.clock?.elapsed_ms||0)/1000)+"秒"+(m.clock?.test_scale!==1?"（時間加速試験）":"");
+  $("memory").textContent=String(m.memory_spike?.record_count??"—")+"件（試験のみ）";return;
+ }
+ if(m.type==="ghost_intent"){
+  $("last-intent").textContent=intentLabels[m.intent?.kind]||m.intent?.kind||"不明";
+  $("source").textContent=names[m.source]||m.source||"未分類";
+  if(m.sequence===lastSequence&&m.source==="ghost_autonomous_spike")return;
+  lastSequence=m.sequence;
+  log(m.source==="ghost_autonomous_spike"?"自発判断":"テスト意図",($("source").textContent)+" → "+$("last-intent").textContent+"（NERVA受信未確認）");return;
+ }
+ if(m.type==="viewer_test_ack"){$("command-result").textContent=m.accepted?"テスト入力受付済み（身体動作は未確認）":"拒否されました";log("テスト受付",m.request_id+" : "+$("command-result").textContent);}
+ };
+}
+document.querySelectorAll("[data-event]").forEach(btn=>btn.addEventListener("click",()=>{
+ if(!socket||socket.readyState!==WebSocket.OPEN)return;
+ const kind=btn.dataset.event,requestId=String(Date.now())+"-"+(++serial);
+ socket.send(JSON.stringify({type:"viewer_test_event",version:1,kind,request_id:requestId}));
+ $("command-result").textContent="テスト入力を送信中…";log("操作",kind+"（Viewer試験。自発判断ではない）");
+}));
+$("save-log").addEventListener("click",()=>{
+ const blob=new Blob([JSON.stringify({tool:"AKARI Ghost Viewer v0.1",events:logs},null,2)],{type:"application/json"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="akari-ghost-viewer-log.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+});
+connect();
+</script></body></html>
