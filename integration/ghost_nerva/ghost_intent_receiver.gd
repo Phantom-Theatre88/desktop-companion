@@ -42,9 +42,13 @@ func _handle(message: Dictionary) -> void:
             return
         var boredom = state.get("boredom")
         var sleepiness = state.get("sleepiness")
-        if not (boredom is float or boredom is int) or not (sleepiness is float or sleepiness is int):
-            return
-        get_parent().get("_nerva").accept_ghost_state(float(boredom), float(sleepiness))
+        var curiosity = state.get("curiosity", 0.65)
+        var attention = state.get("attention", 0.50)
+        for number in [boredom, sleepiness, curiosity, attention]:
+            if not (number is float or number is int):
+                return
+        get_parent().get("_nerva").accept_ghost_state(
+            float(boredom), float(sleepiness), float(curiosity), float(attention))
         return
     if message.get("type") != "ghost_intent" or int(message.get("version", -1)) != 1:
         return
