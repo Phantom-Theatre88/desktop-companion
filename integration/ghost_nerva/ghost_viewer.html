@@ -51,7 +51,7 @@ button{color:#e9f4fd;background:#26495f;border:1px solid #44738d;border-radius:9
 const $=id=>document.getElementById(id);
 let socket=null,serial=0,logs=[],reconnect=null,lastSequence=-1;
 const intentLabels={idle:"通常待機",scan:"周囲を見る",drowsy:"眠そう",sleep:"睡眠",attend:"注意を向ける",rest:"静かにする",blink:"瞬き"};
-const names={ghost_autonomous_spike:"Ghost自発（部分試作）",viewer_test:"Viewer試験",console_test:"端末試験"};
+const names={ghost_autonomous_spike:"Ghost自発（部分試作）",viewer_test:"Viewer試験",console_test:"端末試験",state_sync:"現在状態の同期"};
 function log(kind,message){const row={time:new Date().toLocaleTimeString("ja-JP"),kind,message};logs.push(row);if(logs.length>500)logs.shift();const li=document.createElement("li"),badge=document.createElement("span");badge.className="tag";badge.textContent=kind;li.append(badge,document.createTextNode(row.time+"  "+message));$("events").prepend(li);while($("events").children.length>150)$("events").lastElementChild.remove();$("save-log").disabled=false;}
 function metric(id,value){if(typeof value!=="number"||!Number.isFinite(value))return;const v=Math.min(1,Math.max(0,value));$(id+"-value").textContent=Math.round(v*100)+"%";$(id+"-bar").style.width=(v*100)+"%";}
 function connect(){
@@ -73,7 +73,7 @@ function connect(){
   $("source").textContent=names[m.source]||m.source||"未分類";
   if(m.sequence===lastSequence&&m.source==="ghost_autonomous_spike")return;
   lastSequence=m.sequence;
-  log(m.source==="ghost_autonomous_spike"?"自発判断":"テスト意図",($("source").textContent)+" → "+$("last-intent").textContent+"（NERVA受信未確認）");return;
+  log(m.source==="ghost_autonomous_spike"?"自発判断":m.source==="state_sync"?"状態同期":"テスト意図",($("source").textContent)+" → "+$("last-intent").textContent+"（NERVA受信未確認）");return;
  }
  if(m.type==="viewer_test_ack"){$("command-result").textContent=m.accepted?"テスト入力受付済み（身体動作は未確認）":"拒否されました";log("テスト受付",m.request_id+" : "+$("command-result").textContent);}
  };
