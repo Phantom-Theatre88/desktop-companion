@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 from websockets.asyncio.server import serve
+from websockets.exceptions import ConnectionClosed
 
 GHOST_SOURCE = Path(__file__).resolve().parents[2] / "experiments" / "ghost_pc_spike"
 sys.path.insert(0, str(GHOST_SOURCE))
@@ -79,9 +80,14 @@ async def main() -> None:
     async def connection(ws) -> None:
         clients.add(ws)
         try:
-            await ws.send(json.dumps(envelope(sequence, "status")))
-            async for _ in ws:
-                # Character cannot change Ghost or WORLD through this channel.
+            # Late joiners must receive the CURRENT Ghost state, not fake idle.
+            await ws.send(json.dumps(autonomous_envelope(sequence, autonomy.action)))
+            try:
+                async for _ in ws:
+                    # Character cannot change Ghost or WORLD through this channel.
+                    pass
+            except ConnectionClosed:
+                # The renderer may be closed without a WebSocket close frame.
                 pass
         finally:
             clients.discard(ws)
