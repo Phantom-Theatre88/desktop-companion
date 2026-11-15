@@ -67,7 +67,7 @@ class ViewerWebsocketTests(unittest.IsolatedAsyncioTestCase):
                     await asyncio.sleep(.05)
             else:
                 self.fail("Ghost did not bind")
-            async with viewer:
+            try:
                 await asyncio.wait_for(viewer.recv(), 3)  # initial autonomous intent
                 initial = json.loads(await asyncio.wait_for(viewer.recv(), 3))
                 self.assertEqual(initial["type"], "ghost_snapshot")
@@ -83,6 +83,8 @@ class ViewerWebsocketTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(seen["ghost_intent"]["intent"]["kind"], "attend")
                 self.assertTrue(seen["viewer_test_ack"]["accepted"])
                 self.assertFalse("nerva_confirmed" in seen["viewer_test_ack"])
+            finally:
+                await viewer.close()
         finally:
             stop.set()
             await asyncio.wait_for(task, 3)
