@@ -34,21 +34,30 @@ var _ghost_boredom: float = 0.0
 var _ghost_sleepiness: float = 0.0
 var _ghost_curiosity: float = 0.65
 var _ghost_attention: float = 0.50
+var _ghost_mood: float = 0.60
+var _ghost_affection: float = 0.55
+var smile_value: float = 0.0
 
 func accept_ghost_state(boredom: float, sleepiness: float,
-        curiosity: float = 0.65, attention: float = 0.50) -> void:
-    if not is_finite(boredom) or not is_finite(sleepiness) or not is_finite(curiosity) or not is_finite(attention):
-        return
+        curiosity: float = 0.65, attention: float = 0.50,
+        mood: float = 0.60, affection: float = 0.55) -> void:
+    for number in [boredom, sleepiness, curiosity, attention, mood, affection]:
+        if not is_finite(number):
+            return
     _ghost_boredom = clampf(boredom, 0.0, 1.0)
     _ghost_sleepiness = clampf(sleepiness, 0.0, 1.0)
     _ghost_curiosity = clampf(curiosity, 0.0, 1.0)
     _ghost_attention = clampf(attention, 0.0, 1.0)
+    _ghost_mood = clampf(mood, 0.0, 1.0)
+    _ghost_affection = clampf(affection, 0.0, 1.0)
 
 func clear_ghost_state() -> void:
     _ghost_boredom = 0.0
     _ghost_sleepiness = 0.0
     _ghost_curiosity = 0.65
     _ghost_attention = 0.50
+    _ghost_mood = 0.60
+    _ghost_affection = 0.55
 
 
 func accept_ghost_intent(kind: String, strength: float) -> void:
@@ -170,6 +179,11 @@ func _apply_idle_pose(_delta: float) -> void:
     _rot("rightEye", eye_rot)
 
 func step(delta: float) -> void:
+    # NERVA converts received mood to a subtle blend; no new Ghost feeling.
+    var requested_smile: float = 0.0
+    if _ghost_intent != "sleep":
+        requested_smile = clampf((_ghost_mood - 0.60) / 0.10, 0.0, 1.0) * 0.35
+    smile_value = lerpf(smile_value, requested_smile, 1.0 - exp(-delta * 2.5))
     if _ghost_intent_remaining > 0.0:
         _ghost_intent_remaining -= delta
         if _ghost_intent_remaining <= 0.0:
