@@ -38,6 +38,41 @@ class GhostBoundaryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.g.time.tick(9)
 
+    def test_recall_precedes_commit_and_keeps_original_feelings(self):
+        first = self.g.remember_then_record(
+            SemanticEvent('e1', 'greeting', 10, 'person-A'),
+            HeartSnapshot(.7, .6, 10))
+        self.assertEqual(first.context.prior_same_kind, ())
+        self.assertIsNone(first.context.relationship_evidence.events[0] if first.context.relationship_evidence and first.context.relationship_evidence.events else None)
+        second = self.g.remember_then_record(
+            SemanticEvent('e2', 'greeting', 20, 'person-A'),
+            HeartSnapshot(.8, .7, 20))
+        self.assertEqual([e.event.event_id for e in second.context.prior_same_kind], ['e1'])
+        self.assertEqual([e.event.event_id for e in second.context.relationship_evidence.events], ['e1'])
+        self.assertEqual(second.context.heart_before.mood, .7)
+        self.assertEqual(second.experience.heart_after.mood, .8)
+        self.assertEqual(self.g.memory.recall()[0].heart_before.mood, .6)
+        self.assertEqual(len(self.g.memory.recall()), 2)
+
+    def test_unattributed_experience_not_assigned_to_person(self):
+        result = self.g.remember_then_record(
+            SemanticEvent('e1', 'near', 10),
+            HeartSnapshot(.6, .5, 10))
+        self.assertIsNone(result.context.relationship_evidence)
+        result2 = self.g.remember_then_record(
+            SemanticEvent('e2', 'near', 20),
+            HeartSnapshot(.6, .5, 20))
+        self.assertEqual(len(result2.context.prior_same_kind), 1)
+        self.assertIsNone(result2.context.relationship_evidence)
+
+    def test_nonmonotonic_new_event_does_not_commit(self):
+        self.g.remember_then_record(SemanticEvent('e1', 'near', 20),
+                                    HeartSnapshot(.6, .5, 20))
+        with self.assertRaises(ValueError):
+            self.g.remember_then_record(SemanticEvent('e2', 'near', 10),
+                                        HeartSnapshot(.9, .9, 10))
+        self.assertEqual(len(self.g.memory.recall()), 1)
+
     def test_five_core_interfaces(self):
         self.assertEqual(set(vars(self.g)), {'heart', 'memory', 'time', 'relationship', 'behavior'})
         self.assertEqual(self.g.behavior.describe_inputs(self.g.heart.snapshot(), None)['evidence_count'], 0)
