@@ -101,6 +101,7 @@ async def run_server(*, time_scale: float = 1.0, headless: bool = False,
     sequence = 0
     started = time.monotonic()
     send_lock = asyncio.Lock()
+    restore_generation = 0
 
     async def broadcast(message: dict) -> None:
         payload = json.dumps(message, ensure_ascii=False)
@@ -111,8 +112,21 @@ async def run_server(*, time_scale: float = 1.0, headless: bool = False,
                 clients.discard(ws)
         print(payload, flush=True)
 
-    async def emit_test(kind: str, source: str, request_id: str | None = None) -> None:
+    async def restore_autonomy(generation: int) -> None:
         nonlocal sequence
+        # Viewer tests are temporary. Reassert the current Ghost intent after
+        # NERVA trial motions expire; this is a sync, NOT a new Ghost decision.
+        await asyncio.sleep(4.3)
+        async with send_lock:
+            if generation != restore_generation:
+                return
+            sequence += 1
+            message = autonomous_envelope(sequence, autonomy.action)
+            message["source"] = "state_resync"
+            await broadcast(message)
+
+    async def emit_test(kind: str, source: str, request_id: str | None = None) -> None:
+        nonlocal sequence, restore_generation
         async with send_lock:
             sequence += 1
             now_ms = int((time.monotonic() - started) * 1000)
@@ -124,6 +138,8 @@ async def run_server(*, time_scale: float = 1.0, headless: bool = False,
                 message["request_id"] = request_id
             await broadcast(message)
             await broadcast(snapshot(sequence, ghost, autonomy, time_scale))
+            restore_generation += 1
+            asyncio.create_task(restore_autonomy(restore_generation))
 
     async def autonomous_loop() -> None:
         nonlocal sequence
