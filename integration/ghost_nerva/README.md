@@ -56,3 +56,16 @@ Godotのv0.5実モデルと肌色修正版を基に、上記連携を適用し�
 **未確認**：最新版ZIPでのGodot画面描画とMac実機の自然さ・かわいらしさ。Learning Aの長期保持、Relationship評価、心の状態が経験を踏まえて行動選択を変える処理、BrainやWORLDとの一体動作。既存の「退屈・眠気」はCoreS3互換試作であり、五中核Ghost全体の完成とみなさない。
 
 **次の判断基準**：AKARIの視線・呼吸・待機動作の見た目がGhost状態に応じて自然に変わるか。見え方を実機で確かめてから、Memory/Relationship根拠→Behavior→NERVAの実動作経路を拡げる。ViewerのUI拡張は最優先にしない。
+
+
+## 2026-11-16｜聖典再監査：Mac版GhostにCoreS3既存6状態を部分移植
+
+- 根拠：`docs/sacred/LOCK_GHOST_MOOD_COMFORT_SOCIAL_2026-10-21.md`、`LOCK_GHOST_EXPERIENCE_MEMORY_INTERPRETATION_TIME_2026-10-21.md`、`LOCK_GHOST_LEARNING_A_B_2026-10-21.md`、`LOCK_DESKTOP_AI_THREE_PILLARS_IMPLEMENTATION_2026-11-09.md`、`LOCK_CHARACTER_MOTOR_CONTROL_ARCHITECTURE_2026-11-12.md`、既存 `HeartEngine.cpp`／`BehaviorEngine.cpp`。
+- 旧 `GhostAutonomy` の2項目のみでは不十分だったため、CoreS3 `HeartState` の6項目（mood / affection / curiosity / boredom / sleepiness / attention）と初期値、無刺激時・WAKE_WORD_DETECTED／TOUCHの単発差分、平常値への既存回復式をMac互換試作へ追加。
+- `intent_server.py` の `ghost_snapshot.autonomy` に6項目を載せ、`state_origin=CoreS3_HeartState_6_partial_port`で出所を明示。Viewerには6項目を表示する。Comfort／Socialは独立した概念としてLOCK済みだが**数値と更新式は未決定／未実装**。8つの仮数値を作らない。
+- Viewerで「触れられた（模擬入力）」を行うと、既存CoreS3の `TOUCH` に相当する単発変化が起きる。実センサー入力ではない。呼びかけ・触覚はViewer試験と明示し、Ghost自発判断に混ぜない。
+- Character内のNERVAは好奇心・注意の実数値から既存の視線探索の間隔を調整する。Moodの平常値からの偏りを控えめな既存`happy`表情に連続補間する。NERVAは新しい感情を作らず、関節角度をGhostから受け取らない。
+- CoreS3の6つの変数の**完全移植ではない**。現行MacではMood/Affectionの真のセンサ処理・Relationship/Memory学習・電源断中の回復・繰り返し刺激のhabituationが未接続。Mood/Affectionの変化は模擬TOUCHでの検証だけ。Social/Comfortが完成したとは言わない。
+- 同梱実モデルv0.5のGLB／表情マップ／project.godotは前配布版とハッシュ一致。v0.5スクリプトの実行版は検証ZIPに保存し、GitHubの `character/akari_v04_nerva` は**旧v0.4参照**であってv0.5コードの代用品ではない。
+- ローカル検証（Linux/Python, websockets 16）：8件の単体＋WebSocket試験すべて通過、Viewer JavaScript構文チェック通過。Godot実機表示・かわいさ／自然さの合否は未確認。正式LOCKは変更していない。
+
