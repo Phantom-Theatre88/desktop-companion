@@ -25,6 +25,30 @@ var _eye_yaw: float = 0.0
 var _blink_phase: float = -1.0
 var _time_to_blink: float = 4.0
 var blink_value: float = 0.0
+## Experimental v0.4 integration: meaning from Ghost, movement remains NERVA-owned.
+var _ghost_intent: String = "idle"
+var _ghost_strength: float = 0.0
+var _ghost_intent_remaining: float = 0.0
+
+func accept_ghost_intent(kind: String, strength: float) -> void:
+    if not kind in ["idle", "attend", "rest", "blink"]:
+        return
+    _ghost_intent = kind
+    _ghost_strength = clampf(strength, 0.0, 1.0)
+    _ghost_intent_remaining = 2.5 if kind == "attend" else 4.0
+    if kind == "attend":
+        # NERVA chooses the pose and transition; Ghost sends no joint angles.
+        _target_head_pitch = -6.0 * _ghost_strength
+        _target_head_yaw = 0.0
+        _target_eye_yaw = 0.0
+        _gaze_countdown = _ghost_intent_remaining
+    elif kind == "blink":
+        request_blink()
+
+func clear_ghost_intent() -> void:
+    _ghost_intent = "idle"
+    _ghost_strength = 0.0
+    _ghost_intent_remaining = 0.0
 
 func initialize() -> void:
     _rng.randomize()
@@ -82,6 +106,8 @@ func _apply_idle_pose(_delta: float) -> void:
     var t := _idle_time
     var enable := 1.0 if _idle_enabled else 0.0
     var energy := _gesture_energy * enable
+    if _ghost_intent == "rest":
+        energy *= 1.0 - 0.8 * _ghost_strength
     var breath := sin(t * 1.65)
     var sway := sin(t * 0.41) * 0.7 + sin(t * 0.67 + 0.3) * 0.3
     var ease := 1.0 - pow(1.0 - clampf(_arms_down, 0.0, 1.0), 2.0)
@@ -111,6 +137,10 @@ func _apply_idle_pose(_delta: float) -> void:
     _rot("rightEye", eye_rot)
 
 func step(delta: float) -> void:
+    if _ghost_intent_remaining > 0.0:
+        _ghost_intent_remaining -= delta
+        if _ghost_intent_remaining <= 0.0:
+            clear_ghost_intent()
     if _idle_enabled:
         _idle_time += delta
         _gaze_countdown -= delta
