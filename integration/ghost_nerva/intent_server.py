@@ -49,7 +49,7 @@ def autonomous_envelope(sequence: int, kind: str) -> dict:
 
 
 def snapshot(sequence: int, ghost: Ghost, autonomy: GhostAutonomy,
-             time_scale: float) -> dict:
+             time_scale: float, prior_same_kind_count: int | None = None) -> dict:
     """Current *implemented* state, marked by provenance; no invented feelings."""
     heart = ghost.heart.snapshot()
     return {
@@ -70,6 +70,7 @@ def snapshot(sequence: int, ghost: Ghost, autonomy: GhostAutonomy,
         "memory_spike": {
             "record_count": len(ghost.memory.recall()), "persistent": False,
             "note": "test events only; no complete experience learning",
+            "last_event_prior_same_kind_count": prior_same_kind_count,
         },
         "relationship": {"implemented": False},
     }
@@ -104,6 +105,7 @@ async def run_server(*, time_scale: float = 1.0, headless: bool = False,
     started = time.monotonic()
     send_lock = asyncio.Lock()
     restore_generation = 0
+    latest_prior_same_kind_count: int | None = None
 
     async def broadcast(message: dict) -> None:
         payload = json.dumps(message, ensure_ascii=False)
@@ -128,12 +130,14 @@ async def run_server(*, time_scale: float = 1.0, headless: bool = False,
             await broadcast(message)
 
     async def emit_test(kind: str, source: str, request_id: str | None = None) -> None:
-        nonlocal sequence, restore_generation
+        nonlocal sequence, restore_generation, latest_prior_same_kind_count
         async with send_lock:
             sequence += 1
             now_ms = int((time.monotonic() - started) * 1000)
-            ghost.record_event(SemanticEvent(f"test-{sequence}", kind, now_ms),
-                               ghost.heart.snapshot())
+            processed = ghost.remember_then_record(
+                SemanticEvent(f"test-{sequence}", kind, now_ms),
+                ghost.heart.snapshot())
+            latest_prior_same_kind_count = len(processed.context.prior_same_kind)
             if kind == "wake":
                 ghost_ms = int((time.monotonic() - started) * 1000 * time_scale)
                 autonomy.wake(ghost_ms)
@@ -145,7 +149,7 @@ async def run_server(*, time_scale: float = 1.0, headless: bool = False,
             if request_id is not None:
                 message["request_id"] = request_id
             await broadcast(message)
-            await broadcast(snapshot(sequence, ghost, autonomy, time_scale))
+            await broadcast(snapshot(sequence, ghost, autonomy, time_scale, latest_prior_same_kind_count))
             restore_generation += 1
             if kind != "wake":
                 asyncio.create_task(restore_autonomy(restore_generation))
