@@ -36,3 +36,23 @@ v0.5の`main.gd`・`nerva_controller.gd`を基準にした複製検証パッケ�
 - **未完成**：Ghost全体の自発判断（現状はC++実装の無刺激時ロジックの部分移植のみ）、永続記憶、Brain会話、音声、WORLD、実機統合確認。
 
 この試験が成功したら、Python版Ghost全体との正式接続へ進む。新しい性格・感情の係数は本試験では確定しない。
+
+## 2026-11-15｜次のGhost→NERVA統合（最新進捗・従来版は保存）
+
+**目標はViewerの完成ではなく「AKARIのかわいさ・生命感・GhostとNERVAの自然な連携」。** Viewerは現象を観察する補助ツールに限る。既存LOCKは変更しない。
+
+### 最新コードで追加したもの
+
+- `experiments/ghost_pc_spike/ghost_core.py`：今回の経験をMemoryへ確定する**前**に、同種の過去経験とRelationshipの根拠（相手が明示されている場合のみ）を取得する`remember_then_record`。当時のHeart前後snapshotと事実を保持する。**行動の学習や人格の成長式は実装していない**。
+- `integration/ghost_nerva/intent_server.py`：試験入力をその新しい経路で記録。記録前に何件を思い出したかを診断用snapshotへ添付。Ghostの退屈・眠気の現在値を1秒ごとに送信（`source=ghost_autonomy_compatibility_spike`と明示）。
+- `integration/ghost_nerva/ghost_intent_receiver.gd` と `character/akari_v04_nerva/scripts/nerva_controller.gd`：`ghost_snapshot` の`boredom/sleepiness`をNERVAへ渡し、**視線探索の間隔と待機動作の強さに連続的に反映**。Ghostはボーン角度を決めない。受信途絶時は試験値を解除。睡眠中も呼吸を保ち、起床時は閉眼から再び開く。
+
+### v0.5実モデル配布について
+
+Godotのv0.5実モデルと肌色修正版を基に、上記連携を適用した**ChatGPT会話添付ZIP** `AKARI_Ghost_NERVA_Continuous_State_検証版.zip` を作成した。v0.5のGodotスクリプトは上記v0.4 GitHub版とは別物なので、v0.4スクリプトでv0.5の実装を上書きしないこと。ZIPにはv0.5専用の更新済みNERVA/receiverとPython Ghost試作を同梱する。GitHubの`heart-engine`はテキストソース正本、ZIPは実モデル同梱の検証配布物と区別する。
+
+**確認済み**：同梱Pythonの経験参照→記録／Wake→sleep復帰／Viewer入力／WebSocketでの継続状態配信をローカルPython統合試験で通過。GLB・project.godot・VRM表情マップが肌色補正版とハッシュ一致。
+
+**未確認**：最新版ZIPでのGodot画面描画とMac実機の自然さ・かわいらしさ。Learning Aの長期保持、Relationship評価、心の状態が経験を踏まえて行動選択を変える処理、BrainやWORLDとの一体動作。既存の「退屈・眠気」はCoreS3互換試作であり、五中核Ghost全体の完成とみなさない。
+
+**次の判断基準**：AKARIの視線・呼吸・待機動作の見た目がGhost状態に応じて自然に変わるか。見え方を実機で確かめてから、Memory/Relationship根拠→Behavior→NERVAの実動作経路を拡げる。ViewerのUI拡張は最優先にしない。
