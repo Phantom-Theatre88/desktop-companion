@@ -29,7 +29,7 @@ class ViewerContractTests(unittest.TestCase):
         self.assertEqual(validate_viewer_command(
             '{"type":"viewer_test_event","version":1,"kind":"near","request_id":"abc"}'),
             ("near", "abc"))
-        self.assertEqual(TEST_KINDS, {"near", "quiet", "blink", "wake"})
+        self.assertEqual(TEST_KINDS, {"near", "quiet", "blink", "wake", "touch"})
 
     def test_snapshot_uses_live_values_and_labels_spikes(self):
         ghost = Ghost(HeartSnapshot(0, .5, 0))
@@ -42,7 +42,38 @@ class ViewerContractTests(unittest.TestCase):
         self.assertEqual(data["clock"]["test_scale"], 60)
         self.assertEqual(data["memory_spike"]["record_count"], 0)
         self.assertFalse(data["relationship"]["implemented"])
-        self.assertEqual(data["heart_spike"]["status"], "initial_test_values_not_autonomously_updated")
+        self.assertEqual(data["heart_spike"]["status"], "separate_memory_boundary_test_only_not_active_heart")
+
+    def test_six_existing_state_fields_are_readable_but_not_eight_invented_scores(self):
+        state = GhostAutonomy()
+        self.assertEqual(
+            (state.mood, state.affection, state.curiosity,
+             state.boredom, state.sleepiness, state.attention),
+            (.60, .55, .65, .15, .15, .50))
+        data = snapshot(1, Ghost(HeartSnapshot(0, .5, 0)), state, 1)
+        self.assertEqual(data["autonomy"]["state_origin"], "CoreS3_HeartState_6_partial_port")
+        self.assertEqual(data["autonomy"]["pending"], ["comfort", "social"])
+        self.assertNotIn("comfort", data["autonomy"])
+        self.assertNotIn("social", data["autonomy"])
+
+    def test_touch_changes_mood_affection_without_inventing_comfort(self):
+        state = GhostAutonomy()
+        state.touch(1000)
+        self.assertAlmostEqual(state.mood, .63)
+        self.assertAlmostEqual(state.affection, .57)
+        self.assertAlmostEqual(state.attention, .54)
+        state.tick(31_000)
+        self.assertLess(state.mood, .63)
+        self.assertAlmostEqual(state.affection, .57)
+
+    def test_wake_restores_coreS3_attention_and_curiosity(self):
+        state = GhostAutonomy()
+        state.wake(1000)
+        self.assertAlmostEqual(state.curiosity, .68)
+        self.assertAlmostEqual(state.attention, .60)
+        state.tick(31_000)
+        self.assertLess(state.curiosity, .68)
+        self.assertLess(state.attention, .60)
 
     def test_existing_wake_response_is_temporary_not_sleep_deletion(self):
         autonomy = GhostAutonomy()
