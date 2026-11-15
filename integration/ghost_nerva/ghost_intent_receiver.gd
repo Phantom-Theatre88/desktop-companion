@@ -25,6 +25,7 @@ func _process(delta: float) -> void:
             if _was_connected:
                 _was_connected = false
                 get_parent().get("_nerva").clear_ghost_intent()
+                get_parent().get("_nerva").clear_ghost_state()
             _retry_time += delta
             if _retry_time >= 3.0:
                 _retry_time = 0.0
@@ -33,6 +34,18 @@ func _process(delta: float) -> void:
                 _socket.connect_to_url(url)
 
 func _handle(message: Dictionary) -> void:
+    if message.get("type") == "ghost_snapshot" and int(message.get("version", -1)) == 1:
+        if message.get("source") != "ghost_autonomy_compatibility_spike":
+            return
+        var state = message.get("autonomy")
+        if not state is Dictionary:
+            return
+        var boredom = state.get("boredom")
+        var sleepiness = state.get("sleepiness")
+        if not (boredom is float or boredom is int) or not (sleepiness is float or sleepiness is int):
+            return
+        get_parent().get("_nerva").accept_ghost_state(float(boredom), float(sleepiness))
+        return
     if message.get("type") != "ghost_intent" or int(message.get("version", -1)) != 1:
         return
     var seq := int(message.get("sequence", -1))
