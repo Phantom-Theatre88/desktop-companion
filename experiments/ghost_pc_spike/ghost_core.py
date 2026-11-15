@@ -65,6 +65,21 @@ class Memory:
 
 
 @dataclass(frozen=True)
+class ExperienceContext:
+    """Read-only evidence available BEFORE the current event is committed."""
+    event: SemanticEvent
+    heart_before: HeartSnapshot
+    prior_same_kind: tuple[Experience, ...]
+    relationship_evidence: Optional["RelationshipEvidence"]
+
+
+@dataclass(frozen=True)
+class ProcessedExperience:
+    context: ExperienceContext
+    experience: Experience
+
+
+@dataclass(frozen=True)
 class RelationshipEvidence:
     actor_id: str
     events: tuple[Experience, ...]
@@ -118,6 +133,29 @@ class Ghost:
         self.time = Time()
         self.relationship = Relationship(self.memory)
         self.behavior = Behavior()
+
+    def experience_context(self, event: SemanticEvent) -> ExperienceContext:
+        """Capture the past before recording this event.
+
+        No current event may appear among prior evidence. Actor-free events
+        must not be attributed to the user or any other person.
+        """
+        evidence = self.relationship.evidence_for(event.actor_id)
+        prior = tuple(x for x in self.memory.recall(kind=event.kind)
+                      if x.event.occurred_ms <= event.occurred_ms
+                      and (event.actor_id is None or x.event.actor_id == event.actor_id))
+        return ExperienceContext(event, self.heart.snapshot(), prior, evidence)
+
+    def remember_then_record(self, event: SemanticEvent,
+                             after: HeartSnapshot) -> ProcessedExperience:
+        """Learning A Step 2: look up existing experiences, then commit new one.
+
+        This is a data-flow foundation, NOT a learned reaction algorithm.
+        """
+        self.time.tick(event.occurred_ms)
+        context = self.experience_context(event)
+        experience = self.record_event(event, after)
+        return ProcessedExperience(context, experience)
 
     def record_event(self, event: SemanticEvent, after: HeartSnapshot) -> Experience:
         """Capture before, commit after. Relationship never writes Memory."""
