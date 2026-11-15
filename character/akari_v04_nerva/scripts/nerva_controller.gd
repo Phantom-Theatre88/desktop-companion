@@ -47,6 +47,8 @@ func clear_ghost_state() -> void:
 func accept_ghost_intent(kind: String, strength: float) -> void:
     if not kind in ["idle", "attend", "rest", "blink", "scan", "drowsy", "sleep"]:
         return
+    if _ghost_intent == "sleep" and kind != "sleep":
+        _blink_phase = 0.105  # peak of the v0.4 closure curve: reopen smoothly
     _ghost_intent = kind
     _ghost_strength = clampf(strength, 0.0, 1.0)
     _ghost_intent_remaining = -1.0 if kind in ["scan", "drowsy", "sleep", "idle"] else (2.5 if kind == "attend" else 4.0)
@@ -64,6 +66,8 @@ func accept_ghost_intent(kind: String, strength: float) -> void:
         _reset_targets()
 
 func clear_ghost_intent() -> void:
+    if _ghost_intent == "sleep":
+        _blink_phase = 0.105
     _ghost_intent = "idle"
     _ghost_strength = 0.0
     _ghost_intent_remaining = 0.0
@@ -145,7 +149,8 @@ func _apply_idle_pose(_delta: float) -> void:
 
     # Gentle body movement. Do not animate hips translation or feet: feet stay planted.
     _rot("spine", Quaternion(Vector3.FORWARD, deg_to_rad(energy * sway * 0.65)))
-    _rot("chest", Quaternion(Vector3.RIGHT, deg_to_rad(energy * breath * 0.85)))
+    # Breathing persists through sleep even when other gestures are at rest.
+    _rot("chest", Quaternion(Vector3.RIGHT, deg_to_rad(_gesture_energy * enable * breath * 0.85)))
     _rot("upperChest", Quaternion(Vector3.UP, deg_to_rad(energy * _target_body_yaw * 0.35)))
 
     var y := _manual_yaw + _yaw + energy * sin(t * 0.31) * 1.1
