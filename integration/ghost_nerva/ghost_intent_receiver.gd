@@ -42,7 +42,7 @@ func _handle(message: Dictionary) -> void:
     if not intent is Dictionary:
         return
     var kind := str(intent.get("kind", ""))
-    if not kind in ["idle", "attend", "rest", "blink"]:
+    if not kind in ["idle", "attend", "rest", "blink", "scan", "drowsy", "sleep"]:
         return
     _last_sequence = seq
     get_parent().get("_nerva").accept_ghost_intent(kind, clampf(float(intent.get("strength", 0.0)), 0.0, 1.0))
