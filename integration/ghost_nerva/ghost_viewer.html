@@ -24,9 +24,13 @@ button{color:#e9f4fd;background:#26495f;border:1px solid #44738d;border-radius:9
 <main>
 <section class="card"><h2>Ghostの現在の状態（実データ）</h2>
 <div class="bars">
+<div><div class="line"><span>気分（Mood）</span><strong class="value" id="mood-value">—</strong></div><div class="track"><div class="fill" id="mood-bar"></div></div><div class="metric-note">CoreS3初期値。刺激への実変化は未接続</div></div>
+<div><div class="line"><span>愛着（Affection）</span><strong class="value" id="affection-value">—</strong></div><div class="track"><div class="fill" id="affection-bar"></div></div><div class="metric-note">CoreS3初期値。Relationshipによる学習は未接続</div></div>
+<div><div class="line"><span>好奇心（Curiosity）</span><strong class="value" id="curiosity-value">—</strong></div><div class="track"><div class="fill" id="curiosity-bar"></div></div><div class="metric-note">呼びかけの試験刺激で変化し、平常値へ回復</div></div>
 <div><div class="line"><span>退屈</span><strong class="value" id="boredom-value">—</strong></div><div class="track"><div class="fill" id="boredom-bar"></div></div><div class="metric-note">既存C++の無刺激時処理を移植した試作値</div></div>
 <div><div class="line"><span>眠気</span><strong class="value" id="sleepiness-value">—</strong></div><div class="track"><div class="fill" id="sleepiness-bar"></div></div><div class="metric-note">既存C++の無刺激時処理を移植した試作値</div></div>
-</div><div class="notice">気分・安心感・関係性の完成値はまだ表示しません。現行Pythonの気分・安心感は固定初期値で、Ghostの自律変化とは異なります。</div></section>
+<div><div class="line"><span>注意（Attention）</span><strong class="value" id="attention-value">—</strong></div><div class="track"><div class="fill" id="attention-bar"></div></div><div class="metric-note">呼びかけの試験刺激で変化し、平常値へ回復</div></div>
+</div><div class="notice">CoreS3既存6状態の部分移植。安心感（Comfort）と交流欲求（Social）は聖典で独立性のみLOCK、数値処理は未実装。気分と愛着も現在のMac試作では自律更新・学習が未接続です。</div></section>
 <section class="card"><h2>判断と接続</h2><div class="grid">
 <div class="item"><label>Ghostの自発判断</label><strong id="action">未取得</strong></div>
 <div class="item"><label>最後に送った意図</label><strong id="last-intent">未取得</strong></div>
@@ -65,7 +69,7 @@ function connect(){
  let m;try{m=JSON.parse(evt.data)}catch{return}
  if(!m||m.version!==1)return;
  if(m.type==="ghost_snapshot"){
-  metric("boredom",m.autonomy?.boredom);metric("sleepiness",m.autonomy?.sleepiness);
+  for(const key of ["mood","affection","curiosity","boredom","sleepiness","attention"])metric(key,m.autonomy?.[key]);
   $("action").textContent=intentLabels[m.autonomy?.action]||m.autonomy?.action||"未取得";
   $("elapsed").textContent=Math.round((m.clock?.elapsed_ms||0)/1000)+"秒"+(m.clock?.test_scale!==1?"（時間加速試験）":"");
   $("memory").textContent=String(m.memory_spike?.record_count??"—")+"件（試験のみ）";
