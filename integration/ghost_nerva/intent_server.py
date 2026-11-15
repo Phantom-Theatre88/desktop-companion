@@ -142,7 +142,9 @@ async def run_server(*, time_scale: float = 1.0, headless: bool = False,
         try:
             # Late joiners see real current autonomy, not a fabricated idle state.
             async with send_lock:
-                await ws.send(json.dumps(autonomous_envelope(sequence, autonomy.action)))
+                current = autonomous_envelope(sequence, autonomy.action)
+                current["source"] = "state_sync"
+                await ws.send(json.dumps(current))
                 await ws.send(json.dumps(snapshot(sequence, ghost, autonomy, time_scale)))
             try:
                 async for raw in ws:
