@@ -2,6 +2,12 @@
 
 状態：**試作／正式LOCKは変更しない**。WORLDの高度化や専用PC購入は不要。
 
+### 2026-11-15 実モデル試験（重要）
+
+Dropboxに**Character v0.5**（46ボーン・改良された視線／呼吸／指の待機動作）が存在することを確認。したがって、このディレクトリにある古い `character/akari_v04_nerva` をそのままv0.5の代用にしてはいけない。
+
+v0.5の`main.gd`・`nerva_controller.gd`を基準にした複製検証パッケージはChatGPT Library「ロボット／AKARI_Ghost_NERVA_Character_検証版.zip」へ保存。Character v0.4の同じ3Dモデルを含む。Godot 4.6.3のヘッドレス試験で **GLB実モデルのメッシュ3件読込と、Ghostの自発意図 `idle → drowsy → sleep` をNERVAが受信**することを確認した。画面での自然さやMac実機は未評価。正式LOCKと元Dropbox版は変更していない。
+
 ## 目的
 
 既存Ghostのイベント記録を保持しつつ、意味を持つ試験用意図だけをWebSocketでNERVAへ送る。NERVAはその意図をもとに身体の動きを生成し、Character v0.4の3D身体を動かす。**Ghostは首の角度・アニメーション番号を指定しない。**
