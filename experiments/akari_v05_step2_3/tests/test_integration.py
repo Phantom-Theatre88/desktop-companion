@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 BASE=Path(__file__).resolve().parents[1]/'akari_motion_test'/'ghost_server'
 sys.path.insert(0,str(BASE))
-from intent_server import run_server, validate_result, intent_message
+from intent_server import run_server, validate_result, intent_message, state_message
 from ghost_core import Ghost, HeartSnapshot, SemanticEvent
 from behavior_bridge import BehaviorBridge
 from ghost_auto import GhostAutonomy
@@ -52,6 +52,22 @@ class BoundaryTests(unittest.TestCase):
         self.assertIn('func _apply_stance(',gd)
         self.assertIn('func _apply_relaxed_hands(',gd)
 
+    def test_complete_state_snapshot(self):
+        snapshot=state_message(GhostAutonomy())
+        self.assertEqual(snapshot['type'],'ghost_snapshot')
+        self.assertEqual(snapshot['version'],1)
+        self.assertTrue(all(0 <= value <= 1 for value in snapshot['state'].values()))
+        self.assertEqual(len(snapshot['state']),6)
+
+    def test_receiver_and_nerva_state_wiring(self):
+        root=BASE.parents[0]
+        receiver=(root/'scripts'/'ghost_intent_receiver.gd').read_text()
+        nerva=(root/'scripts'/'nerva_controller.gd').read_text()
+        self.assertIn('accept_ghost_state(validated)',receiver)
+        self.assertIn('func accept_ghost_state(',nerva)
+        self.assertIn('clear_ghost_state()',receiver)
+        self.assertIn('state_factor',nerva)
+
     def test_validation(self):
         self.assertIsNone(validate_result('{invalid'))
         self.assertIsNone(validate_result(json.dumps({'type':'nerva_result','version':1,'sequence':True,'status':'applied_frame','model_bound':True})))
@@ -74,6 +90,9 @@ class WebsocketTests(unittest.IsolatedAsyncioTestCase):
                 except OSError: await asyncio.sleep(.05)
             else:self.fail('server not started')
             async with ws:
+                snapshot=json.loads(await ws.recv())
+                self.assertEqual(snapshot['type'],'ghost_snapshot')
+                self.assertEqual(set(snapshot['state']), {'mood','affection','curiosity','boredom','sleepiness','attention'})
                 msg=json.loads(await ws.recv());self.assertEqual(msg['source'],'state_sync')
                 found=None
                 for _ in range(45):
