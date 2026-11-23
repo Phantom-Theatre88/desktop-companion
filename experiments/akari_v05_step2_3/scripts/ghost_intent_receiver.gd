@@ -78,7 +78,7 @@ func _handle(message: Dictionary) -> void:
     if not intent is Dictionary:
         return
     var kind := str(intent.get("kind", ""))
-    if not kind in ["idle", "attend", "rest", "blink", "scan", "drowsy", "sleep"]:
+    if not kind in ["idle", "attend", "rest", "blink", "scan", "drowsy", "sleep", "explore", "sit", "rise"]:
         return
     # Return result for a displaced transient; no false completion of persistent intents.
     if _pending_result >= 0 and _pending_result != seq:
