@@ -15,6 +15,7 @@ from websockets.exceptions import ConnectionClosed
 from ghost_core import Ghost, HeartSnapshot, SemanticEvent
 from ghost_auto import GhostAutonomy
 from behavior_bridge import BehaviorBridge
+from experience_journal import ExperienceJournal
 
 ALLOWED = frozenset({'near','quiet','blink','status'})
 TEST_INTENTS = {'near': 'attend', 'quiet':'rest','blink':'blink'}
@@ -40,11 +41,12 @@ def validate_result(text: str) -> dict | None:
     if type(data.get('model_bound')) is not bool: return None
     return data
 
-async def run_server(time_scale=1.0,stop_event=None,headless=True):
+async def run_server(time_scale=1.0,stop_event=None,headless=True,journal_path=None):
     if not 1<=time_scale<=60: raise ValueError('time_scale range 1..60')
     ghost=Ghost(HeartSnapshot(.60,.5,0))
     autonomy=GhostAutonomy()
-    bridge=BehaviorBridge(ghost)
+    journal = ExperienceJournal(journal_path) if journal_path is not None else None
+    bridge=BehaviorBridge(ghost, journal)
     clients=set(); sequence=0; started=time.monotonic(); lock=asyncio.Lock()
     last_snapshot_second = -1
     async def send(payload):
@@ -115,11 +117,13 @@ async def run_server(time_scale=1.0,stop_event=None,headless=True):
                         async with lock: await emit(TEST_INTENTS[kind],'console_test')
         finally:
             task.cancel(); await asyncio.gather(task,return_exceptions=True)
+            if journal is not None: journal.close()
 
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--time-scale',type=float,default=1.0)
     parser.add_argument('--headless',action='store_true')
+    parser.add_argument('--journal',type=Path,default=None,help='Optional experimental durable Memory ledger (SQLite)')
     args=parser.parse_args()
-    asyncio.run(run_server(args.time_scale,headless=args.headless))
+    asyncio.run(run_server(args.time_scale,headless=args.headless,journal_path=args.journal))
 if __name__=='__main__':main()
