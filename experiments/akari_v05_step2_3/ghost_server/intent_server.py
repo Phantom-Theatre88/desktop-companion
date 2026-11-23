@@ -16,6 +16,7 @@ from ghost_core import Ghost, HeartSnapshot, SemanticEvent
 from ghost_auto import GhostAutonomy
 from behavior_bridge import BehaviorBridge
 from experience_journal import ExperienceJournal
+from life_policy import LifePolicy
 
 ALLOWED = frozenset({'near','quiet','blink','status'})
 TEST_INTENTS = {'near': 'attend', 'quiet':'rest','blink':'blink'}
@@ -41,12 +42,13 @@ def validate_result(text: str) -> dict | None:
     if type(data.get('model_bound')) is not bool: return None
     return data
 
-async def run_server(time_scale=1.0,stop_event=None,headless=True,journal_path=None,life_trial=False):
+async def run_server(time_scale=1.0,stop_event=None,headless=True,journal_path=None,life_trial=False,auto_life=False):
     if not 1<=time_scale<=60: raise ValueError('time_scale range 1..60')
     ghost=Ghost(HeartSnapshot(.60,.5,0))
     autonomy=GhostAutonomy(life_trial_enabled=life_trial)
     journal = ExperienceJournal(journal_path) if journal_path is not None else None
     bridge=BehaviorBridge(ghost, journal)
+    policy = LifePolicy(ghost.memory.recall()) if auto_life else None
     clients=set(); sequence=0; started=time.monotonic(); lock=asyncio.Lock()
     last_snapshot_second = -1
     async def send(payload):
@@ -55,7 +57,7 @@ async def run_server(time_scale=1.0,stop_event=None,headless=True,journal_path=N
             try: await ws.send(message)
             except ConnectionClosed: clients.discard(ws)
         print(message,flush=True)
-    async def emit(kind,source):
+    async def emit(kind,source,decision_basis=None):
         nonlocal sequence
         selection=bridge.select(kind)
         sequence+=1
@@ -64,7 +66,7 @@ async def run_server(time_scale=1.0,stop_event=None,headless=True,journal_path=N
         await send({'type':'behavior_evidence','version':1,'sequence':sequence,
                     'experience_count':selection.experience_count,
                     'relationship_count':selection.relationship_count,
-                    'last_result':selection.last_result,'basis':selection.basis,
+                    'last_result':selection.last_result,'basis':decision_basis or selection.basis,
                     'heart_compatibility':state_message(autonomy)['state']})
     async def tick_loop():
         nonlocal last_snapshot_second
@@ -72,8 +74,13 @@ async def run_server(time_scale=1.0,stop_event=None,headless=True,journal_path=N
             await asyncio.sleep(0.2)
             async with lock:
                 elapsed_ms=int((time.monotonic()-started)*1000*time_scale)
-                kind=autonomy.tick(elapsed_ms)
-                if kind is not None: await emit(kind,'ghost_time_compatibility')
+                baseline_kind=autonomy.tick(elapsed_ms)
+                if policy is not None:
+                    kind = policy.choose(elapsed_ms, autonomy.boredom, autonomy.sleepiness, ghost.memory.recall(),
+                                         observation_now_ms=int((time.monotonic()-started)*1000))
+                    if kind is not None: await emit(kind,'ghost_experience_behavior_trial',policy.decision_basis)
+                elif baseline_kind is not None:
+                    await emit(baseline_kind,'ghost_time_compatibility')
                 # Keep Character informed even when the discrete intent is unchanged.
                 # A state snapshot carries measured/derived values, never new emotions.
                 snapshot_second = elapsed_ms // 1000
@@ -87,10 +94,20 @@ async def run_server(time_scale=1.0,stop_event=None,headless=True,journal_path=N
             await ws.send(json.dumps(intent_message(sequence,autonomy.action,'state_sync')))
         try:
             async for raw in ws:
+                try: inbound = json.loads(raw)
+                except (ValueError, TypeError): continue
+                if policy is not None and isinstance(inbound, dict) and inbound.get('type') == 'nerva_observation':
+                    async with lock:
+                        now_ms=int((time.monotonic()-started)*1000*time_scale)
+                        policy.observe(inbound, int((time.monotonic()-started)*1000))
+                    continue
                 data=validate_result(raw)
                 if data is None: continue
                 async with lock:
                     if bridge.accept_result(data):
+                        if policy is not None:
+                            now_ms=int((time.monotonic()-started)*1000*time_scale)
+                            policy.result(bridge.intent_kinds.get(data['sequence'],''), data['status'], now_ms, ghost.memory.recall())
                         autonomy.on_motion_result(bridge.intent_kinds.get(data['sequence'], ''), data['status'])
                         await send({'type':'ghost_feedback','version':1,'sequence':data['sequence'],
                                     'status':data['status'],'model_bound':data['model_bound']})
@@ -124,8 +141,9 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--time-scale',type=float,default=1.0)
     parser.add_argument('--headless',action='store_true')
-    parser.add_argument('--life-trial', action='store_true', help='Experimental spatial body circuit; not a personality LOCK')
+    parser.add_argument('--life-trial', action='store_true', help='Original scripted regression trial')
+    parser.add_argument('--auto-life', action='store_true', help='Provisional observed-stage Ghost behavior; not a personality LOCK')
     parser.add_argument('--journal',type=Path,default=None,help='Optional experimental durable Memory ledger (SQLite)')
     args=parser.parse_args()
-    asyncio.run(run_server(args.time_scale,headless=args.headless,journal_path=args.journal,life_trial=args.life_trial))
+    asyncio.run(run_server(args.time_scale,headless=args.headless,journal_path=args.journal,life_trial=args.life_trial,auto_life=args.auto_life))
 if __name__=='__main__':main()
