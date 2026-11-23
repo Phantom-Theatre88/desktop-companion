@@ -320,20 +320,34 @@ func _advance_life(delta: float) -> void:
     if _ghost_intent == "explore":
         # Progress and gait share the SAME travelled distance; a time-only
         # sinusoid on a translating root makes the feet skate on the floor.
-        var progress: float = _ease(_life_phase / 6.0)
-        var x_next: float = lerpf(_life_start_x, _life_target_x, progress)
-        var dx: float = x_next - _last_walk_x
-        _last_walk_x = x_next
-        motion_root.position.x = x_next
-        # Avatar faces the direction of travel instead of sideways sliding.
-        # Turn in/out continuously; return to the seated stage's forward pose.
-        motion_root.rotation.y = 1.40 * clampf(sin(PI * progress) * 2.0, 0.0, 1.0)
+        # AKARI's GLB has its face toward +Z (verified from Face/Hair geometry).
+        # Motion destination is -X, so facing yaw is -PI/2, NOT +1.40.
+        # Separate TURN -> MOVE -> TURN_BACK: root translation must not start
+        # until the character is facing the travel direction.
+        var travel := Vector3(_life_target_x - _life_start_x, 0.0, 0.0)
+        var travel_yaw := atan2(travel.x, travel.z) # +Z model forward
+        const TURN_SECONDS := 0.8
+        const WALK_SECONDS := 4.4
+        var walk_progress: float = 0.0
+        if _life_phase < TURN_SECONDS:
+            motion_root.rotation.y = lerp_angle(0.0, travel_yaw, _ease(_life_phase / TURN_SECONDS))
+            motion_root.position.x = _life_start_x
+            _walk_envelope = 0.0
+        elif _life_phase < TURN_SECONDS + WALK_SECONDS:
+            motion_root.rotation.y = travel_yaw
+            walk_progress = _ease((_life_phase - TURN_SECONDS) / WALK_SECONDS)
+            motion_root.position.x = lerpf(_life_start_x, _life_target_x, walk_progress)
+            _walk_envelope = clampf(sin(PI * walk_progress) * 2.1, 0.0, 1.0)
+        else:
+            motion_root.rotation.y = lerp_angle(travel_yaw, 0.0, _ease((_life_phase - TURN_SECONDS - WALK_SECONDS) / TURN_SECONDS))
+            motion_root.position.x = _life_target_x
+            _walk_envelope = 0.0
+        var dx: float = motion_root.position.x - _last_walk_x
+        _last_walk_x = motion_root.position.x
         _gait_distance += absf(dx)
-        # Approx 0.27 m / cycle is a deliberately short test stride.
+        # The walk cycle advances only while travelling; no in-place backstep.
         _walk_cycle = _gait_distance * TAU / 0.27
-        # Step height and arm swing fade out at either end of the traversal.
-        _walk_envelope = clampf(sin(PI * progress) * 2.1, 0.0, 1.0)
-        _body_action_name = "explore / distance-driven gait trial"
+        _body_action_name = "explore / face-correct turn-walk-turn trial"
         if _life_phase >= 6.0:
             _walk_envelope = 0.0
             motion_root.rotation.y = 0.0
