@@ -1,12 +1,13 @@
 extends Node3D
 
 # v0.3: Procedural idle + neutral standing. Godot Standard 4.3+ / GDScript.
-const AVATAR_PATH := "res://avatar/akari_test.glb"
+const AVATAR_PATH := "res://avatar/akari_animated.glb"
 const NervaController = preload("res://scripts/nerva_controller.gd")
 var _nerva = NervaController.new()
 var expression_map: Dictionary = {}
 var character: Node3D
 var skeleton: Skeleton3D
+var mocap_player: AnimationPlayer
 var face: MeshInstance3D
 var _pose_sliders: Array[HSlider] = []
 var status_label: Label
@@ -67,7 +68,7 @@ func _ready() -> void:
 
 func _load_avatar() -> void:
     if not ResourceLoader.exists(AVATAR_PATH):
-        _diagnosis = "ERROR: GLB resource missing. Check avatar/akari_test.glb"
+        _diagnosis = "ERROR: GLB resource missing. Check avatar/akari_animated.glb"
         _show_placeholder()
         push_error(_diagnosis)
         return
@@ -95,6 +96,10 @@ func _load_avatar() -> void:
     _left_eye_idx = _bone_index("leftEye", "J_Adj_L_FaceEye")
     _right_eye_idx = _bone_index("rightEye", "J_Adj_R_FaceEye")
     _cache_pose_bones()
+    if not _nerva.bind_mocap(mocap_player):
+        _diagnosis = "FAIL: NERVA Mocap walk/sit/rise missing. Model not motion-ready."
+        push_error(_diagnosis)
+        return
     _apply_idle_pose(0.0)
     if _mesh_count == 0:
         _diagnosis = "WARNING: scene loaded but no MeshInstance3D found"
@@ -135,6 +140,8 @@ func _create_trial_world() -> void:
             add_child(leg)
 
 func _find_components(root: Node) -> void:
+    if root is AnimationPlayer and mocap_player == null:
+        mocap_player = root as AnimationPlayer
     if root is Skeleton3D and skeleton == null:
         skeleton = root as Skeleton3D
     if root is MeshInstance3D:
@@ -344,6 +351,7 @@ func _update_status() -> void:
     lines.append("Stance transfer (test): %s" % str(_nerva.stance_transfers))
     lines.append("Body gesture: %s" % _nerva._body_action_name)
     lines.append("Life motion (trial): %s" % _nerva._ghost_intent)
+    lines.append("Mocap: %s / %s" % ["READY" if _nerva.mocap_enabled else "MISSING", _nerva.mocap_current])
     lines.append("Completed body trials: %s" % _nerva.completed_life_actions)
     lines.append("Position X: %.2f" % $AvatarAnchor.position.x)
     lines.append("Hands: 90%% scale trial")
