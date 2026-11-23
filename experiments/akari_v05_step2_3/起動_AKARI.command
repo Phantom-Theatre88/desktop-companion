@@ -20,6 +20,15 @@ printf 'AKARI v0.5 model validation start\nLog: %s\n' "$LOG"
 
 # Mandatory import on THIS extraction directory, even if the smoke test ran
 # successfully in another extracted copy. Exit on failures; never show a fake model.
+if ! command -v python3 >/dev/null 2>&1; then
+  echo 'FAIL: Python 3が見つかりません。'; read -r -p 'Enterで終了' _ || true; exit 1
+fi
+echo '[0/3] CC0人体モーション取得とAKARI骨格への適用'
+if ! python3 tools/install_cc0_motion.py; then
+  echo 'FAIL: モーション素材取得またはAKARIへの適用に失敗。従来の不自然な歩行は起動しません。'
+  read -r -p 'Enterで終了' _ || true
+  exit 1
+fi
 echo '[1/3] GLBインポート開始'
 if ! "$GODOT_CMD" --headless --path "$(pwd)" --editor --import; then
   echo 'FAIL: GodotのGLBインポートが失敗しました。'; read -r -p 'Enterで終了' _ || true; exit 1
