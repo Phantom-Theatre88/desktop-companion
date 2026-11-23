@@ -25,8 +25,9 @@ class BoundaryTests(unittest.TestCase):
         b.register_intent(7,"scan")
         self.assertFalse(b.accept_result({'type':'nerva_result','version':1,'sequence':9,'status':'applied_frame','model_bound':True}))
         self.assertTrue(b.accept_result({'type':'nerva_result','version':1,'sequence':7,'status':'applied_frame','model_bound':True}))
+        self.assertTrue(b.accept_result({'type':'nerva_result','version':1,'sequence':7,'status':'completed','model_bound':True}))
         self.assertFalse(b.accept_result({'type':'nerva_result','version':1,'sequence':7,'status':'completed','model_bound':True}))
-        self.assertEqual(g.memory.recall()[0].event.kind,'nerva_applied_frame')
+        self.assertEqual([e.event.kind for e in g.memory.recall()], ['nerva_applied_frame', 'nerva_completed'])
     def test_rejected_motor_action_changes_next_selection_without_new_personality(self):
         ghost=Ghost(HeartSnapshot(.6,.5,0)); bridge=BehaviorBridge(ghost)
         bridge.register_intent(4, 'scan')
