@@ -10,6 +10,7 @@ var skeleton: Skeleton3D
 var face: MeshInstance3D
 var _pose_sliders: Array[HSlider] = []
 var status_label: Label
+var _status_elapsed: float = 0.0
 var _mesh_count: int = 0
 var _neck_idx: int = -1
 var _head_idx: int = -1
@@ -174,7 +175,7 @@ func _setup_ui() -> void:
         _reset_targets()
         _apply_idle_pose(0.0)
     )
-    layout.add_child(_label("Ghost is not connected. This is a local test."))
+    layout.add_child(_label("Ghost WebSocket: 127.0.0.1:8766 (see Output for connection status)"))
 
 func _label(value: String) -> Label:
     var result := Label.new()
@@ -285,6 +286,11 @@ func _process(delta: float) -> void:
     _sync_nerva()
     _nerva.step(delta)
     _apply_expression("blink", _nerva.blink_value)
+    # Keep diagnostic counters current, not frozen at model load time.
+    _status_elapsed += delta
+    if _status_elapsed >= 1.0:
+        _status_elapsed = 0.0
+        _update_status()
 
 func _update_status() -> void:
     if status_label == null:
@@ -302,6 +308,8 @@ func _update_status() -> void:
             legs += 1
     lines.append("Leg bones: %s/6" % legs)
     lines.append("Stance transfer (test): %s" % str(_nerva.stance_transfers))
+    lines.append("Ghost intent: %s" % _nerva._ghost_intent)
+    lines.append("Ghost state: %s" % ("CONNECTED VALUES" if not _nerva._ghost_state.is_empty() else "NONE"))
     lines.append("Material override: %s" % ("ON" if _visibility_override else "OFF"))
     lines.append(_diagnosis)
     status_label.text = "\n".join(lines)
