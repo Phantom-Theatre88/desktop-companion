@@ -10,6 +10,7 @@ var _last_sequence := -1
 var _pending_result: int = -1
 var _pending_kind: String = ""
 var _pending_frame: int = -1
+var _state_received: bool = false
 
 func _ready() -> void:
     print("Ghost receiver connecting: ", url)
@@ -34,6 +35,8 @@ func _process(delta: float) -> void:
             if _was_connected:
                 _was_connected = false
                 get_parent().get("_nerva").clear_ghost_intent()
+                get_parent().get("_nerva").clear_ghost_state()
+                _state_received = false
                 _pending_result = -1
             _retry_time += delta
             if _retry_time >= 3.0:
@@ -43,10 +46,29 @@ func _process(delta: float) -> void:
                 _socket.connect_to_url(url)
 
 func _handle(message: Dictionary) -> void:
+    if message.get("type") == "ghost_snapshot":
+        if int(message.get("version", -1)) != 1:
+            return
+        var raw_state = message.get("state")
+        if not raw_state is Dictionary:
+            return
+        var validated: Dictionary = {}
+        for name in ["mood", "affection", "curiosity", "boredom", "sleepiness", "attention"]:
+            if not raw_state.has(name):
+                return
+            var value = raw_state[name]
+            if not (value is int or value is float) or not is_finite(float(value)):
+                return
+            if float(value) < 0.0 or float(value) > 1.0:
+                return
+            validated[name] = float(value)
+        get_parent().get("_nerva").accept_ghost_state(validated)
+        _state_received = true
+        return
     if message.get("type") != "ghost_intent" or int(message.get("version", -1)) != 1:
         return
     var seq := int(message.get("sequence", -1))
-    if seq < _last_sequence:
+    if seq <= _last_sequence:
         return
     var intent = message.get("intent")
     if not intent is Dictionary:
@@ -60,7 +82,8 @@ func _handle(message: Dictionary) -> void:
     _last_sequence = seq
     var motor = get_parent().get("_nerva")
     motor.accept_ghost_intent(kind, clampf(float(intent.get("strength", 0.0)), 0.0, 1.0))
-    _pending_result = seq
+    # Reconnect state synchronization is not a new performed action.
+    _pending_result = -1 if message.get("source") == "state_sync" else seq
     _pending_kind = kind
     _pending_frame = Engine.get_process_frames()
 
