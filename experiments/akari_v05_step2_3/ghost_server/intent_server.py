@@ -41,10 +41,10 @@ def validate_result(text: str) -> dict | None:
     if type(data.get('model_bound')) is not bool: return None
     return data
 
-async def run_server(time_scale=1.0,stop_event=None,headless=True,journal_path=None):
+async def run_server(time_scale=1.0,stop_event=None,headless=True,journal_path=None,life_trial=False):
     if not 1<=time_scale<=60: raise ValueError('time_scale range 1..60')
     ghost=Ghost(HeartSnapshot(.60,.5,0))
-    autonomy=GhostAutonomy()
+    autonomy=GhostAutonomy(life_trial_enabled=life_trial)
     journal = ExperienceJournal(journal_path) if journal_path is not None else None
     bridge=BehaviorBridge(ghost, journal)
     clients=set(); sequence=0; started=time.monotonic(); lock=asyncio.Lock()
@@ -91,6 +91,7 @@ async def run_server(time_scale=1.0,stop_event=None,headless=True,journal_path=N
                 if data is None: continue
                 async with lock:
                     if bridge.accept_result(data):
+                        autonomy.on_motion_result(bridge.intent_kinds.get(data['sequence'], ''), data['status'])
                         await send({'type':'ghost_feedback','version':1,'sequence':data['sequence'],
                                     'status':data['status'],'model_bound':data['model_bound']})
                         # A failed, non-idle action must not be endlessly retried.
@@ -111,7 +112,7 @@ async def run_server(time_scale=1.0,stop_event=None,headless=True,journal_path=N
                     line=await asyncio.to_thread(sys.stdin.readline)
                     kind=line.strip()
                     if not kind or kind=='quit': break
-                    if kind=='status': print(json.dumps({'candidate':autonomy.action,'results':bridge.results,'experiences':len(ghost.memory.recall())}),flush=True)
+                    if kind=='status': print(json.dumps({'candidate':autonomy.action,'results':bridge.results,'experiences':len(ghost.memory.recall()),'life_phase':autonomy.life_trial_phase,'motion_completions':autonomy.trial_completions}),flush=True)
                     elif kind in TEST_INTENTS:
                         # Explicit human diagnostic input is not autonomous experience.
                         async with lock: await emit(TEST_INTENTS[kind],'console_test')
@@ -123,7 +124,8 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--time-scale',type=float,default=1.0)
     parser.add_argument('--headless',action='store_true')
+    parser.add_argument('--life-trial', action='store_true', help='Experimental spatial body circuit; not a personality LOCK')
     parser.add_argument('--journal',type=Path,default=None,help='Optional experimental durable Memory ledger (SQLite)')
     args=parser.parse_args()
-    asyncio.run(run_server(args.time_scale,headless=args.headless,journal_path=args.journal))
+    asyncio.run(run_server(args.time_scale,headless=args.headless,journal_path=args.journal,life_trial=args.life_trial))
 if __name__=='__main__':main()
