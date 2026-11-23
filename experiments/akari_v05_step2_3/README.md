@@ -1,37 +1,53 @@
-# AKARI v0.5｜STEP 2・3・16日差分の検証試作（2026-11-23）
+# AKARI v0.5｜Ghostが選び、NERVAがCC0モーションで動く【開発検証版】
 
-**状態：検証試作。正式な人格・学習仕様・通信スキーマのLOCKは変更しない。**
+**重要：実CC0素材はこのZIPに同梱していない。** 最初の `起動_AKARI.command` がKinemIQ公式公開物（CC0、GLB約2.22MB）をダウンロードしてSHA-256照合し、AKARI元GLBを変更せず `avatar/akari_animated.glb` を作成する。通信・人格は既存のGhostを使用する。
 
-このフォルダはChatGPT Libraryで回収した**2026-11-15版の実モデル**をコピーし、そこでの資産を保持したまま新規試作処理を追加したもの。11月16日の配布ZIP自体を回収したわけではない。11月16日の脚荷重移動は、GitHubの記録に基づく**機能レベルの再構成**であり元コードと同一との保証はない。
+- **Ghost**：既存のHeart/Time/Memory/Behaviorで `explore / sit / rise / idle` 等の意図を選ぶ。Mocapのクリップ名や関節角度は送らない。
+- **NERVA**：`walk / sit / rise / idle / seated_idle` 等の収録動作を選び、遷移時間・root移動を扱う。Mocapを使う間は以前の手計算の全身動作を上書き停止する。
+- **Character**：別GLB内の実アニメーションをGodotで再生。既存の眉・顔・衣装・装備・元モデルGLBは保持。手の縮小は既存の可逆試験設定。
+- **起動**：新しいフォルダへZIPを解凍 → `akari_motion_test/起動_AKARI.command` を実行。初回はインターネット接続が必要。ダウンロード/素材整合性/骨格適合/アニメーション読み込みに失敗したら、従来の不自然な動きを完成形として表示せず停止する。
+- **検査**：`Mac自動検査.command` でも同じ素材を取得し、インポートとメッシュ・骨格・表情・歩行・着座・起立のクリップ検査を行う。
 
-## 実装したもの
+**重要な未達**：KinemIQの実GLBファイルはこの環境から取得できず、実データへの骨格適用やGodot実画面の自然さは未検証。後方歩行・足裏接地・座面衝突、動作の補間・足滑りも現物検査が必要。ここでの自動試験は合成GLBを使った変換機能と既存の通信/経験循環の検証であり、AKARIが自然に歩いた証拠ではない。GhostのRelationshipに基づく行動の完成もまだ未達。
 
-1. **STEP 2（部分）**：`ghost_server/behavior_bridge.py` を新規追加。Memoryの経験記録とRelationshipの既存根拠を読み取り、現行CoreS3互換Behavior判断と共に証拠を添付して監査できる。NERVAの動作結果はGhostの経験イベントとして記録。失敗時は同じ行動をただちに繰り返さない安全用`idle`への退避を実装。新しい親密度・感情学習・人別行動アルゴリズムは未確定であり、**Relationshipによって行動が変わる完成品ではない**。
-2. **STEP 3（通信試作）**：`ghost_server/intent_server.py` に`nerva_result`受付、sequence照合、重複・不正拒否、`ghost_feedback`配信を追加。`scripts/ghost_intent_receiver.gd`は受信意図をNERVAへ渡した後、実モデルがボーンバインドされて次の処理フレームに進んだ時だけ`applied_frame`を送信。モデルがない場合は`rejected`。`applied_frame`は**3D身体が画面上で自然に動いたことの保証ではない**。永続する`scan/sleep`意図について動作終了を捏造しない。
-3. **Characterの差分復元（試験）**：`scripts/nerva_controller.gd`に左右各3本、計6本の脚ボーンを追加し、極小振幅の荷重移動を再構成した。膝と足首も回転し、睡眠中は減衰。既存の視線・腕・指・表情・GLBは維持。IK・足裏固定・歩行・転倒検知は未実装。睡眠中も呼吸を継続。
-4. **Heart**：Mac互換試作は旧CoreS3に存在する6状態のフィールドを持つが、この版で自動変化するのは退屈・眠気のみ。他4値を演出的な「実際に変わる感情」と偽らない。
+出典：KinemIQ/QuaterniusのCC0 1.0モーション。https://huggingface.co/datasets/Kinemiq/free-game-animations 。ダウンロードした原本の公開SHA-256を照合する。正式LOCKは `heart-engine/docs/sacred/` のままで改変しない。
 
-## 自動試験
+---
 
-```
-python3 -m pip install 'websockets>=12,<17'
-python3 -m unittest discover -s tests -v
-```
+# Akari Godot test v0.4 — arm-direction correction
 
-`tests/test_integration.py`で7件テスト実施：経験／関係根拠の参照、失敗結果の再選択ガード、返信のsequence・重複防止、GLB SHA256・脚6本、拒否入力、自発的睡眠遷移、WebSocket疑似Character応答。
+v0.3で両腕が頭上に上がった問題に対し、上腕の回転符号を左右とも反転しました。元の3Dモデル、テクスチャ、顔・首・自動瞬き等は変更していません。Godot実機確認は未実施です。
 
-## Mac上での実体試験
+**確認事項**: `project.godot` を新しいフォルダからインポートし、実行。Arm relaxation が94%で腕が胴体の横に下がるか確認してください。0%ではTポーズに戻る想定です。
 
-`akari_motion_test/起動_AKARI.command` で起動。Python 3.11以上、`websockets>=12,<17`、Godot 4系が必要。GodotのGUIでGLBが正常表示されること、左右の脚・床・表情・呼吸が崩れないことを確認する。Ghostを切断した場合の待機、復旧時の状態再同期、連続稼働時の自然さ・可愛らしさも目視検証が必要。
+---
 
-## 確認済み／未確認
+# あかり先輩 Character v0.3 — 自律待機モーション
 
-- **確認済み**：回収した実モデルのGLB SHA256 `2a7fcc66fcdb9a76944a47c666f79911f5f24cd0256685dd7f8c3e66a314b33d`を保持。Python 7件テスト成功、模擬NERVAからGhostへの返信と経験記録を検証。
-- **未確認**：本環境にGodot実行ファイルがなく、GDScript実行・実際の3D骨格駆動・画面描画・足裏接地・通信断復帰・Mac実機検証ができていない。元の16日版ZIPとのバイト一致、実際のRelationship評価・経験依存の自発行動も未完成。
+## 操作 (Godot 4.3以降・通常版)
+1. このフォルダ内の `project.godot` を Godot Project Manager からインポート。
+2. 初回の GLB インポートを完了してから、右上の▶または F6 で `scenes/main.tscn` を実行。
+3. モデルが T ポーズから腕を下ろした立ち姿に変わり、視線・瞬き・首・呼吸・小さな上体の揺れを自動生成するか確認。
 
-## 今後の最短経路
+## コントロール
+- **Auto idle ON / OFF**: 自律待機を停止・再開。停止中も腕の基本姿勢は維持。
+- **Arm relaxation**: 0=Tポーズ、100=腕を下ろす。初期値94。
+- **Neck Yaw / Pitch, Eyes Yaw**: 自律動作に加える手動オフセット。
+- **Blink now / Smile / Mouth A**: 表情単体テスト。
+- **Show gray material / Front-back**: 表示問題の診断。
+- **Reset pose**: 手動オフセットと視線目標を初期化。
 
-- Godot実画面での受信／返信と脚の姿勢破綻を検証する。
-- Ghostに本物のSemanticイベントと過去の経験を渡せる実装を既存LOCKと照合して接続する。人間の模擬ボタンを本人の経験と偽らない。
-- Relationshipの評価を既存聖典に沿って実装し、それによるBehavior選択を検証する。新しい感情式の独断決定はしない。
-- 動作開始／完了の意味を厳密に決めてから、本番プロトコルと永続記憶を検証する。
+## 仕様・限界
+- 自律動作はランダムな視線目標と滑らかな補間、複数周期の微小動作を使用。事前収録した固定モーションクリップではない。
+- v0.3はCharacter単体試験。GhostからのWebSocket入力は未接続。GhostのMemory/Heart等の変更は行わない。
+- 足位置は固定。歩行・IK・接触判定・装備品はまだない。
+- GLBモデルの実際の関節向きによって腕の角度などの最終調整が必要になる。首や目の動作は Godot 実機での確認待ち。
+- VRM spring bone などのVRM専用拡張は GLB 変換時に削除されている。髪物理はこの試験には含まれない。
+- 元データ `あかり先輩(1).vrm` の外見・メッシュ・テクスチャを変更しない。
+
+## 出典方針
+GitHub 聖典 `LOCK_DESKTOP_AI_THREE_PILLARS_IMPLEMENTATION_2026-11-09.md` v1.2 および `LOCK_DESKTOP_AI_INITIAL_TECH_STACK_2026-11-09.md` に基づき、Characterの動作をGhostから独立して検証する。
+
+## 変更履歴
+v0.3: 自律待機、自然立ち姿、調整UI。
+v0.2: GLB読み込み診断、素材・カメラ確認。
