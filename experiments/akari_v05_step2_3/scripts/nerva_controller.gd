@@ -84,7 +84,7 @@ func accept_ghost_intent(kind: String, strength: float) -> void:
             _life_start_x = motion_root.position.x
             _last_walk_x = _life_start_x
         if kind == "explore":
-            _life_target_x = -0.65
+            _life_target_x = 0.0 if absf(_life_start_x + 0.65) <= 0.13 else -0.65
             _gait_distance = 0.0
             _walk_cycle = 0.0
         if kind == "sit":
@@ -408,8 +408,21 @@ func _apply_life_pose(_t: float) -> void:
         if _bones.has(hand_name):
             skeleton.set_bone_pose_scale(int(_bones[hand_name]), _base_scale[hand_name] * _hand_ratio)
 
-func motion_finished(kind: String, serial: int) -> bool:
+func motion_terminated(kind: String, serial: int) -> bool:
     return kind == _ghost_intent and serial == _life_serial and _life_finished
+
+func motion_finished(kind: String, serial: int) -> bool:
+    # Not a quality/ground-contact check. Confirm the motor actually reached
+    # the measured trial-stage target before telling Ghost it succeeded.
+    if not motion_terminated(kind, serial) or motion_root == null:
+        return false
+    if kind == "explore":
+        return absf(motion_root.position.x - _life_target_x) <= 0.025 and absf(motion_root.rotation.y) < 0.03
+    if kind == "sit":
+        return absf(motion_root.position.x + 0.65) <= 0.13 and _sit_amount >= 0.99
+    if kind == "rise":
+        return absf(motion_root.position.x + 0.65) <= 0.13 and _sit_amount <= 0.01
+    return false
 
 func _apply_relaxed_hands(t: float, enable: float, ease: float) -> void:
     for side in ["left", "right"]:
