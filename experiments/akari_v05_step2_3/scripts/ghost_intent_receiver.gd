@@ -11,6 +11,8 @@ var _pending_result: int = -1
 var _pending_kind: String = ""
 var _pending_frame: int = -1
 var _state_received: bool = false
+var _motion_wait: bool = false
+var _motion_serial: int = -1
 
 func _ready() -> void:
     print("Ghost receiver connecting: ", url)
@@ -29,6 +31,7 @@ func _process(delta: float) -> void:
                 if message is Dictionary:
                     _handle(message)
             _send_applied_frame_if_ready()
+            _send_motion_result_if_ready()
         WebSocketPeer.STATE_CLOSED:
             if _was_connected:
                 print("Ghost receiver disconnected")
@@ -38,6 +41,7 @@ func _process(delta: float) -> void:
                 get_parent().get("_nerva").clear_ghost_state()
                 _state_received = false
                 _pending_result = -1
+                _motion_wait = false
             _retry_time += delta
             if _retry_time >= 3.0:
                 _retry_time = 0.0
@@ -86,6 +90,8 @@ func _handle(message: Dictionary) -> void:
     _pending_result = -1 if message.get("source") == "state_sync" else seq
     _pending_kind = kind
     _pending_frame = Engine.get_process_frames()
+    _motion_wait = kind in ["explore", "sit", "rise"] and _pending_result >= 0
+    _motion_serial = motor._life_serial
 
 func _send_applied_frame_if_ready() -> void:
     if _pending_result < 0 or Engine.get_process_frames() <= _pending_frame:
@@ -93,6 +99,9 @@ func _send_applied_frame_if_ready() -> void:
     var motor = get_parent().get("_nerva")
     # This is a verified bound frame only, NOT confirmation of visual quality.
     if motor.skeleton != null and motor._bones.size() > 0:
+        if _motion_wait:
+            # Do not call a walking/sitting action complete on its first frame.
+            return
         _send_result(_pending_result, "applied_frame", true)
     else:
         _send_result(_pending_result, "rejected", false)
@@ -104,3 +113,16 @@ func _send_result(seq: int, status: String, bound: bool) -> void:
     var response := {"type": "nerva_result", "version": 1,
                     "sequence": seq, "status": status, "model_bound": bound}
     _socket.send_text(JSON.stringify(response))
+
+func _send_motion_result_if_ready() -> void:
+    if not _motion_wait or _pending_result < 0:
+        return
+    var motor = get_parent().get("_nerva")
+    if motor.motion_finished(_pending_kind, _motion_serial):
+        var valid_body: bool = motor.skeleton != null
+        for bone_name in ["hips", "leftUpperLeg", "rightUpperLeg", "leftLowerLeg", "rightLowerLeg", "leftFoot", "rightFoot"]:
+            if not motor._bones.has(bone_name):
+                valid_body = false
+        _send_result(_pending_result, "completed" if valid_body else "rejected", valid_body)
+        _pending_result = -1
+        _motion_wait = false
