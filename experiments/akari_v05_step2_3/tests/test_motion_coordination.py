@@ -14,8 +14,10 @@ class MotionCoordination(unittest.TestCase):
         self.assertNotIn('_walk_cycle += delta * TAU * 1.35', CODE)
 
     def test_travel_has_facing_and_start_stop_blend(self):
-        self.assertIn('motion_root.rotation.y = 1.40', CODE)
-        self.assertIn('_walk_envelope = clampf(sin(PI * progress)', CODE)
+        self.assertIn('var travel_yaw := atan2(travel.x, travel.z)', CODE)
+        self.assertIn('motion_root.rotation.y = travel_yaw', CODE)
+        self.assertNotIn('motion_root.rotation.y = 1.40', CODE)
+        self.assertIn('_walk_envelope = clampf(sin(PI * walk_progress)', CODE)
         self.assertIn('motion_root.rotation.y = 0.0', CODE)
 
     def test_sitting_hips_legs_arms_are_blended_together(self):
