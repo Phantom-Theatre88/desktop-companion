@@ -6,6 +6,8 @@ relationship evidence. Persistent relationships and learning are not implemented
 """
 from __future__ import annotations
 from dataclasses import dataclass
+from uuid import uuid4
+from experience_journal import ExperienceJournal
 from ghost_core import Ghost, HeartSnapshot, SemanticEvent
 
 @dataclass(frozen=True)
@@ -17,8 +19,15 @@ class Selection:
     last_result: str | None
 
 class BehaviorBridge:
-    def __init__(self, ghost: Ghost):
+    def __init__(self, ghost: Ghost, journal: ExperienceJournal | None = None):
         self.ghost = ghost
+        self.journal = journal
+        self.run_id = uuid4().hex
+        if journal is not None:
+            # Preserve original event and historical Heart, but never claim
+            # that a restart restored present feelings or sleep state.
+            for experience in journal.read_all():
+                self.ghost.memory.commit(experience)
         self.last_result = None
         self.results: dict[int, dict] = {}
         self.pending: set[int] = set()
@@ -39,6 +48,18 @@ class BehaviorBridge:
             return False
         if seq in self.results:
             return False
+        # Diagnostic result is recorded as an experience, not as a claim of felt emotion.
+        t = self.ghost.time.last_tick_ms + 1
+        event = SemanticEvent('nerva-result-'+self.run_id+'-'+str(seq), 'nerva_'+state, t)
+        snapshot = self.ghost.heart.snapshot()
+        # Persist before acknowledging. A disk failure must not be presented as
+        # successful durable recording. The in-process result is still diagnostic.
+        from ghost_core import Experience
+        experience = Experience(event, snapshot, snapshot)
+        if self.journal is not None:
+            self.journal.append(experience)
+        self.ghost.memory.commit(experience)
+        self.ghost.time.tick(t)
         self.pending.discard(seq)
         self.results[seq] = {'status': state, 'model_bound': data.get('model_bound') is True}
         self.last_result = state
@@ -46,10 +67,6 @@ class BehaviorBridge:
             self.failed_intent = self.intent_kinds.get(seq)
         elif state == 'applied_frame' and data.get('model_bound') is True:
             self.failed_intent = None
-        # Diagnostic result is recorded as an experience, not as a claim of felt emotion.
-        t = self.ghost.time.last_tick_ms + 1
-        self.ghost.record_event(SemanticEvent('nerva-result-'+str(seq), 'nerva_'+state, t), self.ghost.heart.snapshot())
-        self.ghost.time.tick(t)
         return True
 
     def select(self, candidate: str, actor_id: str | None = None) -> Selection:
