@@ -7,10 +7,17 @@ This is an approximate rotation retarget, not IK/contact correction; reject
 incompatible clips rather than silently invent a successful import.
 """
 from __future__ import annotations
-import argparse, copy, hashlib, json, math, re, struct, urllib.request, zipfile
+import argparse, copy, hashlib, json, math, re, struct, urllib.request, urllib.error, zipfile, socket, sys
 from pathlib import Path
 
 URL = 'https://huggingface.co/datasets/Kinemiq/free-game-animations/resolve/main/KinemIQ_Free_Animations_CC0_GLB.zip'
+# Both sources carry the same exact hash-pinned bytes. The mirror is not the publisher.
+DOWNLOAD_SOURCES = (
+    ('Hugging Face / official', URL),
+    ('Hugging Face / download redirect', URL + '?download=true'),
+    ('Hugging Face community mirror', 'https://hf-mirror.com/datasets/Kinemiq/free-game-animations/resolve/main/KinemIQ_Free_Animations_CC0_GLB.zip'),
+)
+SOURCE_PAGE = 'https://huggingface.co/datasets/Kinemiq/free-game-animations/blob/main/KinemIQ_Free_Animations_CC0_GLB.zip'
 EXPECTED_CC0_SHA256 = '64ca5ab4a92c9da079c5e88ca509391b0a58a24ccf2a1307b16e2f0fc6b23ffc'  # published source file SHA256
 ROOT = Path(__file__).resolve().parents[1]
 BUNDLE = ROOT/'motions'/'source'/'KinemIQ_Free_Animations_CC0_GLB.zip'
@@ -189,32 +196,70 @@ def add_animation(js,buffer,animname,channels):
     return buffer
 
 
-def download_bundle(path=BUNDLE,url=URL):
-    path.parent.mkdir(parents=True,exist_ok=True)
-    if path.is_file() and zipfile.is_zipfile(path):
-        if hashlib.sha256(path.read_bytes()).hexdigest() == EXPECTED_CC0_SHA256:
+def check_bundle(path: Path) -> None:
+    """Verify official CC0 distribution bytes; never trust a mirror by name."""
+    if not path.is_file():
+        raise FileNotFoundError(f'Motion source not found: {path}')
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if digest != EXPECTED_CC0_SHA256:
+        raise ValueError(f'Motion ZIP SHA256 mismatch: {digest} (expected {EXPECTED_CC0_SHA256})')
+    if not zipfile.is_zipfile(path):
+        raise ValueError('Motion source matches expected name, but is not ZIP')
+    with zipfile.ZipFile(path) as z:
+        if z.testzip() is not None:
+            raise ValueError('Motion ZIP contains corrupt members')
+        if sum(f.file_size for f in z.infolist()) > 500_000_000:
+            raise ValueError('Motion ZIP exceeds uncompressed safety limit')
+        if not any(n.lower().endswith('.glb') for n in z.namelist()):
+            raise ValueError('Motion ZIP contains no GLB animations')
+
+
+def download_bundle(path=BUNDLE, sources=DOWNLOAD_SOURCES, opener=None):
+    """Try official CDN and a hash-verified mirror; report each real error.
+
+    A local verified ZIP is always preferred and works without Internet.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_file():
+        check_bundle(path)
+        print('CC0 archive already cached and SHA256 verified:', path, flush=True)
+        return path
+    tmp = path.with_suffix('.downloading')
+    opener = opener or urllib.request.urlopen
+    diagnostics = []
+    for label, url in sources:
+        tmp.unlink(missing_ok=True)
+        print('MOTION_DOWNLOAD_TRY:', label, url, flush=True)
+        try:
+            request = urllib.request.Request(url, headers={'User-Agent': 'AKARI-Motion-Importer/0.2'})
+            with opener(request, timeout=40) as response, open(tmp, 'wb') as output:
+                if response.headers.get('Content-Type', '').lower().startswith('text/html'):
+                    raise ValueError('Server returned HTML instead of a motion archive')
+                total = 0
+                while True:
+                    data = response.read(65536)
+                    if not data: break
+                    total += len(data)
+                    if total > 100_000_000: raise ValueError('Archive exceeds 100 MB')
+                    output.write(data)
+            check_bundle(tmp)
+            tmp.replace(path)
+            print('MOTION_DOWNLOAD_OK:', label, 'bytes=', path.stat().st_size, flush=True)
             return path
-        raise ValueError('Cached CC0 bundle differs from published source SHA256')
-    tmp=path.with_suffix('.downloading')
-    try:
-        with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'AKARI-motion-import/0.1'}),timeout=35) as f,open(tmp,'wb') as dest:
-            total=0
-            while True:
-                data=f.read(65536)
-                if not data:break
-                total+=len(data)
-                if total>100_000_000:raise ValueError('Unexpected motion bundle size')
-                dest.write(data)
-        if not zipfile.is_zipfile(tmp):raise ValueError('Downloaded data is not a ZIP')
-        digest=hashlib.sha256(tmp.read_bytes()).hexdigest()
-        if digest!=EXPECTED_CC0_SHA256:
-            raise ValueError('CC0 bundle SHA256 mismatch: '+digest)
-        tmp.replace(path)
-    finally:tmp.unlink(missing_ok=True)
-    return path
+        except (OSError, ValueError, zipfile.BadZipFile, urllib.error.URLError) as exc:
+            error = f'{label}: {type(exc).__name__}: {exc}'
+            diagnostics.append(error)
+            print('MOTION_DOWNLOAD_FAIL:', error, file=sys.stderr, flush=True)
+        finally:
+            tmp.unlink(missing_ok=True)
+    raise RuntimeError('All motion sources failed\n' + '\n'.join(diagnostics) +
+                       '\nOffline alternative: download the exact GLB ZIP via ' + SOURCE_PAGE +
+                       '\nPlace it at ' + str(path) + ' and run again; SHA256 is checked.')
 
 
 def build(bundle,output=OUTPUT,target=TARGET):
+    check_bundle(Path(bundle))
     original=target.read_bytes();js,bin_data=glb_read(original)
     human=json.loads(MAP.read_text(encoding='utf8'))['bones']
     target_world,target_parents=global_rest_rotations(js['nodes'])
@@ -246,9 +291,14 @@ def build(bundle,output=OUTPUT,target=TARGET):
 def main():
     p=argparse.ArgumentParser();p.add_argument('--bundle',type=Path,default=BUNDLE);p.add_argument('--no-download',action='store_true');p.add_argument('--output',type=Path,default=OUTPUT);args=p.parse_args()
     if not args.bundle.is_file():
-        if args.no_download:raise SystemExit('FAIL: bundle unavailable; AKARI original unchanged')
-        print('Downloading the CC0 motion bundle from official release...')
-        download_bundle(args.bundle)
+        if args.no_download:
+            raise SystemExit('FAIL: motion archive missing: ' + str(args.bundle))
+        print('CC0 motion archive absent. Downloading with SHA256 validation...')
+        try:
+            download_bundle(args.bundle)
+        except RuntimeError as exc:
+            raise SystemExit('FAIL: ' + str(exc))
+    check_bundle(args.bundle)
     result=build(args.bundle,args.output)
     print('PASS: AKARI Mocap clips:',[(a['name'],a['animated_bones']) for a in result['animations']]);print('Output:',args.output)
 
