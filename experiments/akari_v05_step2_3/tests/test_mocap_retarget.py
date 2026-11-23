@@ -2,6 +2,7 @@
 Does NOT assert that the third-party download or Godot rendering succeeded.
 """
 import importlib.util, json, struct, tempfile, unittest, zipfile
+from unittest.mock import patch
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parents[1] / 'akari_motion_test'
@@ -41,7 +42,8 @@ class MotionBridgeTests(unittest.TestCase):
             with zipfile.ZipFile(bundle,'w') as z:
                 for name in ['Walk','Sit Down','Stand Up']:
                     z.writestr(name+'.glb',self.synthetic_source(name))
-            report=mocap.build(bundle,dest,original)
+            with patch.object(mocap, "check_bundle", return_value=None):
+                report=mocap.build(bundle,dest,original)
             gltf,_=mocap.glb_read(dest.read_bytes())
             self.assertTrue({'walk','sit','rise'} <= {a['name'] for a in gltf['animations']})
             self.assertEqual(len(gltf['meshes']),3)
@@ -56,8 +58,9 @@ class MotionBridgeTests(unittest.TestCase):
             tmp=Path(tmp);bundle=tmp/'bundle.zip';dest=tmp/'akari_animated.glb'
             with zipfile.ZipFile(bundle,'w') as z:
                 z.writestr('Walk.glb',self.synthetic_source('walk'))
-            with self.assertRaisesRegex(ValueError,'Missing mandatory'):
-                mocap.build(bundle,dest,BASE/'avatar/akari_test.glb')
+            with patch.object(mocap, 'check_bundle', return_value=None):
+                with self.assertRaisesRegex(ValueError,'Missing mandatory'):
+                    mocap.build(bundle,dest,BASE/'avatar/akari_test.glb')
             self.assertFalse(dest.exists())
 
     def test_motor_keeps_ghost_ownership(self):
