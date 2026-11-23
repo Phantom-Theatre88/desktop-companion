@@ -23,7 +23,10 @@ if [ -z "$GODOT_CMD" ]; then
   exit 1
 fi
 
-.venv/bin/python3 ghost_server/intent_server.py --headless &
+# Experimental durable Ghost Memory ledger in this extracted project folder.
+# This persists observed results only, not a fabricated emotional baseline.
+mkdir -p ghost_server/state
+.venv/bin/python3 ghost_server/intent_server.py --headless --journal ghost_server/state/experiences.sqlite &
 GHOST_PID=$!
 trap 'kill "$GHOST_PID" 2>/dev/null || true' EXIT INT TERM
 sleep 1
