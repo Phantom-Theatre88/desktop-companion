@@ -30,6 +30,7 @@ class BehaviorBridge:
                 self.ghost.memory.commit(experience)
         self.last_result = None
         self.results: dict[int, dict] = {}
+        self.progress: dict[int, dict] = {}  # first bound frame is NOT terminal completion
         self.pending: set[int] = set()
         self.intent_kinds: dict[int, str] = {}
         self.failed_intent: str | None = None
@@ -39,34 +40,52 @@ class BehaviorBridge:
         self.intent_kinds[sequence] = kind
 
     def accept_result(self, data: dict) -> bool:
-        """Accept only results for outstanding sequences; never infer physical success."""
+        """Keep pending through applied_frame; only terminal reports close an action.
+
+        Every accepted event is durable before any acknowledgement. Repeated
+        frames, terminal duplicates and contradictory terminal status are ignored.
+        """
         if data.get('type') != 'nerva_result' or data.get('version') != 1:
             return False
         seq = data.get('sequence')
         state = data.get('status')
         if type(seq) is not int or seq not in self.pending or state not in ('rejected','applied_frame','completed','interrupted'):
             return False
-        if seq in self.results:
+        if type(data.get('model_bound')) is not bool:
             return False
-        # Diagnostic result is recorded as an experience, not as a claim of felt emotion.
+        bound = data['model_bound']
+        if state == 'completed' and not bound:
+            return False  # no success claim without a bound avatar
+        if state == 'applied_frame' and seq in self.progress:
+            return False
+        if state != 'applied_frame' and seq in self.results:
+            return False
+        if state == 'applied_frame' and not bound:
+            # No bound model cannot count as a rendered frame.
+            return False
         t = self.ghost.time.last_tick_ms + 1
-        event = SemanticEvent('nerva-result-'+self.run_id+'-'+str(seq), 'nerva_'+state, t)
-        snapshot = self.ghost.heart.snapshot()
-        # Persist before acknowledging. A disk failure must not be presented as
-        # successful durable recording. The in-process result is still diagnostic.
         from ghost_core import Experience
-        experience = Experience(event, snapshot, snapshot)
+        event = SemanticEvent('nerva-result-'+self.run_id+'-'+str(seq)+'-'+state,
+                              'nerva_'+state, t)
+        snapshot = self.ghost.heart.snapshot()
+        experience = Experience(event, snapshot, snapshot,
+                                interpretation='motor intent: '+self.intent_kinds.get(seq, 'unknown'))
         if self.journal is not None:
             self.journal.append(experience)
         self.ghost.memory.commit(experience)
         self.ghost.time.tick(t)
-        self.pending.discard(seq)
-        self.results[seq] = {'status': state, 'model_bound': data.get('model_bound') is True}
+        report = {'status': state, 'model_bound': bound}
         self.last_result = state
-        if state == 'rejected' or (state == 'applied_frame' and data.get('model_bound') is not True):
-            self.failed_intent = self.intent_kinds.get(seq)
-        elif state == 'applied_frame' and data.get('model_bound') is True:
+        if state == 'applied_frame':
+            self.progress[seq] = report
             self.failed_intent = None
+        else:
+            self.pending.discard(seq)
+            self.results[seq] = report
+            if state in ('rejected', 'interrupted'):
+                self.failed_intent = self.intent_kinds.get(seq)
+            elif state == 'completed':
+                self.failed_intent = None
         return True
 
     def select(self, candidate: str, actor_id: str | None = None) -> Selection:
