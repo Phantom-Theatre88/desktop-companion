@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import argparse
 import json
+import math
 import sys
 import time
 from pathlib import Path
@@ -17,6 +18,12 @@ from behavior_bridge import BehaviorBridge
 
 ALLOWED = frozenset({'near','quiet','blink','status'})
 TEST_INTENTS = {'near': 'attend', 'quiet':'rest','blink':'blink'}
+HEART_KEYS = ('mood','affection','curiosity','boredom','sleepiness','attention')
+
+def state_message(autonomy: GhostAutonomy) -> dict:
+    return {'type':'ghost_snapshot','version':1,'state':{k:getattr(autonomy,k) for k in HEART_KEYS},
+            'source':'ghost_time_compatibility'}
+
 
 def intent_message(seq: int, kind: str, source='ghost_time_compatibility') -> dict:
     return {'type':'ghost_intent','version':1,'sequence':seq,
@@ -39,6 +46,7 @@ async def run_server(time_scale=1.0,stop_event=None,headless=True):
     autonomy=GhostAutonomy()
     bridge=BehaviorBridge(ghost)
     clients=set(); sequence=0; started=time.monotonic(); lock=asyncio.Lock()
+    last_snapshot_second = -1
     async def send(payload):
         message=json.dumps(payload,ensure_ascii=False)
         for ws in tuple(clients):
@@ -55,18 +63,26 @@ async def run_server(time_scale=1.0,stop_event=None,headless=True):
                     'experience_count':selection.experience_count,
                     'relationship_count':selection.relationship_count,
                     'last_result':selection.last_result,'basis':selection.basis,
-                    'heart_compatibility':{k:getattr(autonomy,k) for k in
-                    ('mood','affection','curiosity','boredom','sleepiness','attention')}})
+                    'heart_compatibility':state_message(autonomy)['state']})
     async def tick_loop():
+        nonlocal last_snapshot_second
         while True:
             await asyncio.sleep(0.2)
             async with lock:
                 elapsed_ms=int((time.monotonic()-started)*1000*time_scale)
                 kind=autonomy.tick(elapsed_ms)
                 if kind is not None: await emit(kind,'ghost_time_compatibility')
+                # Keep Character informed even when the discrete intent is unchanged.
+                # A state snapshot carries measured/derived values, never new emotions.
+                snapshot_second = elapsed_ms // 1000
+                if snapshot_second != last_snapshot_second:
+                    last_snapshot_second = snapshot_second
+                    await send(state_message(autonomy))
     async def connection(ws):
         clients.add(ws)
-        async with lock: await ws.send(json.dumps(intent_message(sequence,autonomy.action,'state_sync')))
+        async with lock:
+            await ws.send(json.dumps(state_message(autonomy)))
+            await ws.send(json.dumps(intent_message(sequence,autonomy.action,'state_sync')))
         try:
             async for raw in ws:
                 data=validate_result(raw)
