@@ -47,6 +47,11 @@ var motion_root: Node3D
 var _life_phase: float = 0.0
 var _sit_amount: float = 0.0
 var _walk_cycle: float = 0.0
+var _walk_envelope: float = 0.0
+var _gait_distance: float = 0.0
+var _last_walk_x: float = 0.0
+var _sitting_start: float = 0.0
+var _seat_offset_z: float = -0.20 # Seat is behind the standing avatar on the trial stage.
 var _life_target_x: float = 0.0
 var _life_start_x: float = 0.0
 var _life_finished: bool = false
@@ -77,8 +82,13 @@ func accept_ghost_intent(kind: String, strength: float) -> void:
         _life_serial += 1
         if motion_root != null:
             _life_start_x = motion_root.position.x
+            _last_walk_x = _life_start_x
         if kind == "explore":
             _life_target_x = -0.65
+            _gait_distance = 0.0
+            _walk_cycle = 0.0
+        if kind == "sit":
+            _sitting_start = _sit_amount
     _ghost_intent = kind
     _ghost_strength = clampf(strength, 0.0, 1.0)
     _ghost_intent_remaining = -1.0 if kind in ["idle", "scan", "drowsy", "sleep", "explore", "sit", "rise"] else 3.0
@@ -308,54 +318,78 @@ func _advance_life(delta: float) -> void:
         return
     _life_phase += maxf(delta, 0.0)
     if _ghost_intent == "explore":
-        # Stage trial: stationary foot-contact approximation, bounded 0.65 m traverse.
+        # Progress and gait share the SAME travelled distance; a time-only
+        # sinusoid on a translating root makes the feet skate on the floor.
         var progress: float = _ease(_life_phase / 6.0)
-        motion_root.position.x = lerpf(_life_start_x, _life_target_x, progress)
-        _walk_cycle += delta * TAU * 1.35
-        _body_action_name = "explore / walking trial"
+        var x_next: float = lerpf(_life_start_x, _life_target_x, progress)
+        var dx: float = x_next - _last_walk_x
+        _last_walk_x = x_next
+        motion_root.position.x = x_next
+        # Avatar faces the direction of travel instead of sideways sliding.
+        # Turn in/out continuously; return to the seated stage's forward pose.
+        motion_root.rotation.y = 1.40 * clampf(sin(PI * progress) * 2.0, 0.0, 1.0)
+        _gait_distance += absf(dx)
+        # Approx 0.27 m / cycle is a deliberately short test stride.
+        _walk_cycle = _gait_distance * TAU / 0.27
+        # Step height and arm swing fade out at either end of the traversal.
+        _walk_envelope = clampf(sin(PI * progress) * 2.1, 0.0, 1.0)
+        _body_action_name = "explore / distance-driven gait trial"
         if _life_phase >= 6.0:
+            _walk_envelope = 0.0
+            motion_root.rotation.y = 0.0
             _life_finished = true
     elif _ghost_intent == "sit":
-        _sit_amount = _ease(_life_phase / 3.0)
-        _body_action_name = "sitting / trial"
+        # Seat phase is a coordinated squat/hinge, not instantaneous hips Y.
+        _sit_amount = lerpf(_sitting_start, 1.0, _ease(_life_phase / 3.0))
+        _body_action_name = "sitting / coordinated hinge trial"
         if _life_phase >= 3.0:
             _sit_amount = 1.0
             _life_finished = true
     elif _ghost_intent == "rise":
         _sit_amount = 1.0 - _ease(_life_phase / 3.0)
-        _body_action_name = "rising / trial"
+        _body_action_name = "rising / coordinated hinge trial"
         if _life_phase >= 3.0:
             _sit_amount = 0.0
             _life_finished = true
     if _life_finished:
         completed_life_actions += 1
 
-func _apply_life_pose(t: float) -> void:
+func _apply_life_pose(_t: float) -> void:
     if skeleton == null:
         return
-    var walking: float = 1.0 if _ghost_intent == "explore" and not _life_finished else 0.0
-    var stride: float = sin(_walk_cycle) * walking
-    # Conservative joint rotation: actual plantar IK and collision are future work.
-    if walking <= 0.0 and _sit_amount <= 0.0:
-        for hand_name in ["leftHand", "rightHand"]:
-            if _bones.has(hand_name):
-                skeleton.set_bone_pose_scale(int(_bones[hand_name]), _base_scale[hand_name] * _hand_ratio)
-        return
-    _rot("leftUpperLeg", Quaternion(Vector3.RIGHT, deg_to_rad(15.0 * stride - 65.0 * _sit_amount)))
-    _rot("rightUpperLeg", Quaternion(Vector3.RIGHT, deg_to_rad(-15.0 * stride - 65.0 * _sit_amount)))
-    _rot("leftLowerLeg", Quaternion(Vector3.RIGHT, deg_to_rad(17.0 * maxf(0.0, -stride) + 70.0 * _sit_amount)))
-    _rot("rightLowerLeg", Quaternion(Vector3.RIGHT, deg_to_rad(17.0 * maxf(0.0, stride) + 70.0 * _sit_amount)))
-    _rot("leftFoot", Quaternion(Vector3.RIGHT, deg_to_rad(-10.0 * stride - 8.0 * _sit_amount)))
-    _rot("rightFoot", Quaternion(Vector3.RIGHT, deg_to_rad(10.0 * stride - 8.0 * _sit_amount)))
-    if _bones.has("hips"):
-        var hips: int = int(_bones["hips"])
-        # Reduced visual seated height; not certified chair-contact or foot locking.
-        skeleton.set_bone_pose_position(hips, _base_pos["hips"] + Vector3(0.0, -0.45 * _sit_amount + 0.015 * sin(_walk_cycle * 2.0) * walking, 0.0))
-    if walking > 0.0 or _sit_amount > 0.0:
-        _rot("spine", Quaternion(Vector3.RIGHT, deg_to_rad(6.0 * _sit_amount + 2.5 * walking)))
-        _rot("leftUpperArm", Quaternion(Vector3.FORWARD, deg_to_rad(68.0 + 11.0 * stride)))
-        _rot("rightUpperArm", Quaternion(Vector3.FORWARD, deg_to_rad(-68.0 + 11.0 * stride)))
-    # Bone scale test is reversible, affects hands only; do not alter LOCK avatar mesh.
+    var walking: float = _walk_envelope if _ghost_intent == "explore" and not _life_finished else 0.0
+    var stride: float = sin(_walk_cycle)
+    var left_swing: float = stride * walking
+    var right_swing: float = -stride * walking
+    var seat: float = clampf(_sit_amount, 0.0, 1.0)
+    # Use the same continuous blend for legs, pelvis, torso and counter-swing.
+    # This is NOT contact IK; it merely avoids independent contradictory cycles.
+    if walking > 0.0 or seat > 0.0:
+        _rot("leftUpperLeg", Quaternion(Vector3.RIGHT, deg_to_rad(22.0 * left_swing - 67.0 * seat)))
+        _rot("rightUpperLeg", Quaternion(Vector3.RIGHT, deg_to_rad(22.0 * right_swing - 67.0 * seat)))
+        # A knee flexes mainly during the swing half and releases at stance.
+        _rot("leftLowerLeg", Quaternion(Vector3.RIGHT, deg_to_rad(26.0 * maxf(0.0, -left_swing) + 72.0 * seat)))
+        _rot("rightLowerLeg", Quaternion(Vector3.RIGHT, deg_to_rad(26.0 * maxf(0.0, -right_swing) + 72.0 * seat)))
+        _rot("leftFoot", Quaternion(Vector3.RIGHT, deg_to_rad(-12.0 * left_swing - 5.0 * seat)))
+        _rot("rightFoot", Quaternion(Vector3.RIGHT, deg_to_rad(-12.0 * right_swing - 5.0 * seat)))
+        # The pelvis and torso hinge together during seating; the torso
+        # counterbalances the upper legs. Seat X is the movement destination.
+        if _bones.has("hips"):
+            skeleton.set_bone_pose_position(int(_bones["hips"]), _base_pos["hips"] + Vector3(0.0, -0.40 * seat + 0.009 * cos(_walk_cycle * 2.0) * walking, _seat_offset_z * seat))
+        _rot("spine", Quaternion(Vector3.RIGHT, deg_to_rad(-12.0 * seat + 2.5 * walking)))
+        _rot("chest", Quaternion(Vector3.RIGHT, deg_to_rad(9.0 * seat)))
+        # Arm motion opposes the swinging leg, while seated elbows settle.
+        var left_arm: float = 72.0 + 14.0 * right_swing - 8.0 * seat
+        var right_arm: float = -72.0 - 14.0 * left_swing + 8.0 * seat
+        _rot("leftUpperArm", Quaternion(Vector3.FORWARD, deg_to_rad(left_arm)))
+        _rot("rightUpperArm", Quaternion(Vector3.FORWARD, deg_to_rad(right_arm)))
+        _rot("leftLowerArm", Quaternion(Vector3.UP, deg_to_rad(-8.0 - 15.0 * seat)))
+        _rot("rightLowerArm", Quaternion(Vector3.UP, deg_to_rad(8.0 + 15.0 * seat)))
+    else:
+        # Avoid leaving the model in the previous action's hip offset.
+        if _bones.has("hips"):
+            skeleton.set_bone_pose_position(int(_bones["hips"]), _base_pos["hips"])
+    # Reversible test. GLB, textures, clothes and original rest-pose unchanged.
     for hand_name in ["leftHand", "rightHand"]:
         if _bones.has(hand_name):
             skeleton.set_bone_pose_scale(int(_bones[hand_name]), _base_scale[hand_name] * _hand_ratio)
