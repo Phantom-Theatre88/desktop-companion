@@ -13,6 +13,7 @@ var _pending_frame: int = -1
 var _state_received: bool = false
 var _motion_wait: bool = false
 var _motion_serial: int = -1
+var _observation_timer: float = 0.0
 
 func _ready() -> void:
     print("Ghost receiver connecting: ", url)
@@ -32,6 +33,10 @@ func _process(delta: float) -> void:
                     _handle(message)
             _send_applied_frame_if_ready()
             _send_motion_result_if_ready()
+            _observation_timer -= delta
+            if _observation_timer <= 0.0:
+                _observation_timer = 0.5
+                _send_stage_observation()
         WebSocketPeer.STATE_CLOSED:
             if _was_connected:
                 print("Ghost receiver disconnected")
@@ -114,15 +119,30 @@ func _send_result(seq: int, status: String, bound: bool) -> void:
                     "sequence": seq, "status": status, "model_bound": bound}
     _socket.send_text(JSON.stringify(response))
 
+func _send_stage_observation() -> void:
+    # Report actual model-root position / seat pose. This is a stage sensor,
+    # NOT a camera/WORLD perception or an assertion of feet/seat contact.
+    var motor = get_parent().get("_nerva")
+    var bound: bool = motor.skeleton != null and motor._bones.size() > 0 and motor.motion_root != null
+    if not bound:
+        return
+    var seated: bool = motor._sit_amount >= 0.99
+    var busy: bool = motor._ghost_intent in ["explore", "sit", "rise"] and not motor._life_finished
+    var report := {"type": "nerva_observation", "version": 1,
+                   "model_bound": true, "position_x": motor.motion_root.position.x,
+                   "seated": seated, "motion_busy": busy}
+    _socket.send_text(JSON.stringify(report))
+
 func _send_motion_result_if_ready() -> void:
     if not _motion_wait or _pending_result < 0:
         return
     var motor = get_parent().get("_nerva")
-    if motor.motion_finished(_pending_kind, _motion_serial):
+    if motor.motion_terminated(_pending_kind, _motion_serial):
         var valid_body: bool = motor.skeleton != null
         for bone_name in ["hips", "leftUpperLeg", "rightUpperLeg", "leftLowerLeg", "rightLowerLeg", "leftFoot", "rightFoot"]:
             if not motor._bones.has(bone_name):
                 valid_body = false
-        _send_result(_pending_result, "completed" if valid_body else "rejected", valid_body)
+        var success: bool = valid_body and motor.motion_finished(_pending_kind, _motion_serial)
+        _send_result(_pending_result, "completed" if success else "rejected", valid_body)
         _pending_result = -1
         _motion_wait = false
