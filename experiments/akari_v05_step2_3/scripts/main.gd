@@ -57,6 +57,8 @@ func _ready() -> void:
         if decoded is Dictionary:
             expression_map = decoded
     _load_avatar()
+    _nerva.motion_root = $AvatarAnchor
+    _create_trial_world()
     # Character-only link: Ghost supplies an intent, NERVA drives the body.
     var ghost_link: Node = load("res://scripts/ghost_intent_receiver.gd").new()
     ghost_link.name = "GhostIntentReceiver"
@@ -99,6 +101,38 @@ func _load_avatar() -> void:
     else:
         _diagnosis = "GLB imported. If model invisible, try 'Show gray material' or 'Back view'."
     print("Akari v0.3: ", _diagnosis, " / meshes=", _mesh_count)
+
+func _create_trial_world() -> void:
+    # Explicit spatial test stage, not a WORLD awareness simulation.
+    var floor_body := MeshInstance3D.new()
+    floor_body.name = "TrialFloor"
+    var floor_mesh := BoxMesh.new()
+    floor_mesh.size = Vector3(3.5, 0.05, 2.0)
+    floor_body.mesh = floor_mesh
+    floor_body.position = Vector3(-0.25, -0.035, 0.0)
+    var floor_material := StandardMaterial3D.new()
+    floor_material.albedo_color = Color(0.57, 0.52, 0.47)
+    floor_body.material_override = floor_material
+    add_child(floor_body)
+    var seat := MeshInstance3D.new()
+    seat.name = "TrialSeat_VisualOnly"
+    var seat_mesh := BoxMesh.new()
+    seat_mesh.size = Vector3(0.65, 0.08, 0.5)
+    seat.mesh = seat_mesh
+    seat.position = Vector3(-0.65, 0.42, -0.23)
+    var seat_material := StandardMaterial3D.new()
+    seat_material.albedo_color = Color(0.33, 0.40, 0.43)
+    seat.material_override = seat_material
+    add_child(seat)
+    for offset_x in [-0.23, 0.23]:
+        for offset_z in [-0.17, 0.17]:
+            var leg := MeshInstance3D.new()
+            var lm := BoxMesh.new()
+            lm.size = Vector3(0.055, 0.40, 0.055)
+            leg.mesh = lm
+            leg.position = Vector3(-0.65 + offset_x, 0.20, -0.23 + offset_z)
+            leg.material_override = seat_material
+            add_child(leg)
 
 func _find_components(root: Node) -> void:
     if root is Skeleton3D and skeleton == null:
@@ -309,6 +343,10 @@ func _update_status() -> void:
     lines.append("Leg bones: %s/6" % legs)
     lines.append("Stance transfer (test): %s" % str(_nerva.stance_transfers))
     lines.append("Body gesture: %s" % _nerva._body_action_name)
+    lines.append("Life motion (trial): %s" % _nerva._ghost_intent)
+    lines.append("Completed body trials: %s" % _nerva.completed_life_actions)
+    lines.append("Position X: %.2f" % $AvatarAnchor.position.x)
+    lines.append("Hands: 90%% scale trial")
     lines.append("Gesture cycles: %s" % str(_nerva.visible_gestures))
     lines.append("Ghost intent: %s" % _nerva._ghost_intent)
     lines.append("Ghost state: %s" % ("CONNECTED VALUES" if not _nerva._ghost_state.is_empty() else "NONE"))
