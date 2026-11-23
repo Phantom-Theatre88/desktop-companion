@@ -41,6 +41,20 @@ var _gesture_period: float = 8.0
 var _gesture_blend: float = 0.0
 var _gesture_side: float = 1.0
 var visible_gestures: int = 0
+# EXPERIMENTAL spatial motor control, not a new Ghost personality.
+# Ghost picks semantic explore/sit/rise; NERVA owns joint timing and world movement.
+var motion_root: Node3D
+var _life_phase: float = 0.0
+var _sit_amount: float = 0.0
+var _walk_cycle: float = 0.0
+var _life_target_x: float = 0.0
+var _life_start_x: float = 0.0
+var _life_finished: bool = false
+var _life_serial: int = 0
+var _hand_ratio: float = 0.90 # Reversible test; hand proportion feedback pending visual assessment.
+var _base_pos: Dictionary = {}
+var _base_scale: Dictionary = {}
+var completed_life_actions: int = 0
 
 
 func accept_ghost_state(state: Dictionary) -> void:
@@ -51,15 +65,23 @@ func clear_ghost_state() -> void:
     _ghost_state.clear()
 
 func accept_ghost_intent(kind: String, strength: float) -> void:
-    if not kind in ["idle", "attend", "rest", "blink", "scan", "drowsy", "sleep"]:
+    if not kind in ["idle", "attend", "rest", "blink", "scan", "drowsy", "sleep", "explore", "sit", "rise"]:
         return
     print("NERVA received Ghost intent: ", kind)
     if kind != _ghost_intent:
         _body_action_time = 0.0
         _gesture_timer = 0.0
+    if kind in ["explore", "sit", "rise"]:
+        _life_phase = 0.0
+        _life_finished = false
+        _life_serial += 1
+        if motion_root != null:
+            _life_start_x = motion_root.position.x
+        if kind == "explore":
+            _life_target_x = -0.65
     _ghost_intent = kind
     _ghost_strength = clampf(strength, 0.0, 1.0)
-    _ghost_intent_remaining = -1.0 if kind in ["idle", "scan", "drowsy", "sleep"] else 3.0
+    _ghost_intent_remaining = -1.0 if kind in ["idle", "scan", "drowsy", "sleep", "explore", "sit", "rise"] else 3.0
     if kind == "attend":
         _focus_yaw = 0.0
         _focus_pitch = -5.0 * _ghost_strength
@@ -119,6 +141,8 @@ func bind_model(model_skeleton: Skeleton3D, model_expression_map: Dictionary) ->
     expression_map = model_expression_map
     _bones.clear()
     _base_rot.clear()
+    _base_pos.clear()
+    _base_scale.clear()
     _cache_pose_bones()
 
 func _bone_index(vrm_name: String, fallback_name: String) -> int:
@@ -153,6 +177,8 @@ func _cache_pose_bones() -> void:
         if idx >= 0:
             _bones[n] = idx
             _base_rot[n] = skeleton.get_bone_pose_rotation(idx)
+            _base_pos[n] = skeleton.get_bone_pose_position(idx)
+            _base_scale[n] = skeleton.get_bone_pose_scale(idx)
 
 func _rot(name: String, offset: Quaternion) -> void:
     if skeleton == null or not _bones.has(name):
@@ -226,6 +252,8 @@ func _apply_idle_pose(_delta: float) -> void:
             left_extra = -38.0 * g
             left_elbow = -48.0 * g
         body_lean = 3.5 * g * _gesture_side
+    if _ghost_intent in ["explore", "sit", "rise"]:
+        _body_action_name = _ghost_intent + " / spatial trial"
     # Existing T-pose correction is preserved; only upper body is composed.
     _rot("leftUpperArm", Quaternion(Vector3.FORWARD, left_drop + deg_to_rad(left_extra)) * Quaternion(Vector3.RIGHT, deg_to_rad(13.0 * g)))
     _rot("rightUpperArm", Quaternion(Vector3.FORWARD, right_drop + deg_to_rad(right_extra)) * Quaternion(Vector3.RIGHT, deg_to_rad(-13.0 * g)))
@@ -240,6 +268,7 @@ func _apply_idle_pose(_delta: float) -> void:
     _rot("chest", Quaternion(Vector3.RIGHT, deg_to_rad(_gesture_energy * enable * breath * 0.85)))
     _rot("upperChest", Quaternion(Vector3.UP, deg_to_rad(energy * _target_body_yaw * 0.35)))
     _apply_stance(t, enable, energy)
+    _apply_life_pose(t)
 
     var y := _manual_yaw + _yaw + energy * sin(t * 0.31) * 1.1
     var p := _manual_pitch + _pitch + energy * sin(t * 0.28 + 0.7) * 0.8
@@ -269,6 +298,70 @@ func _apply_stance(t: float, enable: float, energy: float) -> void:
     _rot("rightLowerLeg", Quaternion(Vector3.RIGHT, deg_to_rad(absf(level) * 0.65)))
     _rot("leftFoot", Quaternion(Vector3.RIGHT, deg_to_rad(-absf(level) * 0.55)))
     _rot("rightFoot", Quaternion(Vector3.RIGHT, deg_to_rad(-absf(level) * 0.55)))
+
+func _ease(t: float) -> float:
+    var v: float = clampf(t, 0.0, 1.0)
+    return v * v * (3.0 - 2.0 * v)
+
+func _advance_life(delta: float) -> void:
+    if not _ghost_intent in ["explore", "sit", "rise"] or motion_root == null or _life_finished:
+        return
+    _life_phase += maxf(delta, 0.0)
+    if _ghost_intent == "explore":
+        # Stage trial: stationary foot-contact approximation, bounded 0.65 m traverse.
+        var progress: float = _ease(_life_phase / 6.0)
+        motion_root.position.x = lerpf(_life_start_x, _life_target_x, progress)
+        _walk_cycle += delta * TAU * 1.35
+        _body_action_name = "explore / walking trial"
+        if _life_phase >= 6.0:
+            _life_finished = true
+    elif _ghost_intent == "sit":
+        _sit_amount = _ease(_life_phase / 3.0)
+        _body_action_name = "sitting / trial"
+        if _life_phase >= 3.0:
+            _sit_amount = 1.0
+            _life_finished = true
+    elif _ghost_intent == "rise":
+        _sit_amount = 1.0 - _ease(_life_phase / 3.0)
+        _body_action_name = "rising / trial"
+        if _life_phase >= 3.0:
+            _sit_amount = 0.0
+            _life_finished = true
+    if _life_finished:
+        completed_life_actions += 1
+
+func _apply_life_pose(t: float) -> void:
+    if skeleton == null:
+        return
+    var walking: float = 1.0 if _ghost_intent == "explore" and not _life_finished else 0.0
+    var stride: float = sin(_walk_cycle) * walking
+    # Conservative joint rotation: actual plantar IK and collision are future work.
+    if walking <= 0.0 and _sit_amount <= 0.0:
+        for hand_name in ["leftHand", "rightHand"]:
+            if _bones.has(hand_name):
+                skeleton.set_bone_pose_scale(int(_bones[hand_name]), _base_scale[hand_name] * _hand_ratio)
+        return
+    _rot("leftUpperLeg", Quaternion(Vector3.RIGHT, deg_to_rad(15.0 * stride - 65.0 * _sit_amount)))
+    _rot("rightUpperLeg", Quaternion(Vector3.RIGHT, deg_to_rad(-15.0 * stride - 65.0 * _sit_amount)))
+    _rot("leftLowerLeg", Quaternion(Vector3.RIGHT, deg_to_rad(17.0 * maxf(0.0, -stride) + 70.0 * _sit_amount)))
+    _rot("rightLowerLeg", Quaternion(Vector3.RIGHT, deg_to_rad(17.0 * maxf(0.0, stride) + 70.0 * _sit_amount)))
+    _rot("leftFoot", Quaternion(Vector3.RIGHT, deg_to_rad(-10.0 * stride - 8.0 * _sit_amount)))
+    _rot("rightFoot", Quaternion(Vector3.RIGHT, deg_to_rad(10.0 * stride - 8.0 * _sit_amount)))
+    if _bones.has("hips"):
+        var hips: int = int(_bones["hips"])
+        # Reduced visual seated height; not certified chair-contact or foot locking.
+        skeleton.set_bone_pose_position(hips, _base_pos["hips"] + Vector3(0.0, -0.45 * _sit_amount + 0.015 * sin(_walk_cycle * 2.0) * walking, 0.0))
+    if walking > 0.0 or _sit_amount > 0.0:
+        _rot("spine", Quaternion(Vector3.RIGHT, deg_to_rad(6.0 * _sit_amount + 2.5 * walking)))
+        _rot("leftUpperArm", Quaternion(Vector3.FORWARD, deg_to_rad(68.0 + 11.0 * stride)))
+        _rot("rightUpperArm", Quaternion(Vector3.FORWARD, deg_to_rad(-68.0 + 11.0 * stride)))
+    # Bone scale test is reversible, affects hands only; do not alter LOCK avatar mesh.
+    for hand_name in ["leftHand", "rightHand"]:
+        if _bones.has(hand_name):
+            skeleton.set_bone_pose_scale(int(_bones[hand_name]), _base_scale[hand_name] * _hand_ratio)
+
+func motion_finished(kind: String, serial: int) -> bool:
+    return kind == _ghost_intent and serial == _life_serial and _life_finished
 
 func _apply_relaxed_hands(t: float, enable: float, ease: float) -> void:
     for side in ["left", "right"]:
@@ -359,6 +452,7 @@ func step(delta: float) -> void:
         # Eyes lead; the neck follows, leaving only the residual eye angle.
         _eye_yaw = lerpf(_eye_yaw, clampf(_focus_yaw - _yaw, -12.0, 12.0), 1.0 - exp(-delta * 9.0))
         _eye_pitch = lerpf(_eye_pitch, clampf(_focus_pitch - _pitch, -8.0, 8.0), 1.0 - exp(-delta * 9.0))
+    _advance_life(delta)
     _apply_idle_pose(delta)
     if _ghost_intent == "sleep":
         blink_value = 1.0
