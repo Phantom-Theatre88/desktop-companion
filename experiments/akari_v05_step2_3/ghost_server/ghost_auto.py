@@ -23,6 +23,23 @@ class GhostAutonomy:
     last_decision_ms: int = 0
     decision_count: int = 0
     action: str = "idle"
+    # Temporary Ghost Time to NERVA trial path, not a permanent personality rule.
+    life_trial_phase: str = "idle"
+    life_trial_enabled: bool = False
+    awaiting_result: bool = False
+    trial_completions: int = 0
+    trial_blocked: bool = False
+
+    def on_motion_result(self, kind: str, status: str) -> None:
+        if not self.awaiting_result or kind != self.life_trial_phase:
+            return
+        if status == "completed":
+            self.awaiting_result = False
+            self.trial_completions += 1
+        elif status in ("rejected", "interrupted"):
+            self.awaiting_result = False
+            self.life_trial_phase = "idle"
+            self.trial_blocked = True
 
     def tick(self, now_ms: int) -> str | None:
         """Return a new *semantic intent* only when the autonomous action changes."""
@@ -44,6 +61,32 @@ class GhostAutonomy:
             return None
         self.last_decision_ms = now_ms
         self.decision_count += 1
+        # Preserve existing boredom/sleepiness thresholds. During the spatial
+        # trial, Ghost Time explores after the first 15 s, then uses actual
+        # NERVA completion feedback to choose sit/rise (never timed fake success).
+        if self.life_trial_enabled and not self.trial_blocked and self.life_trial_phase == "idle" and self.decision_count >= 1:
+            self.life_trial_phase = "explore"
+            self.awaiting_result = True
+            self.action = "explore"
+            return "explore"
+        if self.life_trial_enabled and self.awaiting_result:
+            return None
+        if self.life_trial_enabled and self.life_trial_phase == "explore":
+            self.life_trial_phase = "sit"
+            self.awaiting_result = True
+            self.action = "sit"
+            return "sit"
+        if self.life_trial_enabled and self.life_trial_phase == "sit":
+            self.life_trial_phase = "rise"
+            self.awaiting_result = True
+            self.action = "rise"
+            return "rise"
+        if self.life_trial_enabled and self.life_trial_phase == "rise":
+            self.life_trial_phase = "idle"
+            self.action = "idle"
+            return "idle"
+        # The original Heart compatibility policy stays available outside
+        # this provisional exercise. This is not an emotion/Relationship rule.
         # Match the tested C++ behavior thresholds; do not generate new motions.
         if self.sleepiness >= 0.42 and self.boredom >= 0.28:
             next_action = "sleep"
