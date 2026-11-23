@@ -28,6 +28,14 @@ var blink_value: float = 0.0
 var _ghost_intent: String = "idle"
 var _ghost_strength: float = 0.0
 var _ghost_intent_remaining: float = 0.0
+var _ghost_state: Dictionary = {}
+
+func accept_ghost_state(state: Dictionary) -> void:
+    # Read only the six existing Heart compatibility values. NERVA never infers emotions.
+    _ghost_state = state.duplicate()
+
+func clear_ghost_state() -> void:
+    _ghost_state.clear()
 
 func accept_ghost_intent(kind: String, strength: float) -> void:
     if not kind in ["idle", "attend", "rest", "blink", "scan", "drowsy", "sleep"]:
@@ -199,7 +207,12 @@ func _apply_stance(t: float, enable: float, energy: float) -> void:
     var awake: float = 0.0 if _ghost_intent == "sleep" else 1.0
     var target: float = _stance_target * awake * enable
     _stance_blend = lerpf(_stance_blend, target, 1.0 - exp(-0.8 * maxf(0.0, _last_stance_delta)))
-    var level: float = _stance_blend * minf(0.4, energy + 0.05)
+    # November 16 recorded boredom/sleepiness dependence. Direct continuous
+    # attenuation only: no newly designed emotional thresholds or selection policy.
+    var boredom: float = float(_ghost_state.get("boredom", 0.15))
+    var sleepiness: float = float(_ghost_state.get("sleepiness", 0.15))
+    var state_factor: float = clampf(boredom * (1.0 - sleepiness), 0.0, 1.0)
+    var level: float = _stance_blend * minf(0.4, energy + 0.05) * state_factor
     _rot("leftUpperLeg", Quaternion(Vector3.FORWARD, deg_to_rad(level * 1.8)))
     _rot("rightUpperLeg", Quaternion(Vector3.FORWARD, deg_to_rad(-level * 1.8)))
     _rot("leftLowerLeg", Quaternion(Vector3.RIGHT, deg_to_rad(absf(level) * 0.65)))
