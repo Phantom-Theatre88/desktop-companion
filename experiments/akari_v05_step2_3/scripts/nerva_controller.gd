@@ -3,6 +3,10 @@ extends RefCounted
 ## v0.5: relaxed hands and coordinated autonomous idle; no Ghost intentions generated.
 ## Ghost is not required. No emotions or personal intention are generated here.
 var skeleton: Skeleton3D
+var mocap_player: AnimationPlayer
+var mocap_enabled: bool = false
+var mocap_failed: bool = false
+var mocap_current: String = ""
 var expression_map: Dictionary = {}
 var _idle_enabled: bool = true
 var _arms_down: float = 0.94
@@ -62,6 +66,73 @@ var _base_scale: Dictionary = {}
 var completed_life_actions: int = 0
 
 
+# Ghost selects meaning; NERVA selects a body clip and manages its transition.
+# Do not silently replace a missing Mocap clip with the previous artificial gait.
+func bind_mocap(player: AnimationPlayer) -> bool:
+    mocap_player = player
+    if mocap_player == null:
+        mocap_failed = true
+        return false
+    for mandatory in ["walk", "sit", "rise"]:
+        if _find_clip(mandatory) == "":
+            push_error("AKARI Mocap clip missing: " + mandatory)
+            mocap_failed = true
+            return false
+    mocap_enabled = true
+    mocap_failed = false
+    _start_mocap("idle")
+    # Preserve Kim’s approved reversible hand-size correction.
+    for hand in ["leftHand", "rightHand"]:
+        if _bones.has(hand):
+            skeleton.set_bone_pose_scale(int(_bones[hand]), _base_scale[hand] * _hand_ratio)
+    return true
+
+func _find_clip(name: String) -> String:
+    if mocap_player == null:
+        return ""
+    for clip in mocap_player.get_animation_list():
+        var clean_name := str(clip).to_lower()
+        if clean_name == name or clean_name.ends_with("/" + name):
+            return str(clip)
+    return ""
+
+func _start_mocap(kind: String) -> void:
+    if not mocap_enabled or mocap_player == null:
+        return
+    var selected := kind
+    if kind == "explore": selected = "walk"
+    elif kind in ["scan", "attend", "rest"]: selected = "idle"
+    elif kind == "drowsy": selected = "stretch" if _find_clip("stretch") != "" else "idle"
+    elif kind == "sleep": selected = "idle"
+    if kind == "idle" and _sit_amount >= 0.98:
+        selected = "seated_idle"
+        if _find_clip(selected) == "":
+            # Hold last seated frame rather than instantly snapping to standing.
+            mocap_player.pause()
+            mocap_current = "seated_hold"
+            return
+    var clip := _find_clip(selected)
+    if clip == "":
+        if selected in ["walk", "sit", "rise"]:
+            mocap_failed = true
+            push_error("NERVA refuses to fake absent Mocap: " + selected)
+        return
+    var animation := mocap_player.get_animation(clip)
+    if animation != null:
+        if selected in ["walk", "idle", "seated_idle"]:
+            animation.loop_mode = Animation.LOOP_LINEAR
+        else:
+            animation.loop_mode = Animation.LOOP_NONE
+    mocap_player.play(clip, 0.20)
+    # NERVA owns speed and roots; never send joint angles from Ghost.
+    if animation != null and selected in ["sit", "rise"]:
+        mocap_player.speed_scale = maxf(0.1, animation.length / 3.0)
+    elif animation != null and selected == "walk":
+        mocap_player.speed_scale = 1.0
+    else:
+        mocap_player.speed_scale = 1.0
+    mocap_current = selected
+
 func accept_ghost_state(state: Dictionary) -> void:
     # Read only the six existing Heart compatibility values. NERVA never infers emotions.
     _ghost_state = state.duplicate()
@@ -90,6 +161,7 @@ func accept_ghost_intent(kind: String, strength: float) -> void:
         if kind == "sit":
             _sitting_start = _sit_amount
     _ghost_intent = kind
+    _start_mocap(kind)
     _ghost_strength = clampf(strength, 0.0, 1.0)
     _ghost_intent_remaining = -1.0 if kind in ["idle", "scan", "drowsy", "sleep", "explore", "sit", "rise"] else 3.0
     if kind == "attend":
@@ -212,6 +284,10 @@ func _reset_targets() -> void:
 
 func _apply_idle_pose(_delta: float) -> void:
     if skeleton == null:
+        return
+    # When a calibrated clip drives the skeleton, do not overwrite its joints
+    # with the legacy hand-coded gait/gesture pose. Face blink remains separate.
+    if mocap_enabled:
         return
     var t := _idle_time
     var enable := 1.0 if _idle_enabled else 0.0
@@ -412,6 +488,8 @@ func motion_terminated(kind: String, serial: int) -> bool:
     return kind == _ghost_intent and serial == _life_serial and _life_finished
 
 func motion_finished(kind: String, serial: int) -> bool:
+    if not mocap_enabled or mocap_failed:
+        return false
     # Not a quality/ground-contact check. Confirm the motor actually reached
     # the measured trial-stage target before telling Ghost it succeeded.
     if not motion_terminated(kind, serial) or motion_root == null:
