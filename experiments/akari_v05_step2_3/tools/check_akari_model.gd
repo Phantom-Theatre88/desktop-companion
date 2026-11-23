@@ -23,18 +23,32 @@ func _initialize() -> void:
         return
     for required in ["walk", "sit", "rise"]:
         var found := false
-        for a in stats["mocap_clips"]:
-            if str(a).to_lower() == required or str(a).to_lower().ends_with("/" + required):
+        var driven_bones := 0
+        for entry in stats["mocap_clips"]:
+            var name := str(entry.get("name", "")).to_lower()
+            if name == required or name.ends_with("/" + required):
                 found = true
+                driven_bones = maxi(driven_bones, int(entry.get("bone_tracks", 0)))
         if not found:
-            _fail("Mocap clip missing: " + required + "; cannot claim natural movement")
+            _fail("Mocap clip missing: " + required)
+            return
+        if driven_bones < 8:
+            _fail("Mocap clip " + required + " has only " + str(driven_bones) + " rotation tracks. Real skeleton motion NOT verified")
             return
     print("PASS: AKARI actual GLB mesh, skeleton, face morph, mocap clips resource load")
     quit(0)
 
 func _inspect(node: Node, stats: Dictionary) -> void:
     if node is AnimationPlayer:
-        stats["mocap_clips"].append_array((node as AnimationPlayer).get_animation_list())
+        var player := node as AnimationPlayer
+        for clip in player.get_animation_list():
+            var animation := player.get_animation(clip)
+            var tracks := 0
+            if animation != null:
+                for track_idx in animation.get_track_count():
+                    if animation.track_get_type(track_idx) == Animation.TYPE_ROTATION_3D:
+                        tracks += 1
+            stats["mocap_clips"].append({"name": str(clip), "bone_tracks": tracks})
     if node is Skeleton3D:
         stats["skeletons"] += 1
         stats["max_bones"] = maxi(stats["max_bones"], (node as Skeleton3D).get_bone_count())
