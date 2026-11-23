@@ -308,6 +308,8 @@ func _update_status() -> void:
             legs += 1
     lines.append("Leg bones: %s/6" % legs)
     lines.append("Stance transfer (test): %s" % str(_nerva.stance_transfers))
+    lines.append("Body gesture: %s" % _nerva._body_action_name)
+    lines.append("Gesture cycles: %s" % str(_nerva.visible_gestures))
     lines.append("Ghost intent: %s" % _nerva._ghost_intent)
     lines.append("Ghost state: %s" % ("CONNECTED VALUES" if not _nerva._ghost_state.is_empty() else "NONE"))
     lines.append("Material override: %s" % ("ON" if _visibility_override else "OFF"))
