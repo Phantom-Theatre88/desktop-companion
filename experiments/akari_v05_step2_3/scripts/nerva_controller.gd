@@ -7,6 +7,7 @@ var mocap_player: AnimationPlayer
 var mocap_enabled: bool = false
 var mocap_failed: bool = false
 var mocap_current: String = ""
+var _mocap_completed_clip: String = ""
 var expression_map: Dictionary = {}
 var _idle_enabled: bool = true
 var _arms_down: float = 0.94
@@ -70,6 +71,8 @@ var completed_life_actions: int = 0
 # Do not silently replace a missing Mocap clip with the previous artificial gait.
 func bind_mocap(player: AnimationPlayer) -> bool:
     mocap_player = player
+    if mocap_player != null and not mocap_player.animation_finished.is_connected(_on_mocap_animation_finished):
+        mocap_player.animation_finished.connect(_on_mocap_animation_finished)
     if mocap_player == null:
         mocap_failed = true
         return false
@@ -123,6 +126,7 @@ func _start_mocap(kind: String) -> void:
             animation.loop_mode = Animation.LOOP_LINEAR
         else:
             animation.loop_mode = Animation.LOOP_NONE
+    _mocap_completed_clip = ""
     mocap_player.play(clip, 0.20)
     # NERVA owns speed and roots; never send joint angles from Ghost.
     if animation != null and selected in ["sit", "rise"]:
@@ -484,6 +488,26 @@ func _apply_life_pose(_t: float) -> void:
         if _bones.has(hand_name):
             skeleton.set_bone_pose_scale(int(_bones[hand_name]), _base_scale[hand_name] * _hand_ratio)
 
+# A timer is never evidence that a clip really played to its last frame.
+# The engine's animation_finished signal is the source of truth for sit/rise.
+func _on_mocap_animation_finished(clip: StringName) -> void:
+    if str(clip) == _find_clip(mocap_current):
+        _mocap_completed_clip = str(clip)
+
+func _mocap_terminal_ready(kind: String) -> bool:
+    if mocap_player == null or not mocap_enabled or mocap_failed:
+        return false
+    if kind == "explore":
+        # Walk is looped, so its end is the physical destination.
+        return mocap_current == "walk" and mocap_player.is_playing()
+    var expected := "sit" if kind == "sit" else "rise"
+    if mocap_current != expected:
+        return false
+    var clip := _find_clip(expected)
+    if clip == "":
+        return false
+    return _mocap_completed_clip == clip
+
 func motion_terminated(kind: String, serial: int) -> bool:
     return kind == _ghost_intent and serial == _life_serial and _life_finished
 
@@ -493,6 +517,8 @@ func motion_finished(kind: String, serial: int) -> bool:
     # Not a quality/ground-contact check. Confirm the motor actually reached
     # the measured trial-stage target before telling Ghost it succeeded.
     if not motion_terminated(kind, serial) or motion_root == null:
+        return false
+    if not _mocap_terminal_ready(kind):
         return false
     if kind == "explore":
         return absf(motion_root.position.x - _life_target_x) <= 0.025 and absf(motion_root.rotation.y) < 0.03
