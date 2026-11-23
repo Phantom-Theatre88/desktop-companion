@@ -41,7 +41,7 @@ if ! .venv/bin/python3 -c 'import websockets' >/dev/null 2>&1; then
   .venv/bin/python3 -m pip install 'websockets>=12,<17' || { echo 'FAIL: websocketsの導入に失敗'; exit 1; }
 fi
 mkdir -p ghost_server/state
-.venv/bin/python3 ghost_server/intent_server.py --headless --life-trial --journal ghost_server/state/experiences.sqlite &
+.venv/bin/python3 ghost_server/intent_server.py --headless --auto-life --time-scale 60 --journal ghost_server/state/experiences.sqlite &
 GHOST_PID=$!
 trap 'kill "$GHOST_PID" 2>/dev/null || true' EXIT INT TERM
 sleep 1
