@@ -29,6 +29,19 @@ var _ghost_intent: String = "idle"
 var _ghost_strength: float = 0.0
 var _ghost_intent_remaining: float = 0.0
 var _ghost_state: Dictionary = {}
+# Motor expression, not Ghost personality. These phases are continuous, not clips.
+# Fixed behavior semantics: idle=relaxed gesture, scan=attentive gesture,
+# drowsy=stretch/yawn posture, sleep=quiet breathing.
+var _body_action_time: float = 0.0
+var _body_action_index: int = 0
+var _body_action_name: String = "settle"
+var _last_intent: String = "idle"
+var _gesture_timer: float = 0.0
+var _gesture_period: float = 8.0
+var _gesture_blend: float = 0.0
+var _gesture_side: float = 1.0
+var visible_gestures: int = 0
+
 
 func accept_ghost_state(state: Dictionary) -> void:
     # Read only the six existing Heart compatibility values. NERVA never infers emotions.
@@ -41,6 +54,9 @@ func accept_ghost_intent(kind: String, strength: float) -> void:
     if not kind in ["idle", "attend", "rest", "blink", "scan", "drowsy", "sleep"]:
         return
     print("NERVA received Ghost intent: ", kind)
+    if kind != _ghost_intent:
+        _body_action_time = 0.0
+        _gesture_timer = 0.0
     _ghost_intent = kind
     _ghost_strength = clampf(strength, 0.0, 1.0)
     _ghost_intent_remaining = -1.0 if kind in ["idle", "scan", "drowsy", "sleep"] else 3.0
@@ -95,6 +111,7 @@ var _last_stance_delta: float = 0.0
 func initialize() -> void:
     _rng.randomize()
     _time_to_blink = _rng.randf_range(2.7, 5.2)
+    _gesture_period = 6.0
     _breath_period = _rng.randf_range(3.8, 5.1)
 
 func bind_model(model_skeleton: Skeleton3D, model_expression_map: Dictionary) -> void:
@@ -176,16 +193,49 @@ func _apply_idle_pose(_delta: float) -> void:
     # in the actual Godot runtime; these offsets aim downward instead.
     var left_drop := deg_to_rad(79.0 * ease + energy * sin(t * 0.63) * 2.5)
     var right_drop := deg_to_rad(-79.0 * ease - energy * sin(t * 0.57 + 1.3) * 2.5)
-    _rot("leftUpperArm", Quaternion(Vector3.FORWARD, left_drop))
-    _rot("rightUpperArm", Quaternion(Vector3.FORWARD, right_drop))
+    # Express semantic Ghost intent as a continuous NERVA body movement.
+    # A soft envelope prevents joints snapping between poses.
+    var g: float = _gesture_blend
+    var left_extra: float = 0.0
+    var right_extra: float = 0.0
+    var left_elbow: float = 0.0
+    var right_elbow: float = 0.0
+    var body_lean: float = 0.0
+    if _ghost_intent == "sleep":
+        _body_action_name = "sleep breathing"
+    elif _ghost_intent == "drowsy":
+        _body_action_name = "drowsy stretch"
+        # Bring arms forward and slightly out, never fake walking or seating.
+        left_extra = -34.0 * g
+        right_extra = 34.0 * g
+        left_elbow = -32.0 * g
+        right_elbow = 32.0 * g
+        body_lean = -4.0 * g
+    elif _ghost_intent == "scan":
+        _body_action_name = "attentive gesture"
+        left_extra = -13.0 * g
+        right_extra = 31.0 * g
+        right_elbow = 39.0 * g
+        body_lean = 3.0 * g
+    elif _ghost_intent in ["idle", "attend"]:
+        _body_action_name = "relaxed spontaneous gesture" if g > 0.12 else "settle"
+        if _gesture_side > 0.0:
+            right_extra = 38.0 * g
+            right_elbow = 48.0 * g
+        else:
+            left_extra = -38.0 * g
+            left_elbow = -48.0 * g
+        body_lean = 3.5 * g * _gesture_side
+    # Existing T-pose correction is preserved; only upper body is composed.
+    _rot("leftUpperArm", Quaternion(Vector3.FORWARD, left_drop + deg_to_rad(left_extra)) * Quaternion(Vector3.RIGHT, deg_to_rad(13.0 * g)))
+    _rot("rightUpperArm", Quaternion(Vector3.FORWARD, right_drop + deg_to_rad(right_extra)) * Quaternion(Vector3.RIGHT, deg_to_rad(-13.0 * g)))
 
-    # Slight elbow bend and soft wrists; no hand translation or drifting feet.
-    _rot("leftLowerArm", Quaternion(Vector3.UP, deg_to_rad(-7.0 * ease)))
-    _rot("rightLowerArm", Quaternion(Vector3.UP, deg_to_rad(7.0 * ease)))
+    _rot("leftLowerArm", Quaternion(Vector3.UP, deg_to_rad(-7.0 * ease + left_elbow)))
+    _rot("rightLowerArm", Quaternion(Vector3.UP, deg_to_rad(7.0 * ease + right_elbow)))
     _apply_relaxed_hands(t, enable, ease)
 
     # Gentle body movement. Do not animate hips translation or feet: feet stay planted.
-    _rot("spine", Quaternion(Vector3.FORWARD, deg_to_rad(energy * sway * 0.65)))
+    _rot("spine", Quaternion(Vector3.FORWARD, deg_to_rad(energy * sway * 0.65 + body_lean)))
     # Breathing remains visible even during sleep.
     _rot("chest", Quaternion(Vector3.RIGHT, deg_to_rad(_gesture_energy * enable * breath * 0.85)))
     _rot("upperChest", Quaternion(Vector3.UP, deg_to_rad(energy * _target_body_yaw * 0.35)))
@@ -259,6 +309,27 @@ func _choose_attention() -> void:
         _time_to_blink = minf(_time_to_blink, 0.12)
 
 func step(delta: float) -> void:
+    _body_action_time += delta
+    _gesture_timer += delta
+    # Only NERVA's motor variation; Ghost still owns the action category.
+    # Vary motion timing without adding arbitrary emotion or personality scores.
+    if _gesture_timer >= _gesture_period:
+        _gesture_timer = 0.0
+        _gesture_period = _rng.randf_range(7.5, 12.0)
+        _body_action_index += 1
+        _gesture_side = -_gesture_side
+        visible_gestures += 1
+    var gesture_goal: float = 0.0
+    if _ghost_intent == "scan":
+        gesture_goal = 0.7 + 0.2 * sin(_body_action_time * 0.65)
+    elif _ghost_intent == "drowsy":
+        gesture_goal = 0.8 + 0.1 * sin(_body_action_time * 0.45)
+    elif _ghost_intent == "attend":
+        gesture_goal = 0.75
+    elif _ghost_intent == "idle" and _gesture_timer < 3.2:
+        # A short gesture then relaxed waiting. Not constant arm waving.
+        gesture_goal = sin(PI * _gesture_timer / 3.2)
+    _gesture_blend = lerpf(_gesture_blend, gesture_goal, 1.0 - exp(-maxf(delta, 0.0) * 2.5))
     _last_stance_delta = delta
     _stance_next -= delta
     if _stance_next <= 0.0:
