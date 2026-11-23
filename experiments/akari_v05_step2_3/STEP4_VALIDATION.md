@@ -34,7 +34,10 @@ python3 -m unittest discover -s tests -v
 - この環境にはGodot 4実行ファイルがないため、GDScript実行やレンダリング、実際のボーン駆動、顔・視線・脚の可愛らしさと足裏接地は**未検証**。
 - 通信の返信`applied_frame`は「モデルが結び付いた処理フレーム」であり、画面上の自然な身体動作・終了の証明ではない。
 
-## Macでの実画面試験（最小手順）
+## Macでの自動事前検査と実画面試験（最小手順）
+
+最初に `akari_motion_test/Mac自動検査.command` をダブルクリック。Python自動テストと、GodotがあればヘッドレスGLBインポート／GDScript起動検査を試み、`akari_motion_test/logs/` にログを出す（Macでの実行は未検証）。**ヘッドレス合格だけでは実画面・足裏の検証は完了しない。**
+
 1. ZIPを展開して `akari_motion_test/起動_AKARI.command` をMacで実行。初回はPython3とGodot 4が必要、ネットワークは依存Pythonライブラリ取得のみ。
 2. Characterのモデル・表情・呼吸・脚6本の状態、`Ghost state: CONNECTED VALUES`、自発的`drowsy`/`sleep`（現実時間で状態が変わるためすぐには移行しない）を確認。
 3. 画面・Godot Outputを録画またはログとして保存し、問題をkibiが修正する。**目視実験は本ZIP作成時点では未実施。**
