@@ -1,25 +1,16 @@
-# AKARI CC0モーション統合（動作検証版）
+# AKARI / NERVA 実体取り込み済みモーション（2026-11-24）
 
-起動時に `tools/install_cc0_motion.py` がKinemIQ公式CC0の35クリップGLB ZIPを取得し、元モデル`avatar/akari_test.glb`から `avatar/akari_animated.glb` を生成。元GLBは改変禁止。`akari_animated.provenance.json` に出典、SHA、アニメーション一覧を記録。必要な歩行・着座・起立の3種類がなければ処理を失敗させる。外部素材本体はこの配布ZIPに含まない。
+**今版は、Kimがアップロードした実際の35モーションZIPと変換済みAKARI GLBを同梱済み。インターネットで再取得する必要はありません。**
 
-**方法**：Source/Targetの対応する人型ボーンについて、親ボーンのrest回転を考慮して回転差分を移し、腰の上下移動を座位用に写す。足裏IKや衝突判定の完成ではない。実クリップのボーン名・座位・歩行姿勢はGodotで実画面検証が必要。
+- 原本：`motions/source/KinemIQ_Free_Animations_CC0_GLB.zip`
+- ユーザー提供ZIP SHA-256：`55365fc4c2c472ab24fc735139e5ae0d1e2d0e54ef383877623290e0379b947e`
+- 配布元掲載値：`64ca5ab4a92c9da079c5e88ca509391b0a58a24ccf2a1307b16e2f0fc6b23ffc`（一致しない。Mac由来のZIP追加メタデータ含有。公式と同一バイト列の保証はできないが、内部35アニメーション・README CC0文面を実際に確認済み）
+- ライセンス：アーカイブ内の `README.txt` に記載の CC0 1.0（Quaternius / KinemIQ）
+- 変換済み：`avatar/akari_animated.glb`（15種類のAKARI用クリップ、約49関節回転＋腰位置）
+- 根拠：`avatar/akari_animated.provenance.json`
 
-**意思と身体の分離**：Ghostが `explore/sit/rise/...` の意図だけを選び、NERVAはテンプレートと速度・つなぎを制御。モーションがあっても自発意思の完成とは呼ばない。
+対応：`walk`, `sit`, `rise`, `idle`, `seated_idle`, `talk_idle`, `wait`, `interact`, `pick_up`, `jog`, `walk_formal`, `walk_carry`, `walk_crouched`, `crouched_idle`, `dance`。
 
-**ソース**：https://github.com/Kinemiq/free-game-animations 及び https://huggingface.co/datasets/Kinemiq/free-game-animations 。権利 CC0 1.0、出典 Quaternius/ KinemIQ。Godot人型リターゲットの原理は https://docs.godotengine.org/en/stable/tutorials/assets_pipeline/retargeting_3d_skeletons.html 。
+役割：Ghostは行動の意図を選び、Character内のNERVAがクリップ・速度・つなぎを制御する。外観は元モデルGLBから変更しない。
 
-## 2026-11-24 取得障害の根本対策（検証中）
-
-配布元のHugging Face上にGLB ZIP実体（2.22 MB）とSHA256 `64ca5ab4a92c9da079c5e88ca509391b0a58a24ccf2a1307b16e2f0fc6b23ffc` が存在することを確認。
-この制作環境で `urllib.request.urlopen` を実行すると `URLError [Errno -3] Temporary failure in name resolution` となるため、**制作環境からの取得は失敗**。Mac側の通信環境で同じエラーかは未確認。
-
-起動スクリプトは以下を自動試行する（全経路で上記SHAを必須検査）。
-
-- Hugging Face公式resolve
-- Hugging Face公式resolve `?download=true`
-- hf-mirror.com（非公式ミラー。検証済みSHA一致時だけ採用）
-
-ダウンロードが止まる場合、ログ `logs/akari_start_*.log` に `MOTION_DOWNLOAD_FAIL` 行で通信／HTTP／SHAの原因が残る。
-**手作業による最短の復旧策**：配布元の[モーションZIPページ](https://huggingface.co/datasets/Kinemiq/free-game-animations/blob/main/KinemIQ_Free_Animations_CC0_GLB.zip)から `KinemIQ_Free_Animations_CC0_GLB.zip` をダウンロードし、展開した `akari_motion_test/motions/source/` に置く。再度 `起動_AKARI.command` を起動する。既存のZIPは暗黙に信用せずSHA照合する。Quaterniusの別パックを同名に変更してもSHAが異なるため使用しない。
-
-**未検証**：Macからの実取得、取得した正規GLBのボーン対応、Godot実アニメーション表示と自然な動き。テスト用合成GLBによる変換成功は実素材の検証とは区別する。
+**未検証**：Godot上での実際の自然さ、つま先接地、椅子への正確な着座・動作の見た目。ここはMac実動作の判断が必要。固定の数式歩行を自律生活の完成品とは見なさない。
