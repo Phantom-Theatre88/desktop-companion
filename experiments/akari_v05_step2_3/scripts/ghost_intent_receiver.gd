@@ -13,6 +13,8 @@ var _pending_frame: int = -1
 var _state_received: bool = false
 var _motion_wait: bool = false
 var _motion_serial: int = -1
+var _motion_started_ms: int = 0
+const MOTION_RESULT_TIMEOUT_MS: int = 12000
 var _observation_timer: float = 0.0
 
 func _ready() -> void:
@@ -97,6 +99,7 @@ func _handle(message: Dictionary) -> void:
     _pending_frame = Engine.get_process_frames()
     _motion_wait = kind in ["explore", "sit", "rise"] and _pending_result >= 0
     _motion_serial = motor._life_serial
+    _motion_started_ms = Time.get_ticks_msec()
 
 func _send_applied_frame_if_ready() -> void:
     if _pending_result < 0 or Engine.get_process_frames() <= _pending_frame:
@@ -127,7 +130,7 @@ func _send_stage_observation() -> void:
     if not bound:
         return
     var seated: bool = motor._sit_amount >= 0.99
-    var busy: bool = motor._ghost_intent in ["explore", "sit", "rise"] and not motor._life_finished
+    var busy: bool = motor._ghost_intent in ["explore", "sit", "rise"] and not motor.motion_finished(motor._ghost_intent, motor._life_serial)
     var report := {"type": "nerva_observation", "version": 1,
                    "model_bound": true, "position_x": motor.motion_root.position.x,
                    "seated": seated, "motion_busy": busy}
@@ -143,6 +146,10 @@ func _send_motion_result_if_ready() -> void:
             if not motor._bones.has(bone_name):
                 valid_body = false
         var success: bool = valid_body and motor.motion_finished(_pending_kind, _motion_serial)
+        if not success and not motor.mocap_failed and valid_body and Time.get_ticks_msec() - _motion_started_ms < MOTION_RESULT_TIMEOUT_MS:
+            # Physical phase may have completed one frame before AnimationPlayer
+            # emits animation_finished. Do not report false failure or success.
+            return
         _send_result(_pending_result, "completed" if success else "rejected", valid_body)
         _pending_result = -1
         _motion_wait = false
