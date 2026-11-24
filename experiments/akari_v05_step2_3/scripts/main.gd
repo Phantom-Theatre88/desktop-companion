@@ -124,7 +124,7 @@ func _create_trial_world() -> void:
     var seat_mesh := BoxMesh.new()
     seat_mesh.size = Vector3(0.65, 0.08, 0.5)
     seat.mesh = seat_mesh
-    seat.position = Vector3(-0.65, 0.42, -0.23)
+    seat.position = Vector3(-0.65, 0.42, -0.45)
     var seat_material := StandardMaterial3D.new()
     seat_material.albedo_color = Color(0.33, 0.40, 0.43)
     seat.material_override = seat_material
@@ -135,7 +135,7 @@ func _create_trial_world() -> void:
             var lm := BoxMesh.new()
             lm.size = Vector3(0.055, 0.40, 0.055)
             leg.mesh = lm
-            leg.position = Vector3(-0.65 + offset_x, 0.20, -0.23 + offset_z)
+            leg.position = Vector3(-0.65 + offset_x, 0.20, -0.45 + offset_z)
             leg.material_override = seat_material
             add_child(leg)
 
