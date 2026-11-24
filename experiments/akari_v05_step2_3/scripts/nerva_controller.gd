@@ -57,6 +57,7 @@ var _walk_envelope: float = 0.0
 var _gait_distance: float = 0.0
 var _last_walk_x: float = 0.0
 var _sitting_start: float = 0.0
+var _seat_origin_z: float = 0.0
 var _seat_offset_z: float = -0.20 # Seat is behind the standing avatar on the trial stage.
 var _life_target_x: float = 0.0
 var _life_start_x: float = 0.0
@@ -110,7 +111,8 @@ func _start_mocap(kind: String) -> void:
     elif kind == "rest": selected = "idle"
     elif kind == "drowsy": selected = "stretch" if _find_clip("stretch") != "" else "idle"
     elif kind == "sleep": selected = "idle"
-    if kind == "idle" and _sit_amount >= 0.98:
+    if kind == "idle" and (_sit_amount >= 0.95 or
+            (_ghost_intent == "sit" and _mocap_completed_clip == _find_clip("sit"))):
         selected = "seated_idle"
         if _find_clip(selected) == "":
             # Hold last seated frame rather than instantly snapping to standing.
@@ -129,11 +131,14 @@ func _start_mocap(kind: String) -> void:
             animation.loop_mode = Animation.LOOP_LINEAR
         else:
             animation.loop_mode = Animation.LOOP_NONE
-    _mocap_completed_clip = ""
+    # Preserve a verified completed action while moving into its neutral
+    # posture; Ghost must still receive the true finished event.
+    if selected in ["walk", "sit", "rise"]:
+        _mocap_completed_clip = ""
     mocap_player.play(clip, 0.20)
     # NERVA owns speed and roots; never send joint angles from Ghost.
     if animation != null and selected in ["sit", "rise"]:
-        mocap_player.speed_scale = maxf(0.1, animation.length / 3.0)
+        mocap_player.speed_scale = maxf(0.1, animation.length / (SIT_SECONDS if selected == "sit" else RISE_SECONDS))
     elif animation != null and selected == "walk":
         mocap_player.speed_scale = 1.0
     else:
@@ -168,6 +173,9 @@ func accept_ghost_intent(kind: String, strength: float) -> void:
             _actual_walk_started = false
         if kind == "sit":
             _sitting_start = _sit_amount
+            _seat_origin_z = motion_root.position.z if motion_root != null else 0.0
+    if kind == "rise":
+        _seat_origin_z = motion_root.position.z if motion_root != null else SEATED_ROOT_Z
     _ghost_intent = kind
     # An exploring character turns on planted feet; do not walk-in-place
     # through the 0.8 s turn before physical translation begins.
@@ -399,6 +407,12 @@ func _ease(t: float) -> float:
     var v: float = clampf(t, 0.0, 1.0)
     return v * v * (3.0 - 2.0 * v)
 
+const TURN_SECONDS: float = 0.55
+const WALK_SECONDS: float = 1.30 # one actual CC0 forward gait loop for 0.65 m; previously 4.4s foot skating
+const SIT_SECONDS: float = 1.60
+const RISE_SECONDS: float = 1.40
+const SEATED_ROOT_Z: float = -0.14 # seat is behind the approach corridor
+
 func _advance_life(delta: float) -> void:
     if not _ghost_intent in ["explore", "sit", "rise"] or motion_root == null or _life_finished:
         return
@@ -412,19 +426,18 @@ func _advance_life(delta: float) -> void:
         # until the character is facing the travel direction.
         var travel := Vector3(_life_target_x - _life_start_x, 0.0, 0.0)
         var travel_yaw := atan2(travel.x, travel.z) # +Z model forward
-        const TURN_SECONDS := 0.8
-        const WALK_SECONDS := 4.4
         var walk_progress: float = 0.0
         if _life_phase < TURN_SECONDS:
             motion_root.rotation.y = lerp_angle(0.0, travel_yaw, _ease(_life_phase / TURN_SECONDS))
             motion_root.position.x = _life_start_x
+            motion_root.position.z = 0.0
             _walk_envelope = 0.0
         elif _life_phase < TURN_SECONDS + WALK_SECONDS:
             if mocap_enabled and mocap_current != "walk":
                 _start_mocap("walk")
                 _actual_walk_started = mocap_current == "walk" and mocap_player.is_playing()
             motion_root.rotation.y = travel_yaw
-            walk_progress = _ease((_life_phase - TURN_SECONDS) / WALK_SECONDS)
+            walk_progress = clampf((_life_phase - TURN_SECONDS) / WALK_SECONDS, 0.0, 1.0)
             motion_root.position.x = lerpf(_life_start_x, _life_target_x, walk_progress)
             _walk_envelope = clampf(sin(PI * walk_progress) * 2.1, 0.0, 1.0)
         else:
@@ -439,21 +452,25 @@ func _advance_life(delta: float) -> void:
         # The walk cycle advances only while travelling; no in-place backstep.
         _walk_cycle = _gait_distance * TAU / 0.27
         _body_action_name = "explore / face-correct turn-walk-turn trial"
-        if _life_phase >= 6.0:
+        if _life_phase >= TURN_SECONDS * 2.0 + WALK_SECONDS:
             _walk_envelope = 0.0
             motion_root.rotation.y = 0.0
             _life_finished = true
     elif _ghost_intent == "sit":
         # Seat phase is a coordinated squat/hinge, not instantaneous hips Y.
-        _sit_amount = lerpf(_sitting_start, 1.0, _ease(_life_phase / 3.0))
+        _sit_amount = lerpf(_sitting_start, 1.0, _ease(_life_phase / SIT_SECONDS))
+        motion_root.position.z = lerpf(_seat_origin_z, SEATED_ROOT_Z, _ease(_life_phase / SIT_SECONDS))
         _body_action_name = "sitting / coordinated hinge trial"
-        if _life_phase >= 3.0:
+        if _life_phase >= SIT_SECONDS:
+            motion_root.position.z = SEATED_ROOT_Z
             _sit_amount = 1.0
             _life_finished = true
     elif _ghost_intent == "rise":
-        _sit_amount = 1.0 - _ease(_life_phase / 3.0)
+        _sit_amount = 1.0 - _ease(_life_phase / RISE_SECONDS)
+        motion_root.position.z = lerpf(_seat_origin_z, 0.0, _ease(_life_phase / RISE_SECONDS))
         _body_action_name = "rising / coordinated hinge trial"
-        if _life_phase >= 3.0:
+        if _life_phase >= RISE_SECONDS:
+            motion_root.position.z = 0.0
             _sit_amount = 0.0
             _life_finished = true
     if _life_finished:
@@ -504,6 +521,10 @@ func _apply_life_pose(_t: float) -> void:
 func _on_mocap_animation_finished(clip: StringName) -> void:
     if str(clip) == _find_clip(mocap_current):
         _mocap_completed_clip = str(clip)
+        if mocap_current in ["sit", "rise"]:
+            # Character maintains a living seated/standing pose after the
+            # actual captured transition, not a frozen last frame.
+            _start_mocap("idle")
 
 func _mocap_terminal_ready(kind: String) -> bool:
     if mocap_player == null or not mocap_enabled or mocap_failed:
@@ -514,7 +535,9 @@ func _mocap_terminal_ready(kind: String) -> bool:
         # turn-back runs a planted-foot idle and must not fail completion.
         return _actual_walk_started and mocap_current == "idle"
     var expected := "sit" if kind == "sit" else "rise"
-    if mocap_current != expected:
+    if (mocap_current != expected and not
+            (kind == "sit" and mocap_current in ["seated_idle", "seated_hold"]) and not
+            (kind == "rise" and mocap_current == "idle")):
         return false
     var clip := _find_clip(expected)
     if clip == "":
@@ -536,9 +559,9 @@ func motion_finished(kind: String, serial: int) -> bool:
     if kind == "explore":
         return absf(motion_root.position.x - _life_target_x) <= 0.025 and absf(motion_root.rotation.y) < 0.03
     if kind == "sit":
-        return absf(motion_root.position.x + 0.65) <= 0.13 and _sit_amount >= 0.99
+        return absf(motion_root.position.x + 0.65) <= 0.13 and absf(motion_root.position.z - SEATED_ROOT_Z) < 0.015 and _sit_amount >= 0.99
     if kind == "rise":
-        return absf(motion_root.position.x + 0.65) <= 0.13 and _sit_amount <= 0.01
+        return absf(motion_root.position.x + 0.65) <= 0.13 and absf(motion_root.position.z) < 0.015 and _sit_amount <= 0.01
     return false
 
 func _apply_relaxed_hands(t: float, enable: float, ease: float) -> void:
