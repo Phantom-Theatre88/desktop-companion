@@ -46,7 +46,7 @@ class MotionBridgeTests(unittest.TestCase):
                 for name in ['Walk','Sit Down','Stand Up','Idle','Sitting Idle']:
                     z.writestr(name+'.glb',self.synthetic_source(name))
             with patch.object(mocap, "check_bundle", return_value=None):
-                report=mocap.build(bundle,dest,original)
+                report=mocap.build(bundle,dest,original,require_contact=False)
             gltf,_=mocap.glb_read(dest.read_bytes())
             self.assertTrue({'walk','sit','rise','idle','seated_idle'} <= {a['name'] for a in gltf['animations']})
             self.assertEqual(len(gltf['meshes']),3)
