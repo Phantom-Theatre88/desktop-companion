@@ -269,6 +269,100 @@ def align_seated_hip_contacts(clips, hip_id):
             'rise_stand_continuity_m':max(abs(rise['values'][-1][a]-rest[a]) for a in range(3))}
 
 
+def apply_locked_contact_calibration(clips, human: dict, targets: dict, source_zip_sha256: str, original_sha256: str):
+    """Apply verified per-frame leg IK to the known model/source without SciPy.
+
+    The source humanoid has different proportions; uncalibrated seated feet
+    penetrate the floor by up to 13cm. A numerical two-link leg adjustment
+    was solved offline against AKARI FK, keeping pelvis at the seat height.
+    Mac replay uses this pinned, plain-JSON correction table only.
+    """
+    calibration = json.loads((ROOT / 'tools/contact_calibration.json').read_text(encoding='utf8'))
+    if (source_zip_sha256 != calibration['source_zip_sha256'] or
+            original_sha256 != calibration['source_model_sha256']):
+        raise ValueError('Contact calibration is not validated for this exact model and motion bundle')
+    for name, data in calibration['clips'].items():
+        if name not in clips:
+            raise ValueError('Contact calibration motion missing: ' + name)
+        times = data['times']
+        for side, corrections in data['legs'].items():
+            for part, values in corrections.items():
+                vrm_key = side + part
+                node_id = targets[human[vrm_key]]['id']
+                channel = next((ch for ch in clips[name] if ch['node'] == node_id and ch['path'] == 'rotation'), None)
+                if channel is None or len(channel['times']) != len(times) or len(values) != len(times):
+                    raise ValueError('Contact correction key count mismatch: ' + name + '/' + vrm_key)
+                if any(abs(float(a)-float(b)) > .001 for a,b in zip(channel['times'],times)):
+                    raise ValueError('Contact correction timestamps mismatch: ' + name + '/' + vrm_key)
+                for i, degrees in enumerate(values):
+                    angle = math.radians(degrees) / 2
+                    rot_x = [math.sin(angle),0.0,0.0,math.cos(angle)]
+                    channel['values'][i] = quat_norm(quat_mul(channel['values'][i],rot_x))
+    return {'applied_clips': list(calibration['clips']), 'source_zip_sha256': source_zip_sha256,
+            'solver':'FK-measured sagittal leg correction, pinned per frame'}
+
+
+def quaternion_blend(a, b, weight):
+    """Shortest-arc quaternion interpolation; normalized linear blend is stable at small spans."""
+    b = list(b)
+    if sum(x*y for x,y in zip(a,b)) < 0:
+        b = [-x for x in b]
+    return quat_norm([a[i]*(1-weight)+b[i]*weight for i in range(4)])
+
+
+def stabilize_seated_leg_transitions(clips, human, targets):
+    """Plant seated feet across sit -> seated_idle -> rise.
+
+    Imported CC0 clips carry distinct seated leg poses despite matching pelvis.
+    Replacing the hold pose with sit's final planted leg stance and gently
+    blending rise into its authored motion avoids 10cm+ foot teleportation.
+    """
+    modified=[]
+    sit,hold,rise=(clips[k] for k in ('sit','seated_idle','rise'))
+    for side in ('left','right'):
+        for part in ('UpperLeg','LowerLeg','Foot'):
+            target=targets[human[side+part]]['id']
+            def find(channels):
+                return next((c for c in channels if c['node']==target and c['path']=='rotation'),None)
+            cs,ch,cr=map(find,(sit,hold,rise))
+            if not all((cs,ch,cr)):
+                raise ValueError('Missing seated transition bone '+side+part)
+            settled=cs['values'][-1]
+            ch['values']=[list(settled) for _ in ch['values']]
+            start_time=cr['times'][0]
+            for i,tm in enumerate(cr['times']):
+                weight=max(0.,min(1.,(tm-start_time)/0.35))
+                weight=weight*weight*(3.-2.*weight)
+                cr['values'][i]=quaternion_blend(settled,cr['values'][i],weight)
+            modified.append(side+part)
+    # The pelvic rotation is the parent of both leg chains. Matching leg joints
+    # without matching hip rotation still teleports the toes by ~10 cm.
+    hip_node=targets[human['hips']]['id']
+    def hip_rotation(channels):
+        return next((ch for ch in channels if ch['node']==hip_node and ch['path']=='rotation'),None)
+    sit_hip,hold_hip,rise_hip=map(hip_rotation,(sit,hold,rise))
+    if not all((sit_hip,hold_hip,rise_hip)):
+        raise ValueError('Missing hip rotation in seated transition')
+    standing_hip=sit_hip['values'][-1]
+    hold_hip['values']=[list(standing_hip) for _ in hold_hip['values']]
+    start_time=rise_hip['times'][0]
+    for i,tm in enumerate(rise_hip['times']):
+        w=max(0.,min(1.,(tm-start_time)/.35))
+        w=w*w*(3.-2.*w)
+        rise_hip['values'][i]=quaternion_blend(standing_hip,rise_hip['values'][i],w)
+    # The short opening hinge slightly raises the pelvis as weight shifts from
+    # chair to planted feet. This avoids a 1cm toe-floor crossing introduced
+    # by leg-pose transition, while retaining exact seated start and stand end.
+    hip_node=targets[human['hips']]['id']
+    hip_channel=next((c for c in rise if c['node']==hip_node and c['path']=='translation'),None)
+    if hip_channel is None:
+        raise ValueError('Rise hip translation not found')
+    for i,tm in enumerate(hip_channel['times']):
+        t=max(0.,min(1.,(tm-hip_channel['times'][0])/0.45))
+        hip_channel['values'][i][1]+=0.028*math.sin(math.pi*t)
+    return {'stabilized_bones':modified,'rise_blend_source_seconds':0.35,'early_rise_weight_transfer_m':0.028}
+
+
 def add_animation(js,buffer,animname,channels):
     name=animname;anim={'name':name,'samplers':[],'channels':[]}
     for ch in channels:
@@ -362,7 +456,7 @@ def download_bundle(path=BUNDLE, sources=DOWNLOAD_SOURCES, opener=None):
                        '\nPlace it at ' + str(path) + ' and run again; SHA256 is checked.')
 
 
-def build(bundle,output=OUTPUT,target=TARGET):
+def build(bundle,output=OUTPUT,target=TARGET,require_contact=True):
     check_bundle(Path(bundle))
     original=target.read_bytes();js,bin_data=glb_read(original)
     human=json.loads(MAP.read_text(encoding='utf8'))['bones']
@@ -386,6 +480,10 @@ def build(bundle,output=OUTPUT,target=TARGET):
     pose_contact=align_seated_hip_contacts(clips,hip_node)
     if not pose_contact.get('enabled') or max(pose_contact[k] for k in ('sit_hold_continuity_m','hold_rise_continuity_m','rise_stand_continuity_m'))>0.04:
         raise ValueError(f'Unsafe seated/standing pelvis discontinuity: {pose_contact}')
+    contact_calibration = (apply_locked_contact_calibration(
+        clips,human,targets,hashlib.sha256(bundle.read_bytes()).hexdigest(),
+        hashlib.sha256(original).hexdigest()) if require_contact else {'enabled':False,'reason':'explicit synthetic fixture only'})
+    seated_transition = stabilize_seated_leg_transitions(clips,human,targets) if require_contact else {'fixture_skip':True}
     for name,ch in sorted(clips.items()):bin_data=add_animation(js,bin_data,name,ch)
     js['buffers'][0]['byteLength']=len(bin_data)
     payload=glb_pack(js,bin_data)
@@ -396,10 +494,12 @@ def build(bundle,output=OUTPUT,target=TARGET):
     # model before accepting it (Kim's 2026-11-24 real-screen finding).
     from audit_mocap_pose import audit_pose_bytes
     pose_audit = audit_pose_bytes(payload, human)
+    from audit_foot_contact import audit_foot_contact_bytes
+    foot_audit = audit_foot_contact_bytes(payload, human) if require_contact else {'fixture_skip': True}
     output.parent.mkdir(parents=True,exist_ok=True)
     output.write_bytes(payload)
     sha=hashlib.sha256(bundle.read_bytes()).hexdigest()
-    record={'source':URL,'license':'CC0 1.0 (per embedded source README, Quaternius/KinemIQ)','source_sha256':sha,'source_status':'user_supplied_audited_zip' if sha==USER_SUPPLIED_CC0_SHA256 else 'publisher_pinned_zip', 'base_model_sha256':hashlib.sha256(original).hexdigest(),'seat_continuity':pose_contact,'wrist_posture_audit':pose_audit,'animations':[{'name':name,'animated_bones':len(clips[name]),'rotation_tracks':sum(c['path']=='rotation' for c in clips[name]),'translation_tracks':sum(c['path']=='translation' for c in clips[name])} for name in sorted(clips)],'audit':audit,'limitation':'Calibrated relative pose with Y-up pelvis mapping; Godot runtime, foot IK/contact, and visual naturalness still require observation'}
+    record={'source':URL,'license':'CC0 1.0 (per embedded source README, Quaternius/KinemIQ)','source_sha256':sha,'source_status':'user_supplied_audited_zip' if sha==USER_SUPPLIED_CC0_SHA256 else 'publisher_pinned_zip', 'base_model_sha256':hashlib.sha256(original).hexdigest(),'seat_continuity':pose_contact,'wrist_posture_audit':pose_audit,'leg_contact_calibration':contact_calibration,'seated_leg_transition':seated_transition,'foot_contact_audit':foot_audit,'animations':[{'name':name,'animated_bones':len(clips[name]),'rotation_tracks':sum(c['path']=='rotation' for c in clips[name]),'translation_tracks':sum(c['path']=='translation' for c in clips[name])} for name in sorted(clips)],'audit':audit,'limitation':'Calibrated relative pose with Y-up pelvis mapping; Godot runtime, foot IK/contact, and visual naturalness still require observation'}
     (output.parent/'akari_animated.provenance.json').write_text(json.dumps(record,ensure_ascii=False,indent=2),encoding='utf8')
     return record
 
