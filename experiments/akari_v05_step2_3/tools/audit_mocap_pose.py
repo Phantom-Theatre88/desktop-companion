@@ -75,7 +75,7 @@ def sample_pose(js, blob: bytes, bones: dict, animation_name: str, at_fraction: 
         return cache[i]
 
     result = {}
-    for k in ('leftShoulder', 'leftHand', 'rightShoulder', 'rightHand', 'head', 'hips'):
+    for k in ('leftShoulder', 'leftHand', 'rightShoulder', 'rightHand', 'head', 'hips', 'leftFoot', 'rightFoot', 'leftToes', 'rightToes'):
         n = bones.get(k)
         if n not in names: raise ValueError('Missing bone ' + k + ':' + str(n))
         result[k] = transform(names[n])[0]
