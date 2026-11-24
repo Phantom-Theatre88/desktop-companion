@@ -1,7 +1,7 @@
 """Regression against screenshot-proven wrong-side arm retargeting."""
 import json, math, struct, sys, unittest
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1]/'akari_motion_test'
+ROOT=Path(__file__).resolve().parents[1] / 'akari_motion_test'
 sys.path.insert(0,str(ROOT/'tools'))
 from install_cc0_motion import glb_read,glb_pack,quat_mul,quat_norm
 from audit_mocap_pose import audit_pose_bytes, CORE, SAMPLES
