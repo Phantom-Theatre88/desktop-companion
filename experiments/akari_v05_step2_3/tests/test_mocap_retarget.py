@@ -29,7 +29,10 @@ class MotionBridgeTests(unittest.TestCase):
         channels=[]
         for i in range(len(nodes)):
             channels.append({'node':i,'times':[0.0,0.5,1.0], 'values':[[0,0,0,1],[0.1,0,0,0.994987],[0,0,0,1]]})
-        if i==0:pass
+        # Synthetic test fixtures also provide hip translation tracks. The
+        # real archive test separately checks physical seated displacement.
+        channels.append({'node':0,'path':'translation','times':[0.0,0.5,1.0],
+                         'values':[[0.0,1.0,0.0]]*3})
         binary=mocap.add_animation(js,b'',name,channels)
         js['buffers'][0]['byteLength']=len(binary)
         return mocap.glb_pack(js,binary)
@@ -40,12 +43,12 @@ class MotionBridgeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             tmp=Path(tmp);bundle=tmp/'bundle.zip';dest=tmp/'retargeted.glb'
             with zipfile.ZipFile(bundle,'w') as z:
-                for name in ['Walk','Sit Down','Stand Up']:
+                for name in ['Walk','Sit Down','Stand Up','Idle','Sitting Idle']:
                     z.writestr(name+'.glb',self.synthetic_source(name))
             with patch.object(mocap, "check_bundle", return_value=None):
                 report=mocap.build(bundle,dest,original)
             gltf,_=mocap.glb_read(dest.read_bytes())
-            self.assertTrue({'walk','sit','rise'} <= {a['name'] for a in gltf['animations']})
+            self.assertTrue({'walk','sit','rise','idle','seated_idle'} <= {a['name'] for a in gltf['animations']})
             self.assertEqual(len(gltf['meshes']),3)
             self.assertEqual(len(gltf['skins']),3)
             self.assertEqual(original.read_bytes(),before)
@@ -68,7 +71,8 @@ class MotionBridgeTests(unittest.TestCase):
         main=(BASE/'scripts/main.gd').read_text()
         launcher=(BASE/'起動_AKARI.command').read_text()
         self.assertIn('func bind_mocap(',motor)
-        self.assertIn('_start_mocap(kind)',motor)
+        self.assertIn('_start_mocap("idle" if kind == "explore" else kind)',motor)
+        self.assertIn('_actual_walk_started',motor)
         self.assertIn('if mocap_enabled:\n        return',motor)
         self.assertIn('bind_mocap(mocap_player)',main)
         self.assertIn('install_cc0_motion.py',launcher)
