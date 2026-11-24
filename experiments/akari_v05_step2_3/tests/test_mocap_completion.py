@@ -15,7 +15,8 @@ class MotionCompletionTests(unittest.TestCase):
         self.assertIn('animation_finished.connect(_on_mocap_animation_finished)',self.src)
     def test_walk_loop_is_not_waited_to_finish(self):
         block=self.src.split('func _mocap_terminal_ready(kind: String) -> bool:',1)[1].split('func ',1)[0]
-        self.assertIn('mocap_current == "walk" and mocap_player.is_playing()',block)
+        self.assertIn('_actual_walk_started and mocap_current == "idle"',block)
+        self.assertIn('_actual_walk_started = mocap_current == "walk" and mocap_player.is_playing()',self.src)
     def test_missing_clip_cannot_succeed(self):
         block=self.src.split('func _mocap_terminal_ready(kind: String) -> bool:',1)[1].split('func ',1)[0]
         self.assertIn('if clip == "":',block)
