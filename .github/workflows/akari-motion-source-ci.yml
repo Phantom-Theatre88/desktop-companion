@@ -1,0 +1,28 @@
+name: AKARI CC0 motion source reality check
+on:
+  push:
+    branches:
+      - codex/akari-motion-source-ci-20261124
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-cc0-actual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download exact CC0 bytes and enumerate real humanoid clips
+        env:
+          AKARI_ASSET_REPORT: akari-motion-source-report.json
+        run: python experiments/akari_v05_step2_3/tools/verify_remote_cc0.py
+      - name: Preserve source inspection and failure reasons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: akari-motion-source-report
+          path: akari-motion-source-report.json
+          if-no-files-found: warn
