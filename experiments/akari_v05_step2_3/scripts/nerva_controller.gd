@@ -8,6 +8,7 @@ var mocap_enabled: bool = false
 var mocap_failed: bool = false
 var mocap_current: String = ""
 var _mocap_completed_clip: String = ""
+var _actual_walk_started: bool = false
 var expression_map: Dictionary = {}
 var _idle_enabled: bool = true
 var _arms_down: float = 0.94
@@ -104,7 +105,9 @@ func _start_mocap(kind: String) -> void:
         return
     var selected := kind
     if kind == "explore": selected = "walk"
-    elif kind in ["scan", "attend", "rest"]: selected = "idle"
+    elif kind == "attend": selected = "talk_idle" if _find_clip("talk_idle") != "" else "idle"
+    elif kind == "scan": selected = "wait" if _find_clip("wait") != "" else "idle"
+    elif kind == "rest": selected = "idle"
     elif kind == "drowsy": selected = "stretch" if _find_clip("stretch") != "" else "idle"
     elif kind == "sleep": selected = "idle"
     if kind == "idle" and _sit_amount >= 0.98:
@@ -162,10 +165,13 @@ func accept_ghost_intent(kind: String, strength: float) -> void:
             _life_target_x = 0.0 if absf(_life_start_x + 0.65) <= 0.13 else -0.65
             _gait_distance = 0.0
             _walk_cycle = 0.0
+            _actual_walk_started = false
         if kind == "sit":
             _sitting_start = _sit_amount
     _ghost_intent = kind
-    _start_mocap(kind)
+    # An exploring character turns on planted feet; do not walk-in-place
+    # through the 0.8 s turn before physical translation begins.
+    _start_mocap("idle" if kind == "explore" else kind)
     _ghost_strength = clampf(strength, 0.0, 1.0)
     _ghost_intent_remaining = -1.0 if kind in ["idle", "scan", "drowsy", "sleep", "explore", "sit", "rise"] else 3.0
     if kind == "attend":
@@ -414,11 +420,16 @@ func _advance_life(delta: float) -> void:
             motion_root.position.x = _life_start_x
             _walk_envelope = 0.0
         elif _life_phase < TURN_SECONDS + WALK_SECONDS:
+            if mocap_enabled and mocap_current != "walk":
+                _start_mocap("walk")
+                _actual_walk_started = mocap_current == "walk" and mocap_player.is_playing()
             motion_root.rotation.y = travel_yaw
             walk_progress = _ease((_life_phase - TURN_SECONDS) / WALK_SECONDS)
             motion_root.position.x = lerpf(_life_start_x, _life_target_x, walk_progress)
             _walk_envelope = clampf(sin(PI * walk_progress) * 2.1, 0.0, 1.0)
         else:
+            if mocap_enabled and mocap_current == "walk":
+                _start_mocap("idle")
             motion_root.rotation.y = lerp_angle(travel_yaw, 0.0, _ease((_life_phase - TURN_SECONDS - WALK_SECONDS) / TURN_SECONDS))
             motion_root.position.x = _life_target_x
             _walk_envelope = 0.0
@@ -499,7 +510,9 @@ func _mocap_terminal_ready(kind: String) -> bool:
         return false
     if kind == "explore":
         # Walk is looped, so its end is the physical destination.
-        return mocap_current == "walk" and mocap_player.is_playing()
+        # Walk must have genuinely played during translation. The final
+        # turn-back runs a planted-foot idle and must not fail completion.
+        return _actual_walk_started and mocap_current == "idle"
     var expected := "sit" if kind == "sit" else "rise"
     if mocap_current != expected:
         return false
