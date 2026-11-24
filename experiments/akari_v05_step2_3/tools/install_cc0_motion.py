@@ -190,7 +190,7 @@ def collect_motion(source: bytes, source_label: str, humanoid: dict, target_node
                 # The AKARI VRM base is T-pose. Keep its approved neutral arms
                 # relaxed instead of mapping the source idle back to a T-pose.
                 if source_name in ('upperarml','upperarmr'):
-                    angle=math.radians(79.0 if source_name.endswith('l') else -79.0)
+                    angle=math.radians(-79.0 if source_name.endswith('l') else 79.0)
                     targetrest=quat_mul(targetrest,[0.0,0.0,math.sin(angle/2.0),math.cos(angle/2.0)])
                 # Transfer angular delta via each skeleton's parent rest frame.
                 # This corrects different rest-space bone orientations; it does
@@ -391,10 +391,15 @@ def build(bundle,output=OUTPUT,target=TARGET):
     payload=glb_pack(js,bin_data)
     j,b=glb_read(payload)
     if not required.issubset({a['name'] for a in j['animations']}):raise AssertionError('Missing clips after pack')
+    # A valid GLB with 49 rotation tracks can still put both hands over the
+    # head. Evaluate the actual world-space wrist positions in the finished
+    # model before accepting it (Kim's 2026-11-24 real-screen finding).
+    from audit_mocap_pose import audit_pose_bytes
+    pose_audit = audit_pose_bytes(payload, human)
     output.parent.mkdir(parents=True,exist_ok=True)
     output.write_bytes(payload)
     sha=hashlib.sha256(bundle.read_bytes()).hexdigest()
-    record={'source':URL,'license':'CC0 1.0 (per embedded source README, Quaternius/KinemIQ)','source_sha256':sha,'source_status':'user_supplied_audited_zip' if sha==USER_SUPPLIED_CC0_SHA256 else 'publisher_pinned_zip', 'base_model_sha256':hashlib.sha256(original).hexdigest(),'seat_continuity':pose_contact,'animations':[{'name':name,'animated_bones':len(clips[name]),'rotation_tracks':sum(c['path']=='rotation' for c in clips[name]),'translation_tracks':sum(c['path']=='translation' for c in clips[name])} for name in sorted(clips)],'audit':audit,'limitation':'Calibrated relative pose with Y-up pelvis mapping; Godot runtime, foot IK/contact, and visual naturalness still require observation'}
+    record={'source':URL,'license':'CC0 1.0 (per embedded source README, Quaternius/KinemIQ)','source_sha256':sha,'source_status':'user_supplied_audited_zip' if sha==USER_SUPPLIED_CC0_SHA256 else 'publisher_pinned_zip', 'base_model_sha256':hashlib.sha256(original).hexdigest(),'seat_continuity':pose_contact,'wrist_posture_audit':pose_audit,'animations':[{'name':name,'animated_bones':len(clips[name]),'rotation_tracks':sum(c['path']=='rotation' for c in clips[name]),'translation_tracks':sum(c['path']=='translation' for c in clips[name])} for name in sorted(clips)],'audit':audit,'limitation':'Calibrated relative pose with Y-up pelvis mapping; Godot runtime, foot IK/contact, and visual naturalness still require observation'}
     (output.parent/'akari_animated.provenance.json').write_text(json.dumps(record,ensure_ascii=False,indent=2),encoding='utf8')
     return record
 
