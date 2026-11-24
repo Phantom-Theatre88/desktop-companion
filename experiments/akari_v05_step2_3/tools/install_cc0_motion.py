@@ -363,6 +363,59 @@ def stabilize_seated_leg_transitions(clips, human, targets):
     return {'stabilized_bones':modified,'rise_blend_source_seconds':0.35,'early_rise_weight_transfer_m':0.028}
 
 
+
+def apply_lateral_leg_calibration(clips, human, targets, source_sha256, original_sha256):
+    """Repair confirmed seated foot crossover with pinned time-continuous FK calibration.
+
+    The existing two-link floor correction fixed height but allowed right foot
+    to cross left. This exact-asset 3D correction was optimized offline with
+    pose/velocity continuity; installation needs only Python stdlib.
+    """
+    path=ROOT/'tools/leg_lateral_calibration.json'
+    data=json.loads(path.read_text(encoding='utf8'))
+    if source_sha256 != data['source_zip_sha256'] or original_sha256 != data['original_sha256']:
+        raise ValueError('Lateral calibration belongs to a different CC0 bundle or AKARI model')
+    for clip_name in ('sit','rise'):
+        if clip_name not in clips:raise ValueError('Missing contact-calibrated motion '+clip_name)
+        spec=data['values'][clip_name]
+        for part in ('UpperLeg','LowerLeg','Foot'):
+            node=targets[human['right'+part]]['id']
+            ch=next((c for c in clips[clip_name] if c['node']==node and c['path']=='rotation'),None)
+            if ch is None or len(ch['times']) != len(spec['times']):
+                raise ValueError('Lateral correction channel count mismatch: '+clip_name+'/'+part)
+            if any(abs(a-b)>0.001 for a,b in zip(ch['times'],spec['times'])):
+                raise ValueError('Lateral correction time mismatch: '+clip_name+'/'+part)
+            for i,angles in enumerate(spec['angles']):
+                degrees=(angles[:2] if part=='UpperLeg' else
+                         [angles[2]] if part=='LowerLeg' else [angles[3]])
+                axes=('x','y') if part=='UpperLeg' else ('x',)
+                for axis,degree in zip(axes,degrees):
+                    theta=math.radians(degree)*.5
+                    if axis=='x':q=[math.sin(theta),0.,0.,math.cos(theta)]
+                    else:q=[0.,math.sin(theta),0.,math.cos(theta)]
+                    ch['values'][i]=quat_norm(quat_mul(ch['values'][i],q))
+    # Stabilized seated idle already copies sit final pose; apply exactly the
+    # same correction on all its frames to prevent a standing-frame pop.
+    seated=clips.get('seated_idle',())
+    last=data['values']['sit']['angles'][-1]
+    for part in ('UpperLeg','LowerLeg','Foot'):
+        node=targets[human['right'+part]]['id']
+        ch=next((c for c in seated if c['node']==node and c['path']=='rotation'),None)
+        if ch is None:raise ValueError('Missing seated right leg joint: '+part)
+        degrees=(last[:2] if part=='UpperLeg' else
+                 [last[2]] if part=='LowerLeg' else [last[3]])
+        axes=('x','y') if part=='UpperLeg' else ('x',)
+        for i,qorig in enumerate(ch['values']):
+            qrot=qorig
+            for axis,degree in zip(axes,degrees):
+                theta=math.radians(degree)*.5
+                q=[math.sin(theta),0.,0.,math.cos(theta)] if axis=='x' else [0.,math.sin(theta),0.,math.cos(theta)]
+                qrot=quat_norm(quat_mul(qrot,q))
+            ch['values'][i]=qrot
+    return {'applied_clips':['sit','seated_idle','rise'],
+            'calibration_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+            'purpose':'Seated left/right toe clearance and temporal continuity'}
+
 def add_animation(js,buffer,animname,channels):
     name=animname;anim={'name':name,'samplers':[],'channels':[]}
     for ch in channels:
@@ -484,6 +537,9 @@ def build(bundle,output=OUTPUT,target=TARGET,require_contact=True):
         clips,human,targets,hashlib.sha256(bundle.read_bytes()).hexdigest(),
         hashlib.sha256(original).hexdigest()) if require_contact else {'enabled':False,'reason':'explicit synthetic fixture only'})
     seated_transition = stabilize_seated_leg_transitions(clips,human,targets) if require_contact else {'fixture_skip':True}
+    lateral_contact = apply_lateral_leg_calibration(
+        clips,human,targets,hashlib.sha256(bundle.read_bytes()).hexdigest(),
+        hashlib.sha256(original).hexdigest()) if require_contact else {'fixture_skip':True}
     for name,ch in sorted(clips.items()):bin_data=add_animation(js,bin_data,name,ch)
     js['buffers'][0]['byteLength']=len(bin_data)
     payload=glb_pack(js,bin_data)
@@ -495,11 +551,13 @@ def build(bundle,output=OUTPUT,target=TARGET,require_contact=True):
     from audit_mocap_pose import audit_pose_bytes
     pose_audit = audit_pose_bytes(payload, human)
     from audit_foot_contact import audit_foot_contact_bytes
+    from audit_leg_separation import audit_leg_separation_bytes
     foot_audit = audit_foot_contact_bytes(payload, human) if require_contact else {'fixture_skip': True}
+    side_audit = audit_leg_separation_bytes(payload,human) if require_contact else {'fixture_skip':True}
     output.parent.mkdir(parents=True,exist_ok=True)
     output.write_bytes(payload)
     sha=hashlib.sha256(bundle.read_bytes()).hexdigest()
-    record={'source':URL,'license':'CC0 1.0 (per embedded source README, Quaternius/KinemIQ)','source_sha256':sha,'source_status':'user_supplied_audited_zip' if sha==USER_SUPPLIED_CC0_SHA256 else 'publisher_pinned_zip', 'base_model_sha256':hashlib.sha256(original).hexdigest(),'seat_continuity':pose_contact,'wrist_posture_audit':pose_audit,'leg_contact_calibration':contact_calibration,'seated_leg_transition':seated_transition,'foot_contact_audit':foot_audit,'animations':[{'name':name,'animated_bones':len(clips[name]),'rotation_tracks':sum(c['path']=='rotation' for c in clips[name]),'translation_tracks':sum(c['path']=='translation' for c in clips[name])} for name in sorted(clips)],'audit':audit,'limitation':'Calibrated relative pose with Y-up pelvis mapping; Godot runtime, foot IK/contact, and visual naturalness still require observation'}
+    record={'source':URL,'license':'CC0 1.0 (per embedded source README, Quaternius/KinemIQ)','source_sha256':sha,'source_status':'user_supplied_audited_zip' if sha==USER_SUPPLIED_CC0_SHA256 else 'publisher_pinned_zip', 'base_model_sha256':hashlib.sha256(original).hexdigest(),'seat_continuity':pose_contact,'wrist_posture_audit':pose_audit,'leg_contact_calibration':contact_calibration,'seated_leg_transition':seated_transition,'lateral_contact':lateral_contact,'foot_contact_audit':foot_audit,'leg_separation_audit':side_audit,'animations':[{'name':name,'animated_bones':len(clips[name]),'rotation_tracks':sum(c['path']=='rotation' for c in clips[name]),'translation_tracks':sum(c['path']=='translation' for c in clips[name])} for name in sorted(clips)],'audit':audit,'limitation':'Calibrated relative pose with Y-up pelvis mapping; Godot runtime, foot IK/contact, and visual naturalness still require observation'}
     (output.parent/'akari_animated.provenance.json').write_text(json.dumps(record,ensure_ascii=False,indent=2),encoding='utf8')
     return record
 
