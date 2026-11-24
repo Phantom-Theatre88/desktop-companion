@@ -1,3 +1,11 @@
+## 2026-11-24｜実35モーション内蔵版（最初に読む）
+
+本配布物には、Kim提供のCC0モーションZIPと、原AKARIモデルを保持したまま生成したアニメーション付きGLBが**両方同梱**されています。別途ダウンロードする必要はありません。MacでGodot 4.3以上とPython3を用意した環境なら `起動_AKARI.command` で再変換確認・Godotインポート・Ghost接続起動を試みます。`Mac自動検査.command` は起動前の動作確認用です。ログは `akari_motion_test/logs/` に残ります。
+
+Godot実画面での全身動作の自然さはこの環境では未検証。実際の足裏・座面接触の完成判定は保留です。
+
+---
+
 # AKARI v0.5｜Ghostが選び、NERVAがCC0モーションで動く【開発検証版】
 
 **重要：実CC0素材はこのZIPに同梱していない。** 最初の `起動_AKARI.command` がKinemIQ公式公開物（CC0、GLB約2.22MB）をダウンロードしてSHA-256照合し、AKARI元GLBを変更せず `avatar/akari_animated.glb` を作成する。通信・人格は既存のGhostを使用する。
