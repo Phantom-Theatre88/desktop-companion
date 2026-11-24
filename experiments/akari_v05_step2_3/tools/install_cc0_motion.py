@@ -18,7 +18,8 @@ DOWNLOAD_SOURCES = (
     ('Hugging Face community mirror', 'https://hf-mirror.com/datasets/Kinemiq/free-game-animations/resolve/main/KinemIQ_Free_Animations_CC0_GLB.zip'),
 )
 SOURCE_PAGE = 'https://huggingface.co/datasets/Kinemiq/free-game-animations/blob/main/KinemIQ_Free_Animations_CC0_GLB.zip'
-EXPECTED_CC0_SHA256 = '64ca5ab4a92c9da079c5e88ca509391b0a58a24ccf2a1307b16e2f0fc6b23ffc'  # published source file SHA256
+EXPECTED_CC0_SHA256 = '64ca5ab4a92c9da079c5e88ca509391b0a58a24ccf2a1307b16e2f0fc6b23ffc'  # source-published ZIP hash
+USER_SUPPLIED_CC0_SHA256 = '55365fc4c2c472ab24fc735139e5ae0d1e2d0e54ef383877623290e0379b947e'  # exact ZIP supplied by Kim 2026-11-24; source authenticity not cryptographically verified
 ROOT = Path(__file__).resolve().parents[1]
 BUNDLE = ROOT/'motions'/'source'/'KinemIQ_Free_Animations_CC0_GLB.zip'
 TARGET = ROOT/'avatar'/'akari_test.glb'
@@ -66,6 +67,12 @@ for side,long,short in [('left','left','l'),('right','right','r')]:
         'UpperLeg':['upperleg','upleg','thigh'], 'LowerLeg':['lowerleg','leg','calf','shin'],
         'Foot':['foot','ankle'], 'Toes':['toes','toebase','toe']}.items():
         ALI[side+k]=list(dict.fromkeys([long+x for x in labels]+[x+short for x in labels]+[short+x for x in labels]+[x+long for x in labels]))
+    # Fingertip articulation is important for a lifelike seated/idle pose.
+    for target_finger, source_finger in [('Index','index'),('Middle','middle'),('Ring','ring'),('Little','pinky')]:
+        for stage,number in [('Proximal','01'),('Intermediate','02'),('Distal','03')]:
+            ALI[side+target_finger+stage] = [f'{source_finger}_{number}_{short}']
+    for stage,number in [('Metacarpal','01'),('Proximal','02'),('Distal','03')]:
+        ALI[side+'Thumb'+stage] = [f'thumb_{number}_{short}']
 
 
 def quat_mul(a,b):
@@ -79,6 +86,11 @@ def quat_inv(q):
 def quat_norm(q):
     d=math.sqrt(sum(x*x for x in q))
     return [x/d for x in q] if d else [0,0,0,1]
+
+def quat_rotate(q,vec):
+    # Rotate a Vector3 by normalized quaternion; this handles Z-up -> Y-up.
+    v=quat_mul(quat_mul(quat_norm(q),[vec[0],vec[1],vec[2],0.0]),quat_inv(quat_norm(q)))
+    return v[:3]
 
 
 def global_rest_rotations(nodes):
@@ -106,6 +118,22 @@ def read_accessor(js,blob,idx):
 
 
 def choose_motion_name(raw):
+    # Prefer exactly named, everyday-life clips; do not substitute zombie/sword
+    # animations merely because their names contain walk/idle.
+    filename = normalize(Path(str(raw).split(' ')[0]).stem)
+    by_file = {
+        'walkforwards':'walk', 'walkformal':'walk_formal', 'walkcarrying':'walk_carry',
+        'walkcrouchedforwards':'walk_crouched', 'runjogforwards':'jog',
+        'idle': 'idle', 'idlerelaxed':'idle', 'idlesitting':'seated_idle',
+        'idletalking':'talk_idle', 'idlearmsfoldedwaiting':'wait',
+        'idlecrouching':'crouched_idle', 'actionsitdown':'sit',
+        'actionstandupfromsitting':'rise', 'actioninteract':'interact',
+        'actionpickupfromatable':'pick_up', 'actiondance':'dance',
+    }
+    if filename in by_file:
+        return by_file[filename]
+    if filename.startswith(('walkzombie','idlezombie','idlesword','idlewithasword', 'punch', 'strike', 'sword','hit','death')):
+        return None
     text=normalize(raw)
     if ('sitdown' in text or 'sittingdown' in text or 'standtosit' in text): return 'sit'
     if ('standup' in text or 'standfromsit' in text or 'sittostand' in text or 'getupfromsit' in text): return 'rise'
@@ -117,11 +145,17 @@ def choose_motion_name(raw):
     return None
 
 
-def collect_motion(source: bytes, source_label: str, humanoid: dict, target_nodes):
+def collect_motion(source: bytes, source_label: str, humanoid: dict, target_nodes, source_reference_nodes=None):
     js,blob=glb_read(source)
     if not js.get('animations'): return []
     available={normalize(n.get('name','')):i for i,n in enumerate(js['nodes'])}
-    source_global,source_parents=global_rest_rotations(js['nodes'])
+    # All 35 GLBs contain their animation's first pose in node.rotation.
+    # Using that pose as the rest erases seated/talking posture and makes the
+    # beginning of each clip falsely resemble the same T-pose. Anchor all
+    # animations to the common, standing KinemIQ mannequin skeleton instead.
+    reference=source_reference_nodes or js['nodes']
+    reference_by_name={normalize(n.get('name','')):i for i,n in enumerate(reference)}
+    source_global,source_parents=global_rest_rotations(reference)
     mapping={}
     for key,actual in humanoid.items():
         if key not in ALI:continue
@@ -148,12 +182,20 @@ def collect_motion(source: bytes, source_label: str, humanoid: dict, target_node
             if len(times)!=len(rotations) or len(times)<2:continue
             tnode=mapping[srcid]
             if path == 'rotation':
-                qrest=js['nodes'][srcid].get('rotation',[0,0,0,1])
+                source_name=normalize(js['nodes'][srcid].get('name',''))
+                refid=reference_by_name.get(source_name)
+                if refid is None: continue
+                qrest=reference[refid].get('rotation',[0,0,0,1])
                 targetrest=tnode['rest']
+                # The AKARI VRM base is T-pose. Keep its approved neutral arms
+                # relaxed instead of mapping the source idle back to a T-pose.
+                if source_name in ('upperarml','upperarmr'):
+                    angle=math.radians(79.0 if source_name.endswith('l') else -79.0)
+                    targetrest=quat_mul(targetrest,[0.0,0.0,math.sin(angle/2.0),math.cos(angle/2.0)])
                 # Transfer angular delta via each skeleton's parent rest frame.
                 # This corrects different rest-space bone orientations; it does
                 # not solve different proportions, ground contact or collision.
-                sp=source_global[source_parents[srcid]] if srcid in source_parents else [0,0,0,1]
+                sp=source_global[source_parents[refid]] if refid in source_parents else [0,0,0,1]
                 tp=tnode['parent_world']
                 vals=[]
                 for q in rotations:
@@ -163,15 +205,68 @@ def collect_motion(source: bytes, source_label: str, humanoid: dict, target_node
                     vals.append(quat_norm(quat_mul(target_delta,targetrest)))
                 values=vals
             else:
-                srest=js['nodes'][srcid].get('translation',[0,0,0])
+                source_name=normalize(js['nodes'][srcid].get('name',''))
+                refid=reference_by_name.get(source_name)
+                if refid is None: continue
+                srest=reference[refid].get('translation',[0,0,0])
                 trest=tnode['pos']
-                ratio=trest[1]/srest[1] if abs(srest[1])>0.01 else 1.0
-                ratio=max(0.35,min(2.5,abs(ratio)))
-                values=[[trest[i]+(v[i]-srest[i])*ratio for i in range(3)] for v in rotations]
+                # KinemIQ pelvis translation is Z-up (source pelvis Z~0.913 m),
+                # while AKARI pelvis is Y-up (~0.909 m). Source root provides
+                # -90deg X coordinate conversion. An animation's first-frame
+                # pelvis may be ALREADY SEATED; never subtract that as rest.
+                sp=source_global[source_parents[refid]] if refid in source_parents else [0,0,0,1]
+                tp=tnode['parent_world']
+                standing_height=max(abs(srest[2]),0.1)
+                ratio=max(0.4,min(2.0,abs(trest[1])/standing_height))
+                values=[]
+                for v in rotations:
+                    delta=quat_rotate(quat_inv(tp),quat_rotate(sp,[v[i]-srest[i] for i in range(3)]))
+                    # NERVA owns horizontal root movement; preserve vertical
+                    # weight transfer and seated backward shift only.
+                    if name in ('walk','walk_formal','walk_carry','walk_crouched','jog'):
+                        delta[0]=max(-0.035,min(0.035,delta[0]))
+                        delta[2]=0.0
+                    values.append([trest[i]+delta[i]*ratio for i in range(3)])
             channels.append({'node':tnode['id'],'path':path,'times':[v[0] for v in times],'values':values})
         if len(channels)>=10:
             candidate.append((name,channels))
     return candidate
+
+
+def align_seated_hip_contacts(clips, hip_id):
+    """Keep one physical seat position through sit -> seated idle -> rise.
+
+    The source's seated-idle and stand-up files each start with a different
+    pelvis Y/Z origin; raw retargeting teleports the pelvis between clips.
+    Correct only the small horizontal root offset, not the captured skeleton.
+    """
+    def hip(name):
+        return next((channel for channel in clips.get(name, ()) if
+                     channel['node']==hip_id and channel['path']=='translation'), None)
+    sit, hold, rise, stand = (hip(n) for n in ('sit','seated_idle','rise','idle'))
+    if not all((sit, hold, rise, stand)):
+        return {'enabled':False,'reason':'missing_hip_track'}
+    end_sit = sit['values'][-1]
+    first_hold = hold['values'][0]
+    offsets = {axis:end_sit[axis]-first_hold[axis] for axis in (0,2)}
+    for value in hold['values']:
+        for axis in (0,2):value[axis]+=offsets[axis]
+    last_hold=hold['values'][-1]
+    start_rise=rise['values'][0]
+    end_rise=rise['values'][-1]
+    rest=stand['values'][0]
+    start_offsets={axis:last_hold[axis]-start_rise[axis] for axis in (0,2)}
+    end_offsets={axis:rest[axis]-end_rise[axis] for axis in (0,2)}
+    times=rise['times']
+    span=max(0.001,times[-1]-times[0])
+    for i,value in enumerate(rise['values']):
+        t=max(0.0,min(1.0,(times[i]-times[0])/span))
+        for axis in (0,2):
+            value[axis]+=start_offsets[axis]*(1-t)+end_offsets[axis]*t
+    return {'enabled':True,'seat_horizontal_offset_m':[round(offsets[a],4) for a in (0,2)],
+            'sit_hold_continuity_m':max(abs(end_sit[a]-hold['values'][0][a]) for a in range(3)),
+            'hold_rise_continuity_m':max(abs(last_hold[a]-rise['values'][0][a]) for a in range(3)),
+            'rise_stand_continuity_m':max(abs(rise['values'][-1][a]-rest[a]) for a in range(3))}
 
 
 def add_animation(js,buffer,animname,channels):
@@ -201,8 +296,8 @@ def check_bundle(path: Path) -> None:
     if not path.is_file():
         raise FileNotFoundError(f'Motion source not found: {path}')
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    if digest != EXPECTED_CC0_SHA256:
-        raise ValueError(f'Motion ZIP SHA256 mismatch: {digest} (expected {EXPECTED_CC0_SHA256})')
+    if digest not in (EXPECTED_CC0_SHA256, USER_SUPPLIED_CC0_SHA256):
+        raise ValueError(f'Motion ZIP SHA256 mismatch: {digest} (not the original published fingerprint or Kim-uploaded audited archive)')
     if not zipfile.is_zipfile(path):
         raise ValueError('Motion source matches expected name, but is not ZIP')
     with zipfile.ZipFile(path) as z:
@@ -212,6 +307,15 @@ def check_bundle(path: Path) -> None:
             raise ValueError('Motion ZIP exceeds uncompressed safety limit')
         if not any(n.lower().endswith('.glb') for n in z.namelist()):
             raise ValueError('Motion ZIP contains no GLB animations')
+        if digest == USER_SUPPLIED_CC0_SHA256:
+            # This is the uploaded copy (with __MACOSX metadata), not the
+            # byte-identical publisher ZIP. Verify its actual source contents.
+            actual=[n for n in z.namelist() if n.lower().endswith('.glb') and '/._' not in n and not n.startswith('__MACOSX/')]
+            if len(actual) != 36:
+                raise ValueError(f'User-supplied archive: expected mannequin + 35 GLBs; got {len(actual)}')
+            license_notes=[n for n in z.namelist() if n.lower().endswith('/readme.txt')]
+            if len(license_notes)!=1 or not all(t in z.read(license_notes[0]).decode('utf8') for t in ('CC0 1.0','Quaternius')):
+                raise ValueError('User-supplied archive license README inconsistent')
 
 
 def download_bundle(path=BUNDLE, sources=DOWNLOAD_SOURCES, opener=None):
@@ -266,16 +370,22 @@ def build(bundle,output=OUTPUT,target=TARGET):
     targets={n.get('name',''):{'id':i,'rest':n.get('rotation',[0,0,0,1]),'pos':n.get('translation',[0,0,0]),'parent_world':target_world[target_parents[i]] if i in target_parents else [0,0,0,1]} for i,n in enumerate(js['nodes'])}
     clips={};audit=[]
     with zipfile.ZipFile(bundle) as z:
+        mannequin=next((name for name in z.namelist() if name.endswith('/KinemIQ_Mannequin.glb') and not name.startswith('__MACOSX/')),None)
+        source_ref=glb_read(z.read(mannequin))[0]['nodes'] if mannequin else None
         for zfile in z.namelist():
-            if not zfile.lower().endswith(('.glb','.gltf')) or z.getinfo(zfile).file_size>12_000_000:continue
+            if not zfile.lower().endswith('.glb') or zfile.startswith('__MACOSX/') or '/._' in zfile or z.getinfo(zfile).file_size>12_000_000:continue
             try:
-                for name,ch in collect_motion(z.read(zfile),zfile,human,targets):
+                for name,ch in collect_motion(z.read(zfile),zfile,human,targets,source_reference_nodes=source_ref):
                     if name not in clips or len(ch)>len(clips[name]):clips[name]=ch
                 audit.append(zfile)
             except (ValueError,KeyError,struct.error) as ex:
                 audit.append(f'REJECT {zfile}: {ex}')
-    required={'walk','sit','rise'}
+    required={'walk','sit','rise','idle','seated_idle'}
     if not required.issubset(clips):raise ValueError(f'Missing mandatory CC0 animations {sorted(required-set(clips))}; imported {sorted(clips)}')
+    hip_node=targets[human['hips']]['id']
+    pose_contact=align_seated_hip_contacts(clips,hip_node)
+    if not pose_contact.get('enabled') or max(pose_contact[k] for k in ('sit_hold_continuity_m','hold_rise_continuity_m','rise_stand_continuity_m'))>0.04:
+        raise ValueError(f'Unsafe seated/standing pelvis discontinuity: {pose_contact}')
     for name,ch in sorted(clips.items()):bin_data=add_animation(js,bin_data,name,ch)
     js['buffers'][0]['byteLength']=len(bin_data)
     payload=glb_pack(js,bin_data)
@@ -283,7 +393,8 @@ def build(bundle,output=OUTPUT,target=TARGET):
     if not required.issubset({a['name'] for a in j['animations']}):raise AssertionError('Missing clips after pack')
     output.parent.mkdir(parents=True,exist_ok=True)
     output.write_bytes(payload)
-    record={'source':URL,'license':'CC0 1.0 (Quaternius/KinemIQ)','source_sha256':hashlib.sha256(bundle.read_bytes()).hexdigest(),'base_model_sha256':hashlib.sha256(original).hexdigest(),'animations':[{'name':name,'animated_bones':len(clips[name])} for name in sorted(clips)],'audit':audit,'limitation':'Rest-space angular delta transfer; not validated against Godot runtime, ground contacts, or actual visual naturalness'}
+    sha=hashlib.sha256(bundle.read_bytes()).hexdigest()
+    record={'source':URL,'license':'CC0 1.0 (per embedded source README, Quaternius/KinemIQ)','source_sha256':sha,'source_status':'user_supplied_audited_zip' if sha==USER_SUPPLIED_CC0_SHA256 else 'publisher_pinned_zip', 'base_model_sha256':hashlib.sha256(original).hexdigest(),'seat_continuity':pose_contact,'animations':[{'name':name,'animated_bones':len(clips[name]),'rotation_tracks':sum(c['path']=='rotation' for c in clips[name]),'translation_tracks':sum(c['path']=='translation' for c in clips[name])} for name in sorted(clips)],'audit':audit,'limitation':'Calibrated relative pose with Y-up pelvis mapping; Godot runtime, foot IK/contact, and visual naturalness still require observation'}
     (output.parent/'akari_animated.provenance.json').write_text(json.dumps(record,ensure_ascii=False,indent=2),encoding='utf8')
     return record
 
