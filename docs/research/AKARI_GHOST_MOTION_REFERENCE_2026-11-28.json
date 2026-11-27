@@ -1,0 +1,135 @@
+{
+  "version": "0.1-proposal",
+  "status": "reference_mapping_not_adopted",
+  "sources": {
+    "kugutu": "https://github.com/neka-nat/kugutu",
+    "procedural": "https://github.com/Jp-mainieri/procedural-bot-animations",
+    "hiyori": "https://www.live2d.com/learn/sample/momose-hiyori/",
+    "greta": "https://github.com/isir/greta",
+    "beat": "https://github.com/ryo-skr/BEAT",
+    "asap": "https://github.com/ArticulatedSocialAgentsPlatform/Asap"
+  },
+  "channels": [
+    {
+      "id": "blink",
+      "layer": "autonomic",
+      "inputs": [
+        "awake",
+        "eye_availability"
+      ],
+      "outputs": [
+        "eyelid_open"
+      ],
+      "reference": "procedural",
+      "prototype": {
+        "interval_s": [
+          1.8,
+          6
+        ],
+        "duration_s": 0.15
+      },
+      "note": "Mascot tuning, not human physiological standard"
+    },
+    {
+      "id": "breath",
+      "layer": "autonomic",
+      "inputs": [
+        "arousal",
+        "rest"
+      ],
+      "outputs": [
+        "chest",
+        "shoulder"
+      ],
+      "reference": "kugutu",
+      "note": "Never scale entire body; body-specific rig required"
+    },
+    {
+      "id": "gaze",
+      "layer": "reactive",
+      "inputs": [
+        "attention_target",
+        "stimulus"
+      ],
+      "outputs": [
+        "eye_target",
+        "head_target"
+      ],
+      "reference": "procedural",
+      "note": "Fast eye shift, delayed head, smooth pursuit and small fixation variation; proposed head mapping"
+    },
+    {
+      "id": "posture",
+      "layer": "tonic",
+      "inputs": [
+        "ghost_affect",
+        "fatigue",
+        "engagement"
+      ],
+      "outputs": [
+        "torso",
+        "shoulder",
+        "weight_shift"
+      ],
+      "reference": "hiyori"
+    },
+    {
+      "id": "gesture",
+      "layer": "intentional",
+      "inputs": [
+        "ghost_intent",
+        "target"
+      ],
+      "outputs": [
+        "arm",
+        "hand",
+        "head"
+      ],
+      "reference": "kugutu"
+    },
+    {
+      "id": "backchannel",
+      "layer": "reactive",
+      "inputs": [
+        "speech_turn",
+        "listener_state"
+      ],
+      "outputs": [
+        "nod",
+        "face",
+        "gaze"
+      ],
+      "reference": "greta"
+    },
+    {
+      "id": "secondary",
+      "layer": "follow_through",
+      "inputs": [
+        "body_velocity"
+      ],
+      "outputs": [
+        "hair",
+        "clothing"
+      ],
+      "reference": "procedural"
+    }
+  ],
+  "composition": {
+    "reference": "asap",
+    "rules": [
+      "Ghost owns meaning and state; do not write back inferred emotions as facts",
+      "NERVA schedules concurrent channels and handles interruption; renderer maps to rig",
+      "Resolve conflicts per body channel, not whole body; intentional action does not stop breathing or blink",
+      "Body returns actual applied targets and unsupported channels; no simulated success"
+    ]
+  },
+  "rights": {
+    "kugutu": "MIT",
+    "procedural": "MIT",
+    "greta": "GPL-3.0 master; LGPL-3.0 master-lgpl; model weights separate",
+    "beat": "CC BY-NC 4.0 repository license; dataset-specific conditions check",
+    "hiyori": "sample-specific terms; no raw curves or images copied",
+    "asap": "reference only; license not verified"
+  },
+  "verification": "source inspection only; no Ghost integration or visual validation"
+}
