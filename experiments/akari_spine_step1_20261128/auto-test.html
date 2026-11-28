@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><title>AKARI Spine STEP1 自動検証</title>
+<script src="./node_modules/@esotericsoftware/spine-player/dist/iife/spine-player.js"></script>
+<style>body{font:16px system-ui;background:#20242a;color:white;margin:20px}main{display:grid;grid-template-columns:2fr 1fr;gap:16px}#player{height:70vh}pre{white-space:pre-wrap;overflow-wrap:anywhere}button{padding:12px}#frames img{width:24%;margin:0.5%}</style>
+<h2>Spine STEP 1 / 自動検証</h2><main><div id="player"></div><div><pre id="status">Loading</pre><button id="save" disabled>検証JSON保存</button> <button id="video" disabled>動画保存</button></div></main><div id="frames"></div>
+<script>
+const $=id=>document.getElementById(id);
+let start=null, phase=-1, report={tests:{},samples:[],frames:0}, ready=false, done=false, baseline=null, initialOrder=null, mixEntry=null, mixSeen=false, recorder=null,chunks=[],video=null;
+const names=["idle","walk","run","idle","idle","idle","walk","idle"];
+const set=(name,ok,detail)=>report.tests[name]={ok,detail};
+const order=s=>s.drawOrder.map(x=>x.data.name);
+const verts=s=>{const sl=s.findSlot("torso"),a=sl.getAttachment();const v=new Float32Array(a.worldVerticesLength);a.computeWorldVertices(sl,0,v.length,v,0,2);return Array.from(v)};
+const diff=(a,b)=>Math.max(...a.map((v,i)=>Math.abs(v-b[i])));
+function download(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function snap(p,label){const img=document.createElement("img");img.alt=label;img.title=label;img.src=p.canvas.toDataURL("image/png");$("frames").append(img)}
+const player=new spine.SpinePlayer("player",{
+skeleton:"assets/spineboy-pro.json",atlas:"assets/spineboy.atlas",animation:"idle",premultipliedAlpha:false,backgroundColor:"#303840",preserveDrawingBuffer:true,showControls:false,interactive:false,defaultMix:0.5,
+success:p=>{ready=true;const s=p.skeleton;set("runtime",s.bones.length===67&&s.slots.length===52,{bones:s.bones.length,slots:s.slots.length});try{recorder=new MediaRecorder(p.canvas.captureStream(30));recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};recorder.onstop=()=>{video=new Blob(chunks,{type:recorder.mimeType});$("video").disabled=false};recorder.start()}catch(e){report.videoError=String(e)}},
+updateWorldTransform:p=>{const s=p.skeleton;if(phase===4){const b=s.findBone("front-foot-target");b.x=b.data.x;b.y=b.data.y+80} s.updateWorldTransform(spine.Physics.update)},
+update:p=>{if(!ready||done)return;const s=p.skeleton;if(phase===5){s.setAttachment("mouth","mouth-oooo");const sl=s.findSlot("mouth");set("attachment",sl.getAttachment()?.name==="mouth-oooo",sl.getAttachment()?.name);const d=s.drawOrder,i=d.indexOf(sl);if(i>=0){d.splice(i,1);d.push(sl)}set("drawOrder",d[d.length-1]===sl&&order(s).join("|")!==initialOrder,order(s))}if(phase===6){s.setAttachment("mouth","mouth-grind");const b=s.findBone("front-foot-target");set("combined",p.animationState.getCurrent(0)?.animation.name==="walk"&&s.findSlot("mouth").getAttachment()?.name==="mouth-grind"&&Number.isFinite(b.worldY),{track:p.animationState.getCurrent(0)?.animation.name,mouth:s.findSlot("mouth").getAttachment()?.name})}},
+draw:(p,dt)=>{if(!ready||done)return;try{if(start===null)start=performance.now();const t=(performance.now()-start)/1000;const q=Math.min(8,Math.floor(t/2));report.frames++;const s=p.skeleton;if(q!==phase){if(phase>=0)snap(p,"phase "+phase);phase=q;if(q===8){done=true;set("blend",mixSeen,{duration:0.5});set("renderFrames",report.frames>30,report.frames);$("status").textContent=JSON.stringify(report,null,2);$("save").disabled=false;if(recorder?.state==="recording")recorder.stop();return}if(q===6)s.setSlotsToSetupPose();const e=p.setAnimation(names[q],true);e.mixDuration=0.5;if(q===1)mixEntry=e;if(q===3){initialOrder=order(s).join("|")}}
+if(phase===1&&mixEntry?.mixingFrom&&mixEntry.mixTime>0&&mixEntry.mixTime<mixEntry.mixDuration)mixSeen=true;
+if(phase===3&&t%2>1.5){const sl=s.findSlot("torso"),a=sl.getAttachment();baseline=verts(s);set("weightedMesh",!!a.bones?.length,{attachment:a.name,boneIndices:a.bones?.length,vertexCount:a.worldVerticesLength/2})}
+if(phase===4&&baseline&&t%2>1.5){const b=s.findBone("front-foot-target"),v=verts(s);set("externalIK",Math.abs(b.y-b.data.y-80)<0.01,{targetY:b.y,setupY:b.data.y,shinRotation:s.findBone("front-shin").rotation});set("meshWorldVertices",v.every(Number.isFinite)&&diff(baseline,v)>0.01,{maxChange:diff(baseline,v),note:"different pose samples; not isolated IK causality"})}
+if(report.frames%15===0){report.samples.push({t,phase,track:p.animationState.getCurrent(0)?.animation.name,mix:p.animationState.getCurrent(0)?.mixTime});$("status").textContent="Running phase "+phase+"/7 | "+report.frames+" frames"}
+}catch(e){done=true;$("status").textContent=String(e);report.error=String(e);$("save").disabled=false;if(recorder?.state==="recording")recorder.stop()}},
+error:(p,msg)=>{$("status").textContent=msg;report.error=msg;$("save").disabled=false}
+});
+$("save").onclick=()=>download(new Blob([JSON.stringify(report,null,2)],{type:"application/json"}),"spine-step1-result.json");
+$("video").onclick=()=>download(video,"spine-step1."+ (video.type.includes("mp4")?"mp4":"webm"));
+</script></html>
